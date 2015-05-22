@@ -38,7 +38,7 @@ JavaScript is exempt from this rule -- JavaScript client proxies do *NOT* have u
 #### Built-in types
 
 A number of built-in types are available by default:
-- ***/any** - represents any JavaScript value; this is the most dynamic of all types
+- **any** - represents any JavaScript value; this is the most dynamic of all types
 - **int/integer** - represents a integer value; floating point numbers will be auto-truncated to an integer (no rounding will be applied)
 - **number/float/double** - represents a floating point value
 - **date/time** - represents a date value; the service's code will recieve an instance of the Date class in Node.JS when using this type; clients will receive either a proper date class instance, if the target framework (like Java or .NET) supports it, or an ISO-formatted date string (e.g. 2013-12-14T11:00:53.379Z)
