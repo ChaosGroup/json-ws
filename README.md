@@ -12,7 +12,7 @@ A set of proxy generators automatically creates client code for Javascript, Java
 ## Features
 
 - JSON-RPC v2.0 messages are supported over HTTP (REST), WebSocket, and/or Socket.IO transports
-- Method namespacing (e.g. vray.start)
+- Method namespacing (e.g. foo.bar)
 - Group support (useful for documentation purposes)
 - Event support
 - Versioning support
@@ -110,12 +110,12 @@ This method creates a service API builder using the following parameters:
 
 ### Set the current namespace
 
-The JSON-WS library supports *namespaces*. That is, you can group your RPC endpoints (only methods and events are eligible). E.g. all V-Ray-related functionality can be places in the vray namespace:
+The JSON-WS library supports *namespaces*. That is, you can group your RPC endpoints (only methods and events are eligible).
 
-	api.namespace('vray');
-	api.define('start', ...);
+	api.namespace('foo');
+	api.define('bar', ...);
 	
-This way there will be a *start* method in the *vray* namespace.  
+This way there will be a *bar* method in the *foo* namespace.  
 Namespaces may be nested by using dot notation:
 
 	api.namespace('n1.sub1.sub2');
@@ -123,12 +123,12 @@ Namespaces may be nested by using dot notation:
 Namespaces generate nesting in the client proxy's code, implemented using sub-classes (in languages like Java and C#) or nested objects (JavaScript). This results in the following example usage (JavaScript):
 
 	// On the server
-	api.namespace('vray');
-	api.define('start', ...);
+	api.namespace('foo');
+	api.define('bar', ...);
 	
 	// On the client
 	var proxy = new Proxy('http://service-location');
-	proxy.vray.start();
+	proxy.foo.bar();
 
 The default namespace is the empty string, i.e. the root of the service. If, after having used namespaces in your code, you wish to switch to the default one again, simply call:
 	

@@ -1,0 +1,631 @@
+<!DOCTYPE html><%
+
+function prettify(ujs, r) {
+	if (!r) return "void";
+	if (typeof r === 'string') return r;
+	var code = ujs.minify("_=" + JSON.stringify(r), {fromString: true, output: {beautify: true}}).code;
+	return code.substr(4, code.length - 5);
+}
+
+function anchorType(typeName) {
+	var typeInfo = metadata.typeMap[typeName];
+	if (typeInfo && typeInfo.struct) {
+	%><a class="linkMember" href="#<%- typeName %>"><%= typeName %></a><%
+	} else {
+	%><%= typeName %><%
+	}
+}
+
+function renderExamples(exampleMap, name, type) {     // types: 'example', 'snippet'
+	var languages = metadata.languages.sort();
+
+	// The number of values in paramsStr can be less or equal to the number of defined params
+	// They need to be in the same order.
+	function generateUrlParNames(paramsStr) {
+		var url = '?';
+		try {
+			var paramsArr = JSON.parse(paramsStr);
+			paramsArr.forEach(function(val, i) {
+				var paramName = metadata.methodMap[name].params[i].name;
+				if (!paramName) {
+					return null;
+				}
+				url += paramName + '=' + JSON.stringify(val) + '&';
+			});
+		} catch (err) {
+			console.log(err);
+			return null;
+		}
+		return url.substring(0, url.length - 1);
+	}
+
+	function generateUrls(paramsStr) {
+		var urls = [];
+		var beg = '/' + name;
+		if (paramsStr.indexOf('[]') === 0) {
+			urls.push(beg);
+		} else {
+			urls.push(beg + '?params=' + paramsStr);
+			var url2 = generateUrlParNames(paramsStr);
+			if (url2) {
+				urls.push(beg + url2);
+			}
+		}
+		return urls;
+	}
+
+	// Languages names cannot contain dots because they are used as css class attributes.
+	// This function is used to modify the name as it should be displayed.
+	function getLanguageName(language) {
+		if (language === 'Node') {
+			return 'Node.js';
+		} else if (language === 'CSharp') {
+			return 'C#';
+		} else {
+			return language;
+		}
+	}
+
+	function renderLanguagesNav() { %>
+		<ul class="nav nav-tabs">
+	<%	languages.forEach(function(language) { %>
+		<li class="<%- language %>">
+			<a class="<%- language %>" href="#<%- name %>-<%- language %>" data-toggle="tab">
+				<%- getLanguageName(language) %></a></li>
+		<% }); %>
+		</ul>
+<% }
+
+	function renderCodeTabs() {
+	%>
+	<div class="tab-content">
+		<% languages.forEach(function(language) { %>
+		<div class="tab-pane <%- language %>" id="<%- name %>-<%- language %>">
+		<% var text = exampleMap[language];
+		if (language === 'Node' && text === undefined) {
+			text = exampleMap['JavaScript'];
+		}
+		if (language === 'JavaScript' && text) { %>
+			<a href="?viewer&<%- type%>=<%- name %>"
+			   target="_blank" class="playgroundLink">Try</a>
+	<%	}
+		if(language === 'HTTP' && text) { %>
+			<pre class="prettyprint"><% generateUrls(text).forEach(function(url) { %><div class="nocode"><a href="<%- metadata.path %><%=url%>" target="_blank"><%- url %></a></div><% }); %></pre>
+	<% } else if (text) { %>
+			<pre class="prettyprint"><%- text %></pre>
+	<%  } else { %>
+			<pre class="prettyprint"><span class="nocode">No example has been provided for this language.</span></pre>
+	<%  } %>
+		</div>
+		<% }); %>
+	</div>
+	<%
+	}
+
+	if (type === 'snippet') { %>
+		<div><a class="anchor" id="<%-name%>">
+			<strong><%= name %></strong></a></div>
+<% }
+	renderLanguagesNav();
+	renderCodeTabs();
+}
+
+function renderType(typeInfo) {
+	%><code><%-typeInfo.enum ? 'enum' : 'struct'%> <a class="anchor" id="<%-typeInfo.name%>" name="<%-typeInfo.name%>"><strong><%= typeInfo.name %></strong></a>
+	<% if (typeInfo.enum) { %><pre><%- prettify(ujs, typeInfo.struct) %></pre><% } %>
+	</code>
+	<% if (!typeInfo.enum) { %>
+	<table class="table table-striped table-condensed table-bordered">
+		<thead>
+		<tr>
+			<th style="width: 25%">Property</th>
+			<th style="width: 25%">Type</th>
+			<th style="width: 50%">Description</th>
+		</tr>
+		</thead>
+		<tbody>
+		<% Object.keys(typeInfo.struct).forEach(function(propertyKey) {
+			var property = typeInfo.struct[propertyKey]; %>
+		<tr>
+			<% if (property.default) { %>
+				<td>
+					<%- property.name %> =
+					<small>
+						<%- JSON.stringify(property.default) %>
+					</small>
+				</td>
+			<% } else { %>
+				<td><%- property.name %></td>
+			<% } %>
+			<td class="codeline"><% anchorType(property.type) %><%= property.isArray ? '[]' : '' %></td>
+			<td><%- property.description || '' %></td>
+		</tr>
+		<% }); %>
+		</tbody>
+	</table>
+	<% } %>
+	<div><!--<span class="label label-primary">Description</span> --><%-typeInfo.description%></div>
+	<%
+}
+
+function renderEvent(eventInfo) {
+	%><code>event <a class="anchor" id="<%-eventInfo.name%>"><strong><%= eventInfo.name %></strong></a>: <% anchorType(eventInfo.type || 'void') %><%= eventInfo.isArray ? '[]' : '' %></code>
+	<div><%-eventInfo.description%></div>
+	<%
+}
+
+function renderMethod(methodInfo) {
+	%><code>function <a class="anchor" id="<%-methodInfo.name%>"><strong><%= methodInfo.name %></strong></a>(<%= Object.keys(methodInfo.params).map(function (p) {
+			// + ": " + methodInfo.params[p].type;
+			var param = methodInfo.params[p];
+			return param.default !== undefined ? ('[' + param.name + ']') : param.name;
+		}).join(", ") %>): <% anchorType(methodInfo.returns || 'void') %><%= methodInfo.returnsArray ? '[]' : '' %>
+	</code>
+	<% if (methodInfo.params.length > 0) { %>
+	<table class="table table-striped table-condensed table-bordered">
+		<thead>
+		<tr>
+			<th style="width: 25%">Argument</th>
+			<th style="width: 25%">Type</th>
+			<th style="width: 50%">Description</th>
+		</tr>
+		</thead>
+		<tbody>
+		<% for (var p = 0; p < methodInfo.params.length; p++) {
+			var param = methodInfo.params[p]; %>
+		<tr>
+			<% if (param.default !== undefined) { %>
+			<td>
+				<%- param.name %> =
+				<small>
+					<%- JSON.stringify(param.default) %>
+				</small>
+			</td>
+			<% } else { %>
+			<td><%- param.name %></td>
+			<% } %>
+			<td class="codeline"><% anchorType(param.type) %><%= param.isArray ? '[]' : '' %></td>
+			<td><%- param.description || '' %></td>
+		</tr>
+		<% } %>
+		</tbody>
+	</table>
+	<% } %>
+	<div><%-methodInfo.description%></div>
+	<%
+		// Object.keys.length would be better but it's not fully supported
+		var examples = 0;
+		for (var e in methodInfo.examples) {
+			if (methodInfo.examples.hasOwnProperty(e)) {
+				++examples;
+			}
+		}
+		if (examples > 0) {
+			renderExamples(methodInfo.examples, methodInfo.name, 'example');
+		}
+}
+
+%><html lang="en">
+<head>
+	<meta charset="utf-8">
+	<title><%= metadata.friendlyName %> <%= metadata.version %></title>
+
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<link href="//netdna.bootstrapcdn.com/bootstrap/3.0.0/css/bootstrap.min.css" rel="stylesheet">
+	<link rel="stylesheet" type="text/css" href="<%= root %>/static/prettify.css" />
+	<style>
+		body {
+			position: relative;
+			top: 70px;
+			font-size: 12px;
+		}
+
+		pre {
+			border-radius: 0;
+		}
+
+		span.badge {
+			font-size: 90%;
+			float: right;
+		}
+
+		code {
+			display: block;
+			margin-top: 10px;
+			margin-bottom: 10px;
+			font-size: 13px;
+			word-break: break-all;
+			word-wrap: break-word;
+			white-space: normal;
+		}
+
+		.codeline {
+			font-family: Monaco,Menlo,Consolas,"Courier New",monospace;
+		}
+
+		pre {
+			padding: 0;
+			margin: 0;
+			color: inherit;
+			background: inherit;
+			border: inherit;
+		}
+
+		a {
+			text-decoration: none;
+			color: #0081c2;
+		}
+
+		a.anchor {
+			text-decoration: none;
+			color: inherit;
+			padding-top: 70px;
+			pointer-events: none;
+		}
+
+		.group {
+			position: relative;
+			margin: -1px 0 20px;
+			padding: 0 19px 14px;
+			background-color: #fff;
+			border: 1px solid #ddd;
+		}
+
+		.group-description {
+			padding: 10px 0 0 0;
+			margin-left: -8px;
+		}
+
+		.group-text {
+			margin-top:-1px;
+			padding: 6px 10px;
+			font-weight: bold;
+			background-color: #f5f5f5;
+			border: 1px solid #ddd;
+			color: #5F6163;
+			cursor: pointer;
+		}
+
+		.entry {
+			padding: 5px;
+		}
+
+		.entry:hover {
+			background-color: #fafafa;
+		}
+
+		h5 {
+			margin-top: 20px;
+		}
+
+		.table-bordered>thead>tr>th, .table-bordered>thead>tr>td {
+			border-bottom-width: 1px;
+		}
+
+		.navbar {
+			font-size: 14px;
+		}
+
+		.navbar-header {
+			float: left;
+		}
+
+		.navbar-brand {
+			margin-left: -15px;
+		}
+
+		.navbar-nav {
+			float: left;
+			margin: 0;
+		}
+
+		.navbar-nav > li {
+			float: left;
+		}
+
+		.navbar-nav > li > a {
+			padding: 15px;
+		}
+
+		.navbar-nav.navbar-right {
+			float: right;
+		}
+
+		.sidebar {
+			background: #f8f8f8;
+			position: fixed;
+			top: 52px;
+			bottom: 0;
+			left: 0;
+			width: 240px;
+		}
+
+		.sidebar .container {
+			padding: 15px;
+		}
+
+		#main {
+			position: relative;
+			left: 120px;
+			background-color: #ffffff;
+		}
+
+		#search-results {
+			position: absolute;
+			top: 60px;
+			bottom: 0px;
+			left: 14px;
+			right: 14px;
+			overflow-x: hidden;
+			overflow-y: auto;
+		}
+
+		.member:hover {
+			background: #ccc;
+		}
+
+		.linkMember {
+			display: inline-block;
+			text-align: left;
+			text-decoration: none;
+			white-space: nowrap;
+		}
+
+		.member > .linkMember {
+			display: block;
+			line-height: 2em;
+			padding-left: 32px;
+			background-position: 12px 4px;
+			background-repeat: no-repeat;
+		}
+
+		.linkMember:hover {
+			text-decoration: none;
+		}
+
+		.groupTitle {
+			background: #eeeeee;
+			border: 1px solid #ddd;
+			border-radius: 4px;
+		}
+
+		.groupTitle:hover {
+			background: #ccc;
+		}
+
+		.groupTitle .linkMember {
+			padding-left: 4px;
+		}
+
+		pre.prettyprint {
+			background-color: #EEE;
+			padding: 5px;
+			overflow: auto;
+			max-height: 750px;
+			margin: 5px 0;
+			border-color: #CCC;
+		}
+
+		.playgroundLink {
+			position: absolute;
+			right: 0px;
+			margin-right: 1em;
+			margin-top: 2px;
+		}
+
+		.playgroundLink:hover {
+			text-decoration: none;
+		}
+
+		.nav-tabs {
+			margin-top: 10px;
+		}
+
+		.nav-tabs>li>a {
+			padding: 5px;
+		}
+	</style>
+	<script src="//code.jquery.com/jquery-2.0.3.min.js"></script>
+	<script src="//netdna.bootstrapcdn.com/bootstrap/3.0.0/js/bootstrap.min.js"></script>
+	<script src="<%= root %>/static/prettify.js"></script>
+</head>
+
+<body onload="prettyPrint()">
+
+<div class="navbar navbar-default navbar-fixed-top">
+	<div class="container">
+		<div class="navbar-header">
+			<a class="navbar-brand" href="#"><%= metadata.friendlyName %> <%= metadata.version %></a>
+		</div>
+		<ul class="nav navbar-nav">
+			<li class="dropdown">
+				<a href="#" class="dropdown-toggle" data-toggle="dropdown">Proxies</a>
+				<ul class="dropdown-menu">
+					<% proxies.forEach(function(proxy) { %>
+					<li><a href="?proxy=<%= proxy %>"><%= proxy %></a></li>
+					<% }); %>
+				</ul>
+			</li>
+			<li class="dropdown">
+			   <a class="dropdown-toggle" href="?viewer" target="_blank">Playground</a>
+           </li>
+		</ul>
+	</div>
+</div>
+
+<%
+var groups = Object.keys(metadata.groups);
+groups.sort();
+var groupsMap = [];
+groups.map(function(groupIndex) { return metadata.groups[groupIndex].items}).forEach(function(group, i) {
+	if (group.length == 0) return;
+	var types = group.filter(function(i) { return i.indexOf('type:') == 0}).sort();
+	var events = group.filter(function(i) { return i.indexOf('event:') == 0}).sort();
+	var methods = group.filter(function(i) { return i.indexOf('method:') == 0}).sort();
+	group = types.concat(events, methods);
+	var groupItems = group.map(function(groupItem) {
+		var split = groupItem.split(':');
+		return { type: split[0], item: split[1] };
+	});
+	groupsMap[i] = {
+		name: groups[i],
+		description: metadata.groups[groups[i]].description,
+		items: groupItems
+	};
+});
+var snippets = Object.keys(metadata.snippetMap).map(function(snipppet) {
+	return { type: 'snippet', item: snipppet };
+});
+if (snippets.length > 0) {
+	groupsMap.push({
+		name: 'Snippets',
+		description: '',
+		items: snippets
+	});
+}
+%>
+
+<div id="searchDiv" class="navbar-left sidebar">
+	<div class="container">
+		<input type="text" id="search" placeholder="Search" class="form-control"/>
+
+		<div id="search-results">
+
+			<% groupsMap.forEach(function(group) { %>
+			<div class="groupSearch">
+				<div class="member groupTitle">
+					<a href="#<%= group.name %>" class="linkMember"><%= group.name %></a>
+				</div>
+
+				<%
+				group.items.forEach(function(groupItemInfo) {
+				var imgUrl = root + '/static/' + groupItemInfo.type + '.png';
+				%>
+				<div class="member">
+					<a href="#<%= groupItemInfo.item %>" class="linkMember"
+						 style="background-image: url('<%= imgUrl %>')">
+						<%= groupItemInfo.item%></a>
+				</div>
+
+				<% }) %> <!-- forEach(itemInfo) -->
+
+			</div>
+			<% }); %>  <!-- forEach(group) -->
+		</div>
+	</div>
+</div>
+
+<div class="container" id="main">
+
+    <% groupsMap.forEach(function(group, i) { %>
+	<div class="group-text" data-toggle="collapse" data-target="#group-<%-i%>"><a class="anchor" id="<%= group.name %>"> <%= group.name %> </a><span class="badge"><%-group.items.length%></span></div>
+	<div class="group collapse in" id="group-<%-i%>">
+		<% if (group.description) { %>
+		<div class="group-description col-md-12"><%- group.description %></div>
+		<% } %>
+		<%
+			group.items.forEach(function(groupItemInfo, idx) {
+			if (idx % 2 == 0) { %><div class="row"><% } %>
+			<div class="entry<% if (group.name !== 'Snippets') { %> col-md-6<% } %>">
+		<%  var item = groupItemInfo.item;
+			switch (groupItemInfo.type) {
+				case 'type': renderType(metadata.typeMap[item]); break;
+				case 'event': renderEvent(metadata.eventMap[item]); break;
+				case 'method': renderMethod(metadata.methodMap[item]); break;
+				case 'snippet': renderExamples(metadata.snippetMap[item], item, 'snippet'); break;
+			}
+		%>
+		</div>
+		<% if (idx % 2 == 1 || idx == group.items.length - 1) { %></div><% } %>
+		<% }) %> <!-- forEach(methodInfo) -->
+
+	</div>
+
+	<% }); %>  <!-- forEach(group) -->
+
+	<p>&nbsp;</p>
+</div>
+<script>
+	var animTimeout = 0;
+	var lastClickedLink = $('.member:first').parent();
+	$(".linkMember").click(function () {
+		lastClickedLink.css("background",
+				lastClickedLink.hasClass('groupTitle') ? '#eeeeee' : 'transparent');
+		lastClickedLink = $(this).parent();
+		lastClickedLink.css("background", "#ccc");
+		// blink background
+		if (animTimeout) {
+			clearTimeout(animTimeout);
+			$('.entry').css('background-color', '#fff');
+		}
+		if ($(this).parent().hasClass('groupTitle')) {
+			return;
+		}
+		var id = $(this).attr('href').replace('#', '');
+		var anchor = $('a[id="' + id + '"');
+		var entry = anchor.closest('.entry');
+		if (entry.length > 0) {
+			var color = '#edd0cc';
+			var iter = 6;
+			var setBackgroundColor = function() {
+				if (iter == 0) return;
+				entry.css('background-color', color);
+				color = --iter % 2 == 0 ? '#edd0cc' : '#fff';
+				animTimeout = setTimeout(setBackgroundColor, 500);
+			}
+			setBackgroundColor();
+		}
+	});
+
+	$("#search").on("keyup", function () {
+		var pattern = $("#search").val().toLowerCase();
+		$(".groupSearch").each(function () {
+			var groupText = $(this).find('.linkMember').first().text().toLowerCase();
+			if (groupText.indexOf(pattern) !== -1) {   // all subitems must be visible
+				$(this).find('.linkMember').each(function () {
+					$(this).show();
+				});
+			} else { // only matching subitems must be visible
+				$(this).find('.linkMember').each(function () {
+					var itemText = $(this).text().toLowerCase();
+					$(this)[ itemText.indexOf(pattern) !== -1 ? 'show' : 'hide' ]();
+				});
+			}
+		});
+	});
+
+	// change the displayed language to the specified one
+	function activateLanguage(lang) {
+		// activate tab content
+		$('div.tab-pane').removeClass('active');
+		$('div.' + lang).addClass('active');
+
+		// activate tab headers
+		$('.nav-tabs, .nav-pills').children().removeClass('active');
+		$('li.' + lang).addClass('active');
+	};
+
+	function changeLanguageHandler(event) {
+		var target = $(event.target);
+		var relativeOffset = getRelativeOffset(target);
+		var lang = target.attr('class').split(' ')[0];
+		activateLanguage(lang);
+		window.localStorage.lang = lang;
+		// return the relative scroll position
+		$('body').scrollTop(target.offset().top - relativeOffset);
+	}
+
+	function getRelativeOffset(element) {
+		return element.offset().top - $('body').scrollTop();
+	}
+
+	$('a[data-toggle="tab"]').click(changeLanguageHandler);
+
+	(function getLocalStorageLanguage() {
+		var store = window.localStorage || {};
+		store.lang = store.lang || 'JavaScript';
+		activateLanguage(store.lang);
+	}) ();
+</script>
+</body>
+</html>

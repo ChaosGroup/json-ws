@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <script src="http://localhost:3000/endpoint/static/q.js"></script>
+    <script src="http://localhost:3000/endpoint/client"></script>
+    <script src="http://localhost:3000/endpoint/1.0?proxy=JavaScript&localName=Proxy"></script>
+    <script>
+        var api = new Proxy("http://localhost:3000/endpoint/1.0");
+
+        var logger = function (arg) {
+            console.log(arg);
+        };
+        var logger2 = function (arg) {
+            console.log('log2:', arg);
+        };
+
+        // Test method calls
+        api.sum(1, 2).then(logger, logger);
+        api.testMe2('echo').then(logger, logger);
+        api.echoObject({'a': 'b'}).then(logger, logger);
+        api.throwError().then(logger, logger);
+
+        // Test events
+        api.on('testEvent', logger);
+        setTimeout(function () {
+            api.removeAllListeners('testEvent');
+            api.on('testEvent', logger2);
+        }, 5000);
+
+        setTimeout(function () {
+            api.removeAllListeners('testEvent');
+        }, 10000);
+
+    </script>
+</head>
+</html>

@@ -1,0 +1,322 @@
+<% // Code Generator utilities
+
+function mapJavaType(jsType, isArray) {
+	var returnType = '';
+	switch (jsType) {
+		case '*':
+		case 'any':
+			returnType = 'JsonElement';
+			break;
+
+		case 'int':
+		case 'integer':
+			returnType = 'Long';
+			break;
+
+		case 'date':
+		case 'time':
+			returnType = 'Date';
+			break;
+
+		case 'number':
+		case 'float':
+		case 'double':
+			returnType = 'Double';
+			break;
+
+		case 'bool':
+		case 'boolean':
+			returnType = 'Boolean';
+			break;
+
+		case 'object':
+		case 'json':
+			returnType = 'JsonObject';
+			break;
+
+		case 'string':
+			returnType = 'String';
+			break;
+
+		case 'url':
+			returnType = 'URL';
+			break;
+
+		case 'buffer':
+		case 'binary':
+			returnType = 'byte[]';
+			break;
+
+		case undefined:
+			returnType = 'void';
+			break;
+
+		default:
+			returnType = metadata.types[jsType] ? jsType : ('/*' + jsType + '*/Object');
+	}
+	return returnType + (isArray ? '[]' : '');
+}
+
+function camelCase(literal) {
+	return literal.substr(0, 1).toUpperCase() + literal.substr(1);
+}
+
+function generateTypes() {
+	var types = Object.keys(metadata.types).map(function(key) { return metadata.types[key] });
+	types.forEach(function(type) {
+		if (type.enum) {
+	%>/**
+	 * <%=type.description%>
+	 */
+	public static enum <%-type.name%> {
+		<%-Object.keys(type.struct).join(', ')%>
+	}
+
+	<%
+		} else {
+			var properties = Object.keys(type.struct).map(function(key) { return type.struct[key] });
+	%>/**
+	 * <%=type.description%>
+	 */
+	public static class <%-type.name%> extends BaseRpcObject {
+		<%-properties.map(function(property) {
+			return '// ' + property.description + '\n' +
+				'\t\tpublic ' + mapJavaType(property.type, property.isArray) + ' ' + property.name + ';'
+		}).join('\n\t\t')%>
+	}
+
+	<%
+		}
+	});
+}
+
+function convertJsonToJavaType(jsonElement, javaType) {
+	switch (javaType) {
+		case 'Integer': return jsonElement + '.getAsInt()';
+		case 'Double': return jsonElement + '.getAsDouble()';
+		case 'Date': return 'javax.xml.bind.DatatypeConverter.parseDateTime(' + jsonElement + '.getAsString()).getTime()';
+		case 'Boolean': return jsonElement + '.getAsBoolean()';
+		case 'String': return jsonElement + '.getAsString()';
+		case 'URL': return 'new URL(' + jsonElement + '.getAsString())';
+		case 'JsonElement': return jsonElement;
+		case 'JsonObject': return jsonElement + '.getAsJsonObject()';
+		case 'Void': return 'null';
+		case 'byte[]': return 'javax.xml.bind.DatatypeConverter.parseBase64Binary(' + jsonElement + '.getAsString())';
+		default: return '(' + javaType + ') new Gson().fromJson(' + jsonElement + ', ' + javaType + '.class)';
+	}
+}
+
+function generateEventStubs() {
+	var events = Object.keys(metadata.events).map(function(key) { return metadata.events[key] });
+	var eventInfos = {};
+
+	events.forEach(function(event) {
+		var camelCasedName = camelCase(event.name).replace(/\./ig, '_');
+		var normalizedName = event.name.replace(/\./ig, '_');
+		var eventData = event.type ? (mapJavaType(event.type, event.isArray) + ' data') : '';
+		eventInfos[event.name] = {
+			camelCasedName: camelCasedName,
+			normalizedName: normalizedName
+		}
+	%>private <%-camelCasedName%>Handler <%-normalizedName%>Handler;
+	public interface <%-camelCasedName%>Handler {
+		public static final String Name = "<%-event.name%>";
+		void on<%-camelCasedName%>(<%-eventData%>);
+	}
+	public void on<%-camelCasedName%>(<%-camelCasedName%>Handler eventHandler) {
+		<%-normalizedName%>Handler = eventHandler;
+		rpcTunnel.call(<%-normalizedName%>Handler == null ? "rpc.off" : "rpc.on",
+				new Object[] { <%-camelCasedName%>Handler.Name }, false, RpcTunnel.Transport.WebSocket);
+	}
+
+	<%
+	});
+
+	%>
+	@SuppressWarnings("FieldCanBeLocal")
+	private final RpcTunnel.EventHandler rpcEventHandler = new RpcTunnel.EventHandler() {
+		@Override
+		public void onEvent(String eventId, JsonElement eventData) {
+			switch (eventId) {
+	<%
+	events.forEach(function(event) {
+		var eventInfo = eventInfos[event.name];
+		var eventData = event.type ? convertJsonToJavaType('eventData', mapJavaType(event.type, event.isArray)) : '';
+	%>
+				case <%-eventInfo.camelCasedName%>Handler.Name:
+					if (<%-eventInfo.normalizedName%>Handler != null) {
+						<%-eventInfo.normalizedName%>Handler.on<%-eventInfo.camelCasedName%>(<%-eventData%>);
+					}
+					break;
+	<% }); %>
+			}
+		}
+	};
+
+	<%
+}
+
+function generateMethodStubs(root) {
+	if (!root) { return; }
+
+	var methods = root.methods;
+	var children = root.children;
+
+	if (root.prefix) { %>
+	public final class <%=root.prefix%> {<%	}
+		// Generate code for sub-namespaces
+		children && Object.keys(children).forEach(function(key) {
+			generateMethodStubs(children[key]);
+		});
+
+		// Generate method stubs
+		methods && methods.forEach(function (method) {
+			var idx = method.lastIndexOf('.');
+			var shortName = idx != -1 ? method.substr(idx + 1) : method;
+			var methodInfo = metadata.methods[method];
+			var pureReturnType = methodInfo.returns ? mapJavaType(methodInfo.returns, methodInfo.returnsArray) : "Void";
+			var returnType = (methodInfo.returns || methodInfo.async) ? ("ProxyFuture<" + pureReturnType + ">") : "void";
+
+	        var requiredParamsCount = methodInfo.params.reduce(function(prev, param) { return prev + (param.default === undefined ? 1 : 0) }, 0);
+	        for (var paramIdx = requiredParamsCount; paramIdx <= methodInfo.params.length; paramIdx++) {
+	%>
+	/**
+	 * <%=methodInfo.description%><%=getMethodArgumentsHelp(methodInfo, paramIdx)%>
+	 */
+	public <%-returnType%> <%-shortName%>(<%-getMethodArguments(methodInfo, true, paramIdx)%>) {
+		<% if (returnType !== 'void') { %>return new <%-returnType%>(rpcTunnel.call("<%-method%>",
+		new Object[] { <%-getMethodArguments(methodInfo, false, paramIdx)%> }, true, defaultTransport))<%
+		%> {
+			@Override
+			protected <%-pureReturnType%> convert(JsonElement result) {
+				return <%-convertJsonToJavaType('result', pureReturnType)%>;
+			}
+		};<%
+		} else {
+			%>rpcTunnel.call("<%-method%>", new Object[] { <%-getMethodArguments(methodInfo, false, paramIdx)%> }, false, defaultTransport);<%
+		} %>
+	}
+<%
+			} // for (var paramIdx)
+		});
+
+	if (root.prefix) { %>
+	}
+	public final <%=root.prefix%> <%=root.prefix%> = new <%=root.prefix%>();
+<% }
+}
+
+function getMethodArguments(methodInfo, includeTypes, length) {
+	length = typeof length === 'number' ? length : methodInfo.params.length;
+	return methodInfo.params.slice(0, length).map(function(param) {
+		var paramName = param.name;
+		if (param.type === 'binary' || param.type === 'buffer') {
+			paramName = 'javax.xml.bind.DatatypeConverter.printBase64Binary(' + paramName + ')';
+		}
+		return includeTypes ? mapJavaType(param.type, param.isArray) + ' ' + param.name : paramName;
+	}).join(', ');
+}
+
+function getMethodArgumentsHelp(methodInfo, length) {
+	length = typeof length === 'number' ? length : methodInfo.params.length;
+	return methodInfo.params.slice(0, length).map(function(param) {
+		return '\n\t * @param ' + param.name + ' ' + param.description;
+	}).join('');
+}
+
+// Generate namespace tree
+var namespaceRoot = {
+	name: "",
+	fullName: "",
+	methods: [],
+	children: {}
+};
+Object.keys(metadata.methods).forEach(function(methodName) {
+	var method = metadata.methods[methodName];
+	var $ = namespaceRoot;
+	var prefixes = method.name.split('.');
+	prefixes.pop();
+	prefixes.forEach(function(prefix) {
+		if (!$.children.hasOwnProperty(prefix)) {
+			$.children[prefix] = {
+				prefix: prefix,
+				methods: [],
+				children: {}
+			};
+		}
+		$ = $.children[prefix];
+	});
+	$.methods.push(method.name);
+});
+
+%>/**
+ * <%= metadata.name %> <%= metadata.version %>
+ *
+ * Part of the JSON-WS library - Java 1.7 Proxy
+ * Copyright (c) 2013-2014 ChaosGroup. All rights reserved.
+ *
+ * This code uses the following libraries
+ * 	- com.google.code.gson:gson:2.2.4
+ *	- org.java-websocket:Java-WebSocket:1.3.0
+ */
+
+package com.chaosgroup.jsonws.proxies.<%=localName%>;
+
+import java.net.MalformedURLException;
+import java.net.URISyntaxException;
+import java.net.URL;
+import com.google.gson.*;
+
+/**
+ * <%= metadata.name %> <%= metadata.version %> Proxy
+ */
+public class <%=localName%> implements AutoCloseable {
+
+	// RPC tunnel - all method calls are piped here
+	private RpcTunnel rpcTunnel;
+	// The transport mechanism used by the tunnel for each method call
+	private RpcTunnel.Transport defaultTransport = RpcTunnel.Transport.HTTP;
+
+	/**
+	 * Constructs a new proxy using the specified URL
+	 * @param url Full URL of the web service endpoint.
+	 * @throws java.net.MalformedURLException
+	 * @throws java.net.URISyntaxException
+	 */
+	public <%=localName%>(String url) throws MalformedURLException, URISyntaxException {
+		rpcTunnel = new RpcTunnel(url, rpcEventHandler);
+	}
+
+	/**
+	 * Sets the default transport mechanism to HTTP
+	 */
+	public <%=localName%> useHTTP() {
+		defaultTransport = RpcTunnel.Transport.HTTP;
+		return this;
+	}
+
+	/**
+	 * Sets the default transport mechanism to WebSocket
+	 */
+	public <%=localName%> useWS() {
+		defaultTransport = RpcTunnel.Transport.WebSocket;
+		return this;
+	}
+
+	@Override
+	public void close() throws Exception {
+		rpcTunnel.close();
+	}
+
+	<% generateEventStubs() %>
+	public static class BaseRpcObject {
+		@Override
+		public String toString() {
+			return new Gson().toJson(this);
+		}
+	}
+
+	<% generateTypes() %>
+
+	<% generateMethodStubs(namespaceRoot) %>
+}

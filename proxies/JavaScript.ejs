@@ -1,0 +1,144 @@
+(function (exports) {
+
+var RpcClient = (function () {
+	try {
+		return require('json-ws').client;
+	} catch (e) {
+		return exports.RpcClient;
+	}
+}());
+var inherits = RpcClient.ports.inherits;
+var EventEmitter = RpcClient.ports.EventEmitter;
+var RpcTunnel = RpcClient.tunnel;
+
+var <%=localName%> = exports.<%=localName%> = function <%=localName%>(url, sslSettings) {
+	if (!this instanceof <%=localName%>) {
+		return new <%=localName%>(url);
+	}
+	if (!url || typeof url !== 'string') {
+		throw new Error('Invalid proxy URL');
+	}
+	var self = this;
+	this.defaultTransport = 'http';
+	this.rpc = new RpcTunnel(url, sslSettings);
+	this.rpc.on('event', function(e) {
+		self.emit(e.name, e.data);
+	});
+	function rebind(obj) {
+		for (var i in obj) {
+			var prop = obj[i];
+			if (typeof prop === 'function') {
+				obj[i] = prop.bind(self);
+			} else if (typeof prop === 'object') {
+				rebind(prop);
+			}
+		}
+	}
+	for (var i in this) {
+		if (this[i] && this[i]._ns) {
+			rebind(this[i]);
+		}
+	}
+};
+inherits(<%=localName%>, EventEmitter);
+
+<%=localName%>.prototype.useHTTP = function() {
+	this.defaultTransport = 'http';
+	return this;
+};
+
+<%=localName%>.prototype.useWS = function() {
+	this.defaultTransport = 'ws';
+	return this;
+};
+
+<%=localName%>.prototype.close = function() {
+	this.rpc.close();
+};
+
+<%=localName%>.prototype.on = <%=localName%>.prototype.addListener = function(type, listener) {
+	if (this.listeners(type).length == 0) {
+		this.rpc.call({ method: 'rpc.on', params: [type], transport: 'ws' });
+	}
+	EventEmitter.prototype.addListener.call(this, type, listener);
+};
+
+<%=localName%>.prototype.removeListener = function(type, listener) {
+	EventEmitter.prototype.removeListener.call(this, type, listener);
+	if (this.listeners(type).length == 0) {
+		this.rpc.call({ method: 'rpc.off', params: [type], transport: 'ws' });
+	}
+};
+
+<%=localName%>.prototype.removeAllListeners = function(type) {
+	EventEmitter.prototype.removeAllListeners.call(this, type);
+	this.rpc.call({ method: 'rpc.off', params: [type], transport: 'ws' });
+};
+
+<%
+
+(function generateTypes() {
+	var types = Object.keys(metadata.types).map(function(key) { return metadata.types[key] });
+	types.forEach(function(type) {
+		if (type.enum) { %>
+<%=localName%>.<%-type.name%> = function (val) {
+	switch (val) {
+		<%-Object.keys(type.struct).map(function(key) { return 'case "' + key + '": return ' + type.struct[key] }).join(';\n\t\t')%>
+		<%-Object.keys(type.struct).map(function(key) { return 'case ' + type.struct[key] + ': return "' + key + '"' }).join(';\n\t\t')%>
+	}
+};
+<%-Object.keys(type.struct).map(function(key) { return localName + '.' + type.name + '.' + key + ' = ' + type.struct[key] }).join(';\n')%>
+Object.freeze(<%=localName%>.<%-type.name%>);
+
+<%
+		}
+	});
+}())
+
+function printArgs(methodName) {
+	return metadata.methods[methodName].params.map(function(p) { return p.name }).join(', ');
+}
+
+var stubs = {};
+function stubNamespace(ns) {
+	var dot = ns.lastIndexOf('.');
+	if (dot != -1) stubNamespace(ns.substr(0, dot));
+	if (stubs[ns]) return;
+	stubs[ns] = 1;
+%><%=localName%>.prototype.<%=ns%> = {_ns:true};
+<%
+}
+
+// Generate namespace stubs
+var namespaces = [];
+Object.keys(metadata.methods).forEach(function(methodName) {
+	var dot = methodName.lastIndexOf('.');
+	if (dot == -1) return;
+	var namespace = methodName.substr(0, dot);
+	if (namespaces.indexOf(namespace) == -1) namespaces.push(namespace);
+});
+
+%><%-namespaces.forEach(stubNamespace)%>
+<%
+
+// Generate method stubs
+Object.keys(metadata.methods).forEach(function(methodName) {
+%><%=localName%>.prototype.<%= methodName %> = function(<%-printArgs(methodName)%>) {
+	var args = Array.prototype.slice.call(arguments);
+	var callback = null;
+	if (args.length && typeof args[args.length - 1] === 'function') {
+		callback = args.pop();
+	}
+	<%if (metadata.methods[methodName].params.length > 0) { %>args.length = Math.min(<%-metadata.methods[methodName].params.length%>, args.length);<% } else { %> args.length = 0;<% } %>
+	return this.rpc.call({
+		method: '<%-methodName%>',
+		params: args,
+		expectReturn: <%-!!metadata.methods[methodName].returns || !!metadata.methods[methodName].async%>,
+		transport: this.defaultTransport
+	}, callback);
+};
+<%
+});
+%>
+
+}(typeof window !== 'undefined' ? window : module.exports));

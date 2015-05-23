@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="utf-8">
+	<title>Service Registry</title>
+	<link href="//netdna.bootstrapcdn.com/bootstrap/3.0.0/css/bootstrap.min.css" rel="stylesheet">
+	<style>
+		body {
+			font-size: 15px;
+		}
+
+		h3 {
+			margin-left: 50px;
+		}
+	</style>
+</head>
+<body>
+
+<div class="container">
+
+	<div class="page-header">
+		<h2>Service Registry</h2>
+		<!--<p>The following services are available for use.</p>-->
+	</div>
+
+	<% services.forEach(function(service) { %>
+		<p><a href="<%= service.path %>"><%= service.name %> <%= service.version %> (<%= service.path %>)</a></p>
+		<small><%= service.description %></small>
+		<hr>
+	<% }); %>
+</div>
+
+</body>

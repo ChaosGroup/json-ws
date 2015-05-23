@@ -1,0 +1,265 @@
+<%
+function getIndentation(indentationLevel) {
+    return Array(indentationLevel * 4 + 1).join(' ');
+}
+
+function mapPhpType(param) {
+    var returnType = '';
+    var jsType = param.type;
+
+    switch (jsType) {
+        case '*':
+        case 'any':
+            returnType = 'object';
+            break;
+
+        case 'int':
+        case 'integer':
+            returnType = 'integer';
+            break;
+
+        case 'date':
+        case 'time':
+            returnType = 'DateTime';
+            break;
+
+        case 'number':
+        case 'float':
+        case 'double':
+            returnType = 'double';
+            break;
+
+        case 'bool':
+        case 'boolean':
+            returnType = 'boolean';
+            break;
+
+        case 'object':
+        case 'json':
+            returnType = 'object';
+            break;
+
+        case 'string':
+            returnType = 'string';
+            break;
+
+        case 'url':
+            returnType = 'string';
+            break;
+
+        case 'buffer':
+        case 'binary':
+            returnType = 'string';
+            break;
+
+        case undefined:
+            returnType = 'NULL';
+            break;
+
+        default:
+            if (metadata.types[jsType]) {
+                returnType = jsType;
+            } else {
+                returnType = 'object';
+            }
+    }
+
+    if (param.isArray) {
+        returnType = returnType + '[]';
+    }
+
+    return returnType;
+}
+
+
+// Generate namespace tree
+var namespaceRoot = {
+    name: '',
+    fullName: '',
+    methods: [],
+    children: {}
+};
+
+Object.keys(metadata.methods).forEach(function(methodName) {
+    var method = metadata.methods[methodName];
+    var $ = namespaceRoot;
+    var prefixes = method.name.split('.');
+    prefixes.pop();
+    prefixes.forEach(function(prefix) {
+        if (!$.children.hasOwnProperty(prefix)) {
+            $.children[prefix] = {
+                prefix: prefix,
+                methods: [],
+                children: {}
+            };
+        }
+        $ = $.children[prefix];
+    });
+    $.methods.push(method.name);
+});
+
+function generateTypes() {
+    var types = Object.keys(metadata.types).map(function(key) { return metadata.types[key] });
+
+    types.forEach(function(type) {
+if (type.enum) {
+%>
+<%=getIndentation(1)%>static $<%- type.name %> = array(
+<%
+Object.keys(type.struct).forEach(function(key) {
+%><%=getIndentation(2)%>'<%- key %>' => <%= type.struct[key] %>, '<%- type.struct[key] %>' => <%= type.struct[key] %>,
+<%
+})
+%><%=getIndentation(1)%>);
+<%
+} else {
+%>
+<%=getIndentation(1)%>static function <%- type.name %>($args) {
+<%=getIndentation(2)%>return (object)$args;
+<%=getIndentation(1)%>}
+<%
+}
+});
+}
+
+function getMethodArguments(params, asArguments) {
+    var args = params.map(function(param) {
+        var paramType = mapPhpType(param);
+        var result = '';
+
+        if (!asArguments) {
+            if (paramType == 'DateTime') {
+                result += 'DateTime ';
+            } else if (param.isArray) {
+                result += 'array ';
+            }
+        }
+
+        result += '$' + param.name;
+
+        if (asArguments) {
+            switch (param.type) {
+                case 'date':
+                case 'time':
+                    result = 'new JSONDate(' + result + ')';
+                    break;
+                case 'buffer':
+                case 'binary':
+                    result = 'base64_encode(' + result + ')';
+                    break;
+                default:
+                    break;
+            }
+        }
+
+        if (!asArguments && !param.required && typeof param.default != 'undefined') {
+            result += '=' + param.default;
+        }
+
+        return result;
+    })
+
+    return args.join(', ');
+}
+
+function generateMethodDocString(methodInfo) {
+    var description = methodInfo.description;
+    var params = methodInfo.params;
+
+    if (!description && params.length === 0) {
+        return;
+    }
+%>
+<%= getIndentation(1) %>/**<%
+if (description) {%>
+<%= getIndentation(1) %> * <%= description %>
+<%= getIndentation(1) %> *<%
+}
+
+if (params) {
+    params.forEach(function(param) { %>
+<%= getIndentation(1) %> * @param <%= mapPhpType(param) %> $<%= param.name %> <%= param.description ? ': ' + param.description : '' %><%
+});
+}
+
+if (methodInfo.returns) { %>
+<%= getIndentation(1) %> *
+<%= getIndentation(1) %> * @return <%= mapPhpType({type: methodInfo.returns, isArray: methodInfo.returnsArray}) %><%
+}
+%>
+<%= getIndentation(1) %> */<%
+}
+
+function generateMethodStubs(root, indentationLevel) {
+    if (!root) { return; }
+
+    indentationLevel || (indentationLevel = 0);
+
+    var methods = root.methods;
+    var children = root.children;
+
+    // Generate code for sub-namespaces
+    children && Object.keys(children).forEach(function(key) {
+        generateMethodStubs(children[key], indentationLevel + 1);
+    });
+
+    // Generate method stubs
+methods && methods.forEach(function (method) {
+    var functionName = method.replace(/\./g, '_');
+    var methodInfo = metadata.methods[method];
+
+    var returnTypeConverter = '';
+
+    if (methodInfo.returns) {
+        switch (methodInfo.returns) {
+            case 'date':
+            case 'time':
+                returnTypeConverter = ", 'RpcTunnel::toDateTime'";
+                break;
+            default:
+                break;
+        }
+    }
+
+%><% generateMethodDocString(methodInfo, 1, '') %>
+<%=getIndentation(1)%>public function <%- functionName %>(<%-getMethodArguments(methodInfo.params)%>) {<%
+%>
+<%=getIndentation(2)%>return $this->rpc->call('<%-method%>', array(<%-getMethodArguments(methodInfo.params, true)%>)<%- returnTypeConverter %>);
+<%=getIndentation(1)%>}
+<%
+});
+}
+%><?php
+/**
+ * <%= metadata.name %> <%= metadata.version %>
+ *
+ * Part of the JSON-WS library - PHP Proxy
+ * Copyright (c) 2014 ChaosGroup. All rights reserved.
+ *
+ * WebSockets transport and therefore events are not supported.
+ */
+
+require('./rpctunnel.php');
+
+class <%= localName %> {
+<%=getIndentation(1)%>/**
+<%=getIndentation(1)%> * Proxy for json-ws web services.
+<%=getIndentation(1)%> */
+<% generateTypes() %>
+
+<%=getIndentation(1)%>/**
+<%=getIndentation(1)%> * @param string $url The url of the web service
+<%=getIndentation(1)%> */
+<%=getIndentation(1)%>public function __construct($url) {
+<%=getIndentation(2)%>// RpcTunnel
+<%=getIndentation(2)%>$this->rpc = new RpcTunnel($url);
+<%=getIndentation(2)%>// The default transport is HTTP
+<%=getIndentation(2)%>$this->useHTTP();
+<%=getIndentation(1)%>}
+<% generateMethodStubs(namespaceRoot) %>
+
+<%=getIndentation(1)%>public function useHTTP() {
+<%=getIndentation(2)%>$this->rpc->useHTTP();
+<%=getIndentation(1)%>}
+}
+?>

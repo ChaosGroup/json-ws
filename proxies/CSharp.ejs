@@ -1,0 +1,372 @@
+<% // Code Generator utilities
+
+function mapCSharpType(jsType, isArray) {
+	var returnType = '';
+	switch (jsType) {
+		case '*':
+		case 'any':
+			returnType = 'JObject';      //JToken?
+			break;
+
+		case 'int':
+		case 'integer':
+			returnType = 'long';
+			break;
+
+		case 'date':
+		case 'time':
+			returnType = 'DateTime';
+			break;
+
+		case 'number':
+		case 'float':
+		case 'double':
+			returnType = 'double';
+			break;
+
+		case 'bool':
+		case 'boolean':
+			returnType = 'bool';
+			break;
+
+		case 'object':
+		case 'json':
+			returnType = 'JObject';
+			break;
+
+		case 'string':
+			returnType = 'string';
+			break;
+
+		case 'url':
+			returnType = 'Uri';
+			break;
+
+		case 'buffer':
+		case 'binary':
+			returnType = 'byte[]';
+			break;
+
+		case undefined:
+			returnType = 'void';
+			break;
+
+		default:
+			returnType = metadata.types[jsType] ? jsType : ('/*' + jsType + '*/object');
+	}
+	return returnType + (isArray ? '[]' : '');
+}
+
+function camelCase(literal) {
+	return literal.substr(0, 1).toUpperCase() + literal.substr(1);
+}
+
+function generateTypes() {
+	var types = Object.keys(metadata.types).map(function(key) { return metadata.types[key] });
+%>#region Types
+
+		public class BaseRpcObject
+		{
+			public override string ToString()
+			{
+				return JsonConvert.SerializeObject(this);
+			}
+		}
+
+	<%
+	types.forEach(function(type) {
+		if (type.enum) { %>
+		/// <summary>
+		/// <%=type.description%>
+		/// </summary>
+		public enum <%-type.name%>
+		{
+			<%-Object.keys(type.struct).map(function(key) { return key + '=' + type.struct[key] }).join(', ')%>
+		}
+
+	<%
+		} else {
+			var properties = Object.keys(type.struct).map(function(key) { return type.struct[key] });
+	%>	/// <summary>
+		/// <%=type.description%>
+		/// </summary>
+		public class <%-type.name%> : BaseRpcObject
+		{
+			<%-properties.map(function(property) {
+				return '// ' + property.description + '\n' +
+					'\t\t\tpublic ' + mapCSharpType(property.type, property.isArray) + ' ' + property.name + ';'
+			}).join('\n\t\t\t')%>
+		}
+
+	<% }
+	});
+%>	#endregion <%
+}
+
+function convertJsonToCSharpType(jToken, csharpType) {
+	switch (csharpType) {
+		case 'int':
+		case 'double':
+		case 'Date':
+		case 'bool':
+		case 'string':
+		case 'Uri':
+		case 'JToken':
+		case 'JObject':
+			return jToken + '.Value<' + csharpType + '>();';
+		case 'byte[]':
+			return 'Convert.FromBase64String(' + jToken + '.ToString());';
+		default: return '(' + csharpType + ') JsonConvert.DeserializeObject(' +
+				jToken + '.ToString(), typeof(' + csharpType + '));';
+	}
+}
+
+function generateEventStubs() {
+	var events = Object.keys(metadata.events).map(function(key) { return metadata.events[key] });
+	if (events.length == 0) return;
+	var eventInfos = {};
+	%>#region Events
+
+		public class DataEventArgs<T> : EventArgs
+		{
+			public T Data { get; private set; }
+			public DataEventArgs(T data)
+			{
+				Data = data;
+			}
+		}
+
+<%
+events.forEach(function(event) {
+		var camelCasedName = camelCase(event.name).replace(/\./ig, '_');
+		var normalizedName = event.name.replace(/\./ig, '_');
+		var eventType = event.type ? (mapCSharpType(event.type, event.isArray)) : '';
+		var handlerType = event.type ? 'DataEventArgs<' + eventType + '>' : '';
+		var eventHandler = event.type ? '<' + handlerType + '>' : '';
+		eventInfos[event.name] = {
+			camelCasedName: camelCasedName,
+			normalizedName: normalizedName,
+			eventType: eventType,
+			handlerType: handlerType
+		}
+%>		private EventHandler<%-eventHandler%> _<%-normalizedName%>Handler;
+		public event EventHandler<%-eventHandler%> <%-camelCasedName%>
+		{
+			add
+			{
+				_rpcTunnel.Call("rpc.on", new object[] {"<%-event.name%>"}, false, RpcTransport.WebSocket);
+				_<%-normalizedName%>Handler += value;
+			}
+			remove
+			{
+				_rpcTunnel.Call("rpc.off", new object[] { "<%-event.name%>" }, false, RpcTransport.WebSocket);
+				_<%-normalizedName%>Handler -= value;
+			}
+		}
+
+<%
+	});
+	%>	#endregion
+
+		public void HandleRpcEvent(string eventId, JToken eventData)
+		{
+			switch (eventId)
+			{
+	<%
+	events.forEach(function(event) {
+		var eventInfo = eventInfos[event.name];
+		var conversion = event.type ?
+				'var data = ' + convertJsonToCSharpType('eventData', eventInfo.eventType) : '';
+		var data = event.type ? 'new ' + eventInfo.handlerType + '(data)' : 'null';
+	%>
+				case "<%-event.name%>":
+					var <%-eventInfo.normalizedName%>Handler = _<%-eventInfo.normalizedName%>Handler;
+					if (<%-eventInfo.normalizedName%>Handler != null)
+					{
+						<%-conversion%>
+						<%-eventInfo.normalizedName%>Handler(this, <%-data%>);
+					}
+					break;
+	<% }); %>
+			}
+		}
+
+	<%
+}
+
+function generateMethodStubs(root, proxyPrefix, level) {
+	if (!root) { return; }
+
+	var methods = root.methods;
+	var children = root.children;
+
+	if (root.prefix) { %>
+		///
+		/// Namespace <%-camelCase(root.prefix)%> stub
+		///
+		public class <%-camelCase(root.prefix)%>
+		{
+			private readonly <%=localName%> _proxy;
+			public <%-camelCase(root.prefix)%>(<%=localName%> p)
+			{
+				_proxy = p;
+			}
+
+<%	}
+		// Generate code for sub-namespaces
+		children && Object.keys(children).forEach(function(key) {
+			generateMethodStubs(children[key], '_proxy.', level + 1);
+		});
+	%>		#region Methods
+		<%
+		// Generate method stubs
+		methods && methods.forEach(function (method) {
+			var idx = method.lastIndexOf('.');
+			var shortName = idx != -1 ? method.substr(idx + 1) : method;
+			shortName = camelCase(shortName);
+			var methodInfo = metadata.methods[method];
+			var pureReturnType = methodInfo.returns ? mapCSharpType(methodInfo.returns, methodInfo.returnsArray) : 'void';
+			var returnType;
+			if (methodInfo.async) {
+				returnType = 'Task';
+			} else if (methodInfo.returns) {
+				returnType = 'Task<' + pureReturnType + '>';
+			} else {
+				returnType = pureReturnType;
+			}
+			var requiredParamsCount = methodInfo.params.reduce(function(prev, param) { return prev + (param.default === undefined ? 1 : 0) }, 0);
+			for (var paramIdx = requiredParamsCount; paramIdx <= methodInfo.params.length; paramIdx++) {
+	%>
+		/// <summary>
+		/// <%-methodInfo.description%>
+		/// </summary><%-getMethodArgumentsHelp(methodInfo, paramIdx)%>
+		public <%-returnType%> <%-shortName%>(<%-getMethodArguments(methodInfo, true, paramIdx)%>)
+		{
+			<% if (methodInfo.async) { %>return <%-proxyPrefix%>_rpcTunnel.Call("<%-method%>",
+				new object[] { <%-getMethodArguments(methodInfo, false, paramIdx)%> }, true, <%-proxyPrefix%>_defaultTransport)
+				.ContinueWith(rpcMessage => rpcMessage.Result.Error); <%
+			} else if (methodInfo.returns) { %>return <%-proxyPrefix%>_rpcTunnel.Call("<%-method%>",
+				new object[] { <%-getMethodArguments(methodInfo, false, paramIdx)%> }, true, <%-proxyPrefix%>_defaultTransport)
+				.ContinueWith(rpcMessage => rpcMessage.Result.GetResult<<%-pureReturnType%>>()); <%
+				} else {
+				%><%-proxyPrefix%>_rpcTunnel.Call("<%-method%>", new object[] { <%-getMethodArguments(methodInfo, false, paramIdx)%> }, false, <%-proxyPrefix%>_defaultTransport);<%
+			} %>
+		}
+<%
+			} // for (var paramIdx)
+		});
+	%>		#endregion
+
+<%
+
+	if (root.prefix) { %>
+		}
+
+		// Namespace <%-camelCase(root.prefix)%> stub instance variable
+		private <%-camelCase(root.prefix)%> __<%-root.prefix%>;
+		public <%-camelCase(root.prefix)%> <%-root.prefix%>
+		{
+			get  { return __<%-root.prefix%> ?? (__<%-root.prefix%> = new <%-camelCase(root.prefix)%>(<%-level > 1 ? '_proxy' : 'this'%>)); }
+		}
+<% }
+}
+
+function getMethodArguments(methodInfo, includeTypes, length) {
+	length = typeof length === 'number' ? length : methodInfo.params.length;
+	return methodInfo.params.slice(0, length).map(function(param) {
+		var paramName = param.name;
+		if (param.type === 'buffer' || param.type === 'binary') {
+			paramName = 'Convert.ToBase64String(' + paramName + ')';
+		}
+		return includeTypes ? mapCSharpType(param.type, param.isArray) + ' ' + param.name : paramName;
+	}).join(', ');
+}
+
+function getMethodArgumentsHelp(methodInfo, length) {
+	length = typeof length === 'number' ? length : methodInfo.params.length;
+	return methodInfo.params.slice(0, length).map(function(param) {
+		return '\n\t\t/// <param name="' + param.name + '">' + param.description + '</param>';
+	}).join('');
+}
+
+// Generate namespace tree
+var namespaceRoot = {
+	name: '',
+	fullName: '',
+	methods: [],
+	children: {}
+};
+Object.keys(metadata.methods).forEach(function(methodName) {
+	var method = metadata.methods[methodName];
+	var $ = namespaceRoot;
+	var prefixes = method.name.split('.');
+	prefixes.pop();
+	prefixes.forEach(function(prefix) {
+		if (!$.children.hasOwnProperty(prefix)) {
+			$.children[prefix] = {
+				prefix: prefix,
+				methods: [],
+				children: {}
+			};
+		}
+		$ = $.children[prefix];
+	});
+	$.methods.push(method.name);
+});
+
+%>using System;
+using System.Threading.Tasks;
+using Newtonsoft.Json.Linq;
+using Newtonsoft.Json;
+
+namespace ChaosGroup.JsonWS.Proxies
+{
+	/// <summary>
+	/// <%= metadata.name %> <%= metadata.version %>
+	///
+	/// Part of the JSON-WS library - .NET 4.0 Proxy
+	/// Copyright (c) 2013-2014 ChaosGroup. All rights reserved.
+	/// This library depends on the following third party modules:
+	/// - Newtonsoft.Json: http://json.codeplex.com/
+	/// - WebSocket4Net: http://websocket4net.codeplex.com/
+	/// </summary>
+	public class <%=localName%> : IDisposable<%-Object.keys(metadata.events).length > 0 ? ', IRpcEventHandler' : ''%>
+	{
+		// RPC tunnel - all method calls are piped here
+		private RpcTunnel _rpcTunnel;
+		// The transport mechanism used by the tunnel for each method call
+		private RpcTransport _defaultTransport = RpcTransport.HTTP;
+
+		public <%=localName%>(string url)
+		{
+			_rpcTunnel = new RpcTunnel(url, <%-Object.keys(metadata.events).length > 0 ? 'this' : 'null'%>);
+		}
+
+		/// <summary>
+		/// Sets the default transport mechanism to HTTP
+		/// </summary>
+		public <%=localName%> UseHTTP()
+		{
+			_defaultTransport = RpcTransport.HTTP;
+			return this;
+		}
+
+		/// <summary>
+		/// Sets the default transport mechanism to WebSocket
+		/// </summary>
+		public <%=localName%> UseWS()
+		{
+			_defaultTransport = RpcTransport.WebSocket;
+			return this;
+		}
+
+		public void Dispose()
+		{
+			_rpcTunnel.Dispose();
+		}
+
+		<% generateTypes() %>
+		<% generateMethodStubs(namespaceRoot, '', 0) %>
+		<% generateEventStubs(namespaceRoot) %>
+	}
+}

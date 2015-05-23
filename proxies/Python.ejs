@@ -1,0 +1,319 @@
+<%
+function getIndentation(indentationLevel) {
+	return Array(indentationLevel * 4 + 1).join(' ');
+}
+
+function mapPythonType(param, prefix, options) {
+	var returnType = '';
+	var jsType = param.type;
+	options || (options = {});
+
+	if (prefix) {
+		prefix = prefix + '.';
+	} else {
+		prefix = '';
+	}
+
+	switch (jsType) {
+		case '*':
+		case 'any':
+			returnType = 'object';
+			break;
+
+		case 'int':
+		case 'integer':
+			returnType = 'int';
+			break;
+
+		case 'date':
+		case 'time':
+			returnType = 'datetime';
+			break;
+
+		case 'number':
+		case 'float':
+		case 'double':
+			returnType = 'float';
+			break;
+
+		case 'bool':
+		case 'boolean':
+			returnType = 'bool';
+			break;
+
+		case 'object':
+		case 'json':
+			returnType = 'dict';
+			break;
+
+		case 'string':
+			returnType = 'str';
+			break;
+
+		case 'url':
+			returnType = 'str';
+			break;
+
+		case 'buffer':
+		case 'binary':
+			returnType = 'bytearray';
+			break;
+
+		case undefined:
+			returnType = 'None';
+			break;
+
+		default:
+			if (metadata.types[jsType]) {
+				if (!options.wrapType) {
+					returnType = prefix + jsType;
+				} else {
+					returnType = "'" + jsType + "'";
+				}
+			} else {
+				returnType = 'object';
+			}
+	}
+
+	if (param.isArray) {
+		returnType = '[' + returnType + ']';
+	}
+
+	if (!param.required && param.default !== undefined && !options.supressOptional) {
+		returnType = 'Optional(' + returnType + ')';
+	}
+
+	return returnType;
+}
+
+
+// Generate namespace tree
+var namespaceRoot = {
+	name: '',
+	fullName: '',
+	methods: [],
+	children: {}
+};
+
+Object.keys(metadata.methods).forEach(function(methodName) {
+	var method = metadata.methods[methodName];
+	var $ = namespaceRoot;
+	var prefixes = method.name.split('.');
+	prefixes.pop();
+	prefixes.forEach(function(prefix) {
+		if (!$.children.hasOwnProperty(prefix)) {
+			$.children[prefix] = {
+				prefix: prefix,
+				methods: [],
+				children: {}
+			};
+		}
+		$ = $.children[prefix];
+	});
+	$.methods.push(method.name);
+});
+
+function camelCase(literal) {
+	return literal.substr(0, 1).toUpperCase() + literal.substr(1);
+}
+
+function generateTypes() {
+	var types = Object.keys(metadata.types).map(function(key) { return metadata.types[key] });
+
+	types.forEach(function(type) {
+		if (type.enum) {
+%>
+<%=getIndentation(1)%><%- type.name %> = Enum('<%- type.name %>', {
+<%
+			Object.keys(type.struct).forEach(function(key) {
+%><%=getIndentation(2)%>'<%- key %>' : <%= type.struct[key] %>,
+<%
+			})
+%><%=getIndentation(1)%>})
+<%
+		} else {
+%>
+<%=getIndentation(1)%><%- type.name %> = Type('<%- type.name %>', {<%
+		Object.keys(type.struct).forEach(function(propertyName) {
+			var property = type.struct[propertyName];
+%>
+<%=getIndentation(2)%>'<%= propertyName %>' : <%- mapPythonType(property, localName, { supressOptional: true, wrapType: true }) %>,<%
+		});
+%>
+<%=getIndentation(1)%>}, lambda: <%= localName %>)
+<%
+		}
+	});
+}
+
+function generateEventStubs() {
+	var events = Object.keys(metadata.events).map(function(key) { return metadata.events[key] });
+	var eventInfos = {};
+
+	events.forEach(function(event) {
+		var camelCasedName = camelCase(event.name).replace(/\./ig, '_');
+%>
+<%=getIndentation(1)%>def on<%-camelCasedName%>(self, callback=None):
+<%=getIndentation(2)%>self._rpc.event('<%- event.name %>', callback, return_type=<%= event.type ? mapPythonType({type: event.type, isArray: event.isArray}, localName) : 'None' %>)
+<%
+	});
+}
+
+function getMethodArguments(params, namesOnly) {
+	namesOnly || (namesOnly = false);
+
+	var args = params.map(function(param) {
+		if (param.required || param.default === undefined || namesOnly) {
+			return param.name;
+		} else {
+			return param.name + '=' + mapPythonType(param);
+		}
+	})
+
+	if (!namesOnly) {
+		args.unshift('self');
+	}
+
+	return args.join(', ');
+}
+
+function generateMethodDocString(methodInfo, indentationLevel, prefix) {
+	var description = methodInfo.description;
+	var params = methodInfo.params;
+
+	if (!description && params.length === 0) {
+		return;
+	}
+%>
+<%= getIndentation(indentationLevel) %>'''<%
+	if (description) { %>
+<%= getIndentation(indentationLevel) + description %>
+<%
+	}
+
+	if (params) { %>
+<%= getIndentation(indentationLevel) %>Args:<%
+
+		params.forEach(function(param) { %>
+<%= getIndentation(indentationLevel + 1) %><%= param.name %> (<%= mapPythonType(param, prefix) %>)<%= param.description ? ': ' + param.description : '' %><%
+		});
+	}
+
+	if (methodInfo.returns) { %>
+<%= getIndentation(indentationLevel) %>Returns:
+<%= getIndentation(indentationLevel + 1) %><%= mapPythonType({type: methodInfo.returns, isArray: methodInfo.returnsArray}, prefix) %><%
+	}
+%>
+<%= getIndentation(indentationLevel) %>'''
+<%
+}
+
+function generateMethodStubs(root, indentationLevel) {
+	if (!root) { return; }
+
+	indentationLevel || (indentationLevel = 0);
+
+	var methods = root.methods;
+	var children = root.children;
+	var prefix = 'self'
+
+	if (root.prefix) { %>
+<%=getIndentation(indentationLevel)%>class <%=root.prefix%>:<%
+		prefix = 'self._root';
+	}
+
+	// Generate code for sub-namespaces
+	children && Object.keys(children).forEach(function(key) {
+		generateMethodStubs(children[key], indentationLevel + 1);
+	});
+
+
+	if (root.prefix) {
+		// Generate the constructor for the namespace class:
+%>
+<%=getIndentation(indentationLevel + 1)%>def __init__(self, root):
+<%=getIndentation(indentationLevel + 2)%>self.root = root
+<%
+		// Attach any subnamespaces:
+		children && Object.keys(children).forEach(function(childName) {
+%><%=getIndentation(indentationLevel + 2)%>self.<%=childName%> = self.<%=childName%>(root)
+<%
+		});
+	} else {
+		// Generate the constructor for the proxy
+%>
+<%=getIndentation(indentationLevel + 1)%>def __init__(self, url):
+<%=getIndentation(indentationLevel + 2)%>'''
+<%=getIndentation(indentationLevel + 2)%>Args:
+<%=getIndentation(indentationLevel + 3)%>url (string): The url of the web service
+<%=getIndentation(indentationLevel + 2)%>'''
+
+<%=getIndentation(indentationLevel + 2)%># RpcTunnel
+<%=getIndentation(indentationLevel + 2)%>self._rpc = RpcTunnel(url)
+<%=getIndentation(indentationLevel + 2)%># The default transport is HTTP
+<%=getIndentation(indentationLevel + 2)%>self.useHTTP()
+<%
+		// Attach any subnamespaces:
+		children && Object.keys(children).forEach(function(childName) {
+%><%=getIndentation(indentationLevel + 2)%>self.<%=childName%> = self.<%=childName%>(self)
+<%
+		});
+	}
+
+	// Generate method stubs
+	methods && methods.forEach(function (method) {
+		var idx = method.lastIndexOf('.');
+		var shortName = idx != -1 ? method.substr(idx + 1) : method;
+		var methodInfo = metadata.methods[method];
+		var returnType = methodInfo.returns ? mapPythonType({type: methodInfo.returns, isArray: methodInfo.returnsArray}, prefix) : "None";
+%>
+<%=getIndentation(indentationLevel + 1)%>def <%- shortName %>(<%-getMethodArguments(methodInfo.params)%>):<%
+%><% generateMethodDocString(methodInfo, indentationLevel + 2, prefix) %><%
+
+		if (root.prefix) {
+%>
+<%=getIndentation(indentationLevel + 2)%>return self.root._rpc('<%-method%>', [<%-getMethodArguments(methodInfo.params, true)%>], return_type=<%= returnType %>)
+<%
+		} else {
+%>
+<%=getIndentation(indentationLevel + 2)%>return self._rpc('<%-method%>', [<%-getMethodArguments(methodInfo.params, true)%>], return_type=<%= returnType %>)
+<%
+		}
+	});
+}
+%>#
+# <%= metadata.name %> <%= metadata.version %>
+#
+# Part of the JSON-WS library - Python Proxy
+# Copyright (c) 2014 ChaosGroup. All rights reserved.
+#
+# This code uses the following libraries:
+#   - autobahn.asyncio.websocket (https://pypi.python.org/pypi/autobahn/0.9.3)
+#
+# For asyncio and enum support in Python <= 3.3 install trollius and enum34:
+#   - https://pypi.python.org/pypi/trollius/1.0.2
+#   - https://pypi.python.org/pypi/enum34/1.0.3
+
+
+from datetime import datetime
+from rpctunnel import RpcTunnel, Optional, Type, Enum
+
+
+class <%= localName %>:
+<%=getIndentation(1)%>'''
+<%=getIndentation(1)%>Proxy for json-ws web services. Instances can be used as context managers.
+<%=getIndentation(1)%>'''
+<% generateTypes() %>
+<% generateMethodStubs(namespaceRoot) %>
+<%=getIndentation(1)%>def __enter__(self):
+<%=getIndentation(2)%>return self
+
+<%=getIndentation(1)%>def __exit__(self, type, value, traceback):
+<%=getIndentation(2)%>pass
+
+<%=getIndentation(1)%>def useHTTP(self):
+<%=getIndentation(2)%>self._rpc.useHTTP()
+
+<%=getIndentation(1)%>def useWS(self):
+<%=getIndentation(2)%>self._rpc.useWS()
+<% generateEventStubs() %>

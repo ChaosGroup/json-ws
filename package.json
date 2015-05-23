@@ -1,0 +1,26 @@
+{
+	"name": "json-ws",
+	"version": "1.0.14",
+	"author": "ChaosGroup (c) 2013-2015",
+	"description": "JSON-based web service definition helper",
+	"dependencies": {
+		"co": "^4.5.2",
+		"cookie": "^0.1.2",
+		"ejs": "^1.0.0",
+		"express": "^3.4.0",
+		"mkdirp": "*",
+		"request": "*",
+		"socket.io": "0.9.16",
+		"uglify-js": "*",
+    "ws": "0.7.0"
+	},
+	"devDependencies": {
+		"async": "*",
+		"chai": "*",
+		"mocha": "*",
+		"q": "^1.0.1"
+	},
+	"publishConfig": {
+		"registry": "http://xen-appsdk-npm.chaosgroup.com:4873/"
+	}
+}

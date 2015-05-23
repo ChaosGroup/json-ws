@@ -1,0 +1,4 @@
+autobahn==0.9.3
+enum34==1.0.3
+six==1.8.0
+trollius==1.0.2
