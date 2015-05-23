@@ -65,11 +65,11 @@ function buildTestApi() {
 	}, function(a, b, c) {
 		return [a, b, c].join('');
 	});
-    api.define({
-        name: 'throwError',
-        returns: 'object'
-    });
-    api.define({
+	api.define({
+		name: 'throwError',
+		returns: 'object'
+	});
+	api.define({
 		name: 'testAsyncReturn',
 		params: [ {name: 'throwError', type: 'bool'} ],
 		returns: 'async'
@@ -154,11 +154,9 @@ function startServer(done) {
 	var app = express();
 	var registry = jsonws.registry(PATH);
 
-	app.configure(function () {
-        app.use(express.json());
-		app.use(express.urlencoded());
-		app.use(registry.router());
-	});
+	app.use(express.json());
+	app.use(express.urlencoded());
+	app.use(registry.router());
 
 	var api = buildTestApi();
 
@@ -373,7 +371,7 @@ suite('RPC over WebSocket', function () {
 
 		ws.on('message', function (data) {
 			var parsedData = JSON.parse(data);
-            if (Object.keys(parsedData).length == 0) return;
+			if (Object.keys(parsedData).length == 0) return;
 			assert.isNotNull(parsedData);
 			if (parsedData.error) console.log(parsedData.error);
 			assert.isUndefined(parsedData.error);
@@ -463,7 +461,7 @@ suite('RPC over WebSocket', function () {
 		});
 		ws.on('message', function (data) {
 			var parsedData = JSON.parse(data);
-            if (Object.keys(parsedData).length == 0) return;
+			if (Object.keys(parsedData).length == 0) return;
 			assert.isNotNull(parsedData);
 			assert.isDefined(parsedData.error);
 			assert.isNotNull(parsedData.error);
@@ -488,8 +486,8 @@ suite('RPC over WebSocket', function () {
 		});
 		ws.on('message', function (data) {
 			var parsedData = JSON.parse(data);
-            if (Object.keys(parsedData).length == 0) return;
-            messages++;
+			if (Object.keys(parsedData).length == 0) return;
+			messages++;
 			assert.isNotNull(parsedData);
 			assert.isDefined(parsedData.error);
 			assert.isNotNull(parsedData.error);
@@ -574,7 +572,7 @@ suite('Node.JS proxy', function () {
 	});
 
 	test('Events', function (done) {
-		this.timeout(2100);
+		this.timeout(5000);
 
 		jsonws.proxy(httpProxyUrl, function (err, proxy) {
 			assert.notOk(err, 'error obtaining proxy');

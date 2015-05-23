@@ -76,7 +76,13 @@ module.exports.proxy = function(proxyUrl, sslSettings, callback) {
 		try {
 			vm.runInNewContext(body, {
 				module: {exports: proxyExports},
-				require: require
+				require: function(moduleName) {
+					if ('json-ws' === moduleName) {
+						return module.exports;
+					} else {
+						return require(moduleName);
+					}
+				}
 			}, fileName);
 		} catch (vmError) {
 			callback(new TypeError('Error loading proxy: ' + vmError.message));

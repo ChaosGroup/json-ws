@@ -825,7 +825,7 @@ suite('External definitions', function() {
 
 	test('Using code', function(done) {
 		var api = jsonws.api('1.0', 'Test');
-		api.import(path.resolve('./resources', 'server-def-code.js'));
+		api.import(path.resolve(__dirname, 'resources', 'server-def-code.js'));
 
 		assert.ok(api.fn.sum);
 		assert.equal(api.fn.sum(2, 3), 5);
@@ -843,7 +843,7 @@ suite('External definitions', function() {
 
 	test('Using JSON', function(done) {
 		var api = jsonws.api('1.0', 'Test');
-		api.import(path.resolve('./resources', 'server-def-json.js'));
+		api.import(path.resolve(__dirname, 'resources', 'server-def-json.js'));
 		api.defineAll(implementations);
 
 		assert.ok(api.fn.sum, 'sum');
@@ -887,10 +887,10 @@ suite('External definitions', function() {
 	};
 
 	function importExamples(api) {
-		api.examples(path.resolve('./resources', 'examples_snippets.js'));
-		api.examples(path.resolve('./resources', 'examples_snippets.node.js'));
-		api.examples(path.resolve('./resources', 'examples_snippets.java'));
-		api.examples(path.resolve('./resources', 'examples.curl'));
+		api.examples(path.resolve(__dirname, 'resources', 'examples_snippets.js'));
+		api.examples(path.resolve(__dirname, 'resources', 'examples_snippets.node.js'));
+		api.examples(path.resolve(__dirname, 'resources', 'examples_snippets.java'));
+		api.examples(path.resolve(__dirname, 'resources', 'examples.curl'));
 	}
 
 	test('Import examples and snippets before definitions', function() {
