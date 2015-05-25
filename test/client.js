@@ -321,7 +321,7 @@ suite('RPC over WebSocket', function () {
 	setup();
 
 	test('WebSocket: legal method calls and event subscription', function (done) {
-		this.timeout(2000);
+		this.timeout(4000);
 
 		var ws = new WebSocket(serverWsUrl);
 		var events = 0;
@@ -402,11 +402,15 @@ suite('RPC over WebSocket', function () {
 			finalEvents = events;
 		}, 1200);
 
+		setTimeout(function() {
+			finalEvents = events;
+		}, 2000);
+
 		setTimeout(function () {
 			assert.equal(events, finalEvents, 'events do not fire after unsubscribe');
 			ws.close();
 			done();
-		}, 1500);
+		}, 3000);
 	});
 
 	test('WebSocket: error codes', function (done) {
