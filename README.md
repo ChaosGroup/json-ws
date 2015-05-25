@@ -57,15 +57,20 @@ User-defined types can be of two flavours: enums, or structures.
 
 Enums represent a set of valid values. Enum members are represented by strings, but they also have a numeric value. For example, an enum can be defined as:
 
+```javascript
 	{
 		Production: -1,
 		RtCpu: 0,
 		RtGpuOpenCL: 4,
 		RtGpuCUDA: 5
 	}
+```
+
 Or, it can be defined as an array of string literals:
-	
+
+```javascript
 	['and', 'or']
+```
 	
 When the latter syntax is used the numeric values of each enum member are defined as the ordinal position of this member: 'and' \== 0, 'or' \== 1.
 
@@ -77,6 +82,7 @@ There is no limit on the number of the levels of hierarchies that may be used in
 
 An example structure would be defined as follows:
 
+```javascript
 	{
 		width: 'int',
 		height: 'int',
@@ -86,6 +92,7 @@ An example structure would be defined as follows:
 		tree: 'object', // tree structure encoded as a JSON object
 		image: 'binary'
 	}
+```
 
 ## API
 
