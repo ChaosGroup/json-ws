@@ -1,4 +1,6 @@
-# JSON-WS
+[![NPM](https://nodei.co/npm/json-ws.png?compact=true)](https://nodei.co/npm/json-ws/)
+
+[![Build Status](https://travis-ci.org/ChaosGroup/json-ws.svg)](https://travis-ci.org/ChaosGroup/json-ws)
 
 ## Overview
 
