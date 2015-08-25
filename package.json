@@ -13,6 +13,7 @@
   "bugs": "https://github.com/ChaosGroup/json-ws/issues",
   "license": "MIT",
   "dependencies": {
+    "bluebird": "^2.9.34",
     "co": "^4.5.2",
     "cookie": "^0.1.2",
     "ejs": "^1.0.0",
