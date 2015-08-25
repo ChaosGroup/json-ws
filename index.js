@@ -127,3 +127,5 @@ module.exports.registry = function(rootPath) {
 	var registry = require('./lib/registry');
 	return registry(rootPath);
 };
+
+module.exports.getLanguageProxy = require('./lib/get-language-proxy');
