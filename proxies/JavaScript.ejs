@@ -141,4 +141,4 @@ Object.keys(metadata.methods).forEach(function(methodName) {
 });
 %>
 
-}(typeof window !== 'undefined' ? window : module.exports));
+}(typeof module !== 'undefined' ? module.exports : window));
