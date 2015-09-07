@@ -212,7 +212,7 @@ function renderMethod(methodInfo) {
 
 	<meta name="viewport" content="width=device-width, initial-scale=1.0">
 	<link href="//netdna.bootstrapcdn.com/bootstrap/3.0.0/css/bootstrap.min.css" rel="stylesheet">
-	<link rel="stylesheet" type="text/css" href="<%= root %>/static/prettify.css" />
+	<link rel="stylesheet" type="text/css" href="./static/prettify.css" />
 	<style>
 		body {
 			position: relative;
@@ -427,7 +427,7 @@ function renderMethod(methodInfo) {
 	</style>
 	<script src="//code.jquery.com/jquery-2.0.3.min.js"></script>
 	<script src="//netdna.bootstrapcdn.com/bootstrap/3.0.0/js/bootstrap.min.js"></script>
-	<script src="<%= root %>/static/prettify.js"></script>
+	<script src="./static/prettify.js"></script>
 </head>
 
 <body onload="prettyPrint()">
@@ -499,7 +499,7 @@ if (snippets.length > 0) {
 
 				<%
 				group.items.forEach(function(groupItemInfo) {
-				var imgUrl = root + '/static/' + groupItemInfo.type + '.png';
+				var imgUrl = './static/' + groupItemInfo.type + '.png';
 				%>
 				<div class="member">
 					<a href="#<%= groupItemInfo.item %>" class="linkMember"
