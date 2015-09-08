@@ -328,7 +328,7 @@ suite('RPC over WebSocket', function () {
 		var recCommands = 0;
 		var expCommands;
 		var expected = {
-			'sum': 3,
+			'sum': 0,
 			asyncSum: '12',
 			hello: 'world',
 			dataTest: {a: 5, b: 'test'},
@@ -356,8 +356,8 @@ suite('RPC over WebSocket', function () {
 			}));
 
 			async.parallel([
-				async.apply(sendCommand, 'sum', [2, 1]),
-				async.apply(sendCommand, 'sum', {'a': 2, 'b': 1}),
+				async.apply(sendCommand, 'sum', [2, -2]),
+				async.apply(sendCommand, 'sum', {'a': 2, 'b': -2}),
 				async.apply(sendCommand, 'hello', null),
 				async.apply(sendCommand, 'asyncSum', ['1', '2']),
 				async.apply(sendCommand, 'dataTest', { a: { a: 5, b: 'test', extra: 'true' }}),
