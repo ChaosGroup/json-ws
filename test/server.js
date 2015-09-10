@@ -388,6 +388,8 @@ suite('Types', function() {
 		assert.throws(function() { type.convert({s: 's'}) }, /Required field has no value: n/);
 		assert.throws(function() { type.convert({s: 's', n: 1}) }, /Required field has no value: o/);
 		assert.doesNotThrow(function() { type.convert({s: 's', n: 1, o: {test: 'any'}}) });
+		assert.doesNotThrow(function() { type.convert(null) }, 'null structs are valid');
+		assert.throws(function() { type.convert(void 0) });
 
 		assert.throws(function() { type.convert({s: null, n: 1, o: {test: 'any'}}) }, /Required field has no value/);
 		assert.throws(function() { type.convert({s: '', n: 0, o: undefined}) }, /Required field has no value/);
