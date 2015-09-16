@@ -79,6 +79,8 @@ module.exports.proxy = function(proxyUrl, sslSettings, callback) {
 				require: function(moduleName) {
 					if ('json-ws' === moduleName) {
 						return module.exports;
+					} else if ('json-ws/client' === moduleName) {
+						return module.exports.client;
 					} else {
 						return require(moduleName);
 					}

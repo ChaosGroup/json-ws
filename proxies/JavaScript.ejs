@@ -2,7 +2,7 @@
 
 var RpcClient = (function () {
 	try {
-		return require('json-ws').client;
+		return require('json-ws/client');
 	} catch (e) {
 		return exports.RpcClient;
 	}
