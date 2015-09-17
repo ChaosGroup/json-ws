@@ -22,7 +22,7 @@
     "request": "*",
     "socket.io": "1.3.6",
     "uglify-js": "*",
-    "ws": "0.7.0"
+    "ws": "0.8.0"
   },
   "devDependencies": {
     "async": "*",
