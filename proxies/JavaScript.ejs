@@ -25,18 +25,20 @@ var <%=localName%> = exports.<%=localName%> = function <%=localName%>(url, sslSe
 		self.emit(e.name, e.data);
 	});
 	function rebind(obj) {
+		var result = {};
 		for (var i in obj) {
 			var prop = obj[i];
 			if (typeof prop === 'function') {
-				obj[i] = prop.bind(self);
+				result[i] = prop.bind(self);
 			} else if (typeof prop === 'object') {
-				rebind(prop);
+				result[i] = rebind(prop);
 			}
 		}
+		return result;
 	}
 	for (var i in this) {
 		if (this[i] && this[i]._ns) {
-			rebind(this[i]);
+			this[i] = rebind(this[i]);
 		}
 	}
 };
