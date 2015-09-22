@@ -1,34 +1,26 @@
 /**
  * JSON-WS RPC client test suite
  */
-
 'use strict';
 
-/* error codes:
- -32600: jsonrpc not 2.0
- -32601: method not found
- -32602: invalid parameters
- -32000: internal server error
- -32700: parse error
- */
+// error codes:
+// -32600: jsonrpc not 2.0
+// -32601: method not found
+// -32602: invalid parameters
+// -32000: internal server error
+// -32700: parse error
 
+var Bluebird = require('bluebird');
+var _ = require('lodash');
 var chai = require('chai');
-var assert = chai.assert;
 var expect = chai.expect;
-var async = require('async');
-var Q = require('q');
 
 if (typeof global.Promise != 'function') {
 	// Polyfill Promise for Node 0.10.x
-	global.Promise = function Promise(callback) {
-		var deferred = Q.defer();
-		callback(deferred.resolve.bind(deferred), deferred.reject.bind(deferred));
-		this.then = deferred.promise.then.bind(deferred.promise);
-		this.catch = deferred.promise.catch.bind(deferred.promise);
-	};
+	global.Promise = Bluebird;
 }
 var jsonws = require('../index.js');
-var request = require('request');
+var request = Bluebird.promisifyAll(require('request'));
 var WebSocket = require('ws');
 var http = require('http');
 var express = require('express');
@@ -174,64 +166,57 @@ function startServer(done) {
 	});
 }
 
-function setup() {
-	suiteSetup(function (done) {
-		srv ? done() : startServer(done);
-	});
+function setupServer(done) {
+	srv ? done() : startServer(done);
 }
 
-/*suite('test', function() {
- setup();
- test('-', function(done){this.timeout(0)});
- });*/
+describe('Metadata', function() {
+	before(setupServer);
 
-suite('Metadata', function () {
-	setup();
-
-	test('Metadata in JSON format', function (done) {
-		request.get(serverUrl + '?json', function (err, response, body) {
-			assert.isNull(err);
-			var json = JSON.parse(body);
-			assert.isDefined(json.name);
-			assert.isDefined(json.version);
-			assert.isDefined(json.transports);
-			assert.isDefined(json.types);
-			assert.isDefined(json.events);
-			assert.isDefined(json.methods);
-			done();
+	it('returns metadata in JSON format', function() {
+		return request.getAsync(serverUrl + '?json', { json: true }).then(function(result) {
+			var json = result[1]; // result === [response, body]
+			expect(json.name).to.be.defined;
+			expect(json.version).to.be.defined;
+			expect(json.transports).to.be.defined;
+			expect(json.types).to.be.defined;
+			expect(json.events).to.be.defined;
+			expect(json.methods).to.be.defined;
 		});
 	});
 
-	test('Proxies: languages', function (done) {
-		var languages = ['JavaScript', 'Java', 'CSharp', 'Python'];
-		var proxyUrls = languages.map(function (language) {
-			return serverUrl + '?proxy=' + language;
+	it('returns proxies for the supported languages', function() {
+		var languages = ['JavaScript', 'Java', 'CSharp', 'Python', 'Php'];
+		var proxyRequests = languages.map(function (language) {
+			return request.getAsync(serverUrl + '?proxy=' + language);
 		});
-		async.map(proxyUrls, request.get.bind(request), function (err, results) {
-			expect(err).to.not.exist;
-			results.forEach(function (r) {
-				assert.equal(r.statusCode, 200, 'Missing proxy for ' + r.req.path.substr(20))
+
+		return Promise.all(proxyRequests).then(function(results) {
+			results.forEach(function(result) { // result === [response, body]
+				var r = result[0];
+				expect(r.statusCode).to.eq(200, 'Missing proxy for ' + r.req.path.substr(20))
 			});
-			done();
 		});
 	});
 });
 
-suite('RPC over HTTP', function () {
-	setup();
+describe('RPC over HTTP', function() {
+	before(setupServer);
 
-	function get(method) {
-		return async.apply(request.get.bind(request), { url: serverUrl + '/' + method });
+	function getAsync(method) {
+		return request.getAsync({
+			url: serverUrl + '/' + method
+		});
 	}
 
-	function post(method, json) {
-		return async.apply(request.post.bind(request), {
+	function postAsync(method, json) {
+		return request.postAsync({
 			url: serverUrl + '/' + method,
 			json: json || {}
-		})
+		});
 	}
 
-	test('HTTP Requests: legal method calls', function (done) {
+	it('works with legal method calls', function() {
 		var expected = [
 			3, 3, 3, '12', 3, 6, 12,
 			{a: 12, b: 'hello'}, 10, 11, 12, 13,
@@ -240,46 +225,45 @@ suite('RPC over HTTP', function () {
 			'Abc', 'ABc', 'ABC',
 			'Abc', 'ABc', 'AbC', 'ABC', 'ABC'
 		];
-		async.parallel([
-			post('sum', {params: {b: 1, a: 2}}),
-			post('asyncSum?id=1', {params: [2, 1]}),
-			get('sum?a=2&b=1'),
-			post('asyncSum', {params: ['1', '2']}),
-			get('sum?params=["1", "2"]'),
-			get('mul?params=["3", "2"]'),
-			post('mul', {params: {a: 4, b: 3}}),
-			get('dataTest?params=[{"a": 12, "b": "hello"}]'),
-			get('sumArray?params=[[1,2,3,4]]'),
-			get('sumArray?ints=[1,2,3,5]'),
-			post('sumArray', {params: { ints: [1,2,3,6] } }),
-			post('sumArray', {params: [ [1,2,3,7] ] }),
-			get('hello'),
-			post('hello'),
-			get('optionalArgs?a=A'),
-			get('optionalArgs?a=A&b=B'),
-			get('optionalArgs?a=A&c=C'),
-			get('optionalArgs?a=A&b=B&c=C'),
-			get('optionalArgs?params=["A"]'),
-			get('optionalArgs?params=["A", "B"]'),
-			get('optionalArgs?params=["A", "B", "C"]'),
-			post('optionalArgs', { params: ['A']}),
-			post('optionalArgs', { params: ['A', 'B']}),
-			post('optionalArgs', { params: { a: 'A', c: 'C' } }),
-			post('optionalArgs', { params: ['A', 'B', 'C'] }),
-			post('optionalArgs', { params: { a: 'A', b: 'B', c: 'C' } })
-		], function (err, results) {
-			results = results.map(function (r) { // r[0] - response, r[1] - body
+		return Promise.all([
+			postAsync('sum', {params: {b: 1, a: 2}}),
+			postAsync('asyncSum?id=1', {params: [2, 1]}),
+			getAsync('sum?a=2&b=1'),
+			postAsync('asyncSum', {params: ['1', '2']}),
+			getAsync('sum?params=["1", "2"]'),
+			getAsync('mul?params=["3", "2"]'),
+			postAsync('mul', {params: {a: 4, b: 3}}),
+			getAsync('dataTest?params=[{"a": 12, "b": "hello"}]'),
+			getAsync('sumArray?params=[[1,2,3,4]]'),
+			getAsync('sumArray?ints=[1,2,3,5]'),
+			postAsync('sumArray', {params: { ints: [1,2,3,6] } }),
+			postAsync('sumArray', {params: [ [1,2,3,7] ] }),
+			getAsync('hello'),
+			postAsync('hello'),
+			getAsync('optionalArgs?a=A'),
+			getAsync('optionalArgs?a=A&b=B'),
+			getAsync('optionalArgs?a=A&c=C'),
+			getAsync('optionalArgs?a=A&b=B&c=C'),
+			getAsync('optionalArgs?params=["A"]'),
+			getAsync('optionalArgs?params=["A", "B"]'),
+			getAsync('optionalArgs?params=["A", "B", "C"]'),
+			postAsync('optionalArgs', { params: ['A']}),
+			postAsync('optionalArgs', { params: ['A', 'B']}),
+			postAsync('optionalArgs', { params: { a: 'A', c: 'C' } }),
+			postAsync('optionalArgs', { params: ['A', 'B', 'C'] }),
+			postAsync('optionalArgs', { params: { a: 'A', b: 'B', c: 'C' } })
+		]).then(function(results) {
+			results = results.map(function(r) { // r === [response, body]
 				if (typeof r[1] === 'string') {
 					r[1] = JSON.parse(r[1]);
 				}
 				return r[1].result;
 			});
-			assert.deepEqual(results, expected);
-			done();
+			expect(results).to.deep.eq(expected);
 		});
 	});
 
-	test('HTTP Requests: error codes', function (done) {
+	it('returns error codes', function() {
 		var expected = [
 			-32601, -32601, -32601,	 // method not found
 			-32602, -32602, -32602,  // invalid parameters
@@ -287,40 +271,38 @@ suite('RPC over HTTP', function () {
 			-32000, -32000, -32602, -32602, -32000	 // internal server error
 		];
 
-		async.parallel([
-			get('inexistingMethod'),
-			post('inexistingMethod'),
-			post('?'),
-			get('sum?params={"c":1, "a":2}'),
-			get('sum?a=2&c=1'),
-			get('sum?params=[2]'),
-			get('optionalArgs'),
-			get('optionalArgs?b=b&c=c'),
-			get('sumArray?ints=1234'),
-			get('throwError'),
-			get('hello?params=["fake"]'),
-			post('hello', {params:['fake']}),
-			get('dataTest?params=[1234]')
-		], function (err, results) {
-			results = results.map(function (r) { // r[0] - response, r[1] - body
+		return Promise.all([
+			getAsync('inexistingMethod'),
+			postAsync('inexistingMethod'),
+			postAsync('?'),
+			getAsync('sum?params={"c":1, "a":2}'),
+			getAsync('sum?a=2&c=1'),
+			getAsync('sum?params=[2]'),
+			getAsync('optionalArgs'),
+			getAsync('optionalArgs?b=b&c=c'),
+			getAsync('sumArray?ints=1234'),
+			getAsync('throwError'),
+			getAsync('hello?params=["fake"]'),
+			postAsync('hello', {params:['fake']}),
+			getAsync('dataTest?params=[1234]')
+		], function(results) {
+			results = results.map(function (r) { // r === [response, body]
 				if (typeof r[1] === 'string') {
 					r[1] = JSON.parse(r[1]);
 				}
-				//console.log(r[1]);
-				assert.isDefined(r[1].error);
-				assert.isNotNull(r[1].error);
+				expect(r[1].error).to.be.defined;
+				expect(r[1].error).not.to.be.null;
 				return r[1].error.code;
 			});
-			assert.deepEqual(results, expected);
-			done();
+			expect(results).to.deep.eq(expected);
 		});
 	});
 });
 
-suite('RPC over WebSocket', function () {
-	setup();
+describe('RPC over WebSocket', function() {
+	before(setupServer);
 
-	test('WebSocket: legal method calls and event subscription', function (done) {
+	it('works with legal method calls and event subscription', function(done) {
 		this.timeout(4000);
 
 		var ws = new WebSocket(serverWsUrl);
@@ -337,7 +319,7 @@ suite('RPC over WebSocket', function () {
 		};
 		var results = {};
 
-		function sendCommand(command, params, callback) {
+		function sendCommand(command, params) {
 			var commandData = {
 				id: command,
 				method: command,
@@ -345,7 +327,9 @@ suite('RPC over WebSocket', function () {
 				jsonrpc: '2.0'
 			};
 			var request = JSON.stringify(commandData);
-			ws.send(request, callback);
+			return new Promise(function(resolve) {
+				ws.send(request, resolve);
+			});
 		}
 
 		ws.on('open', function () {
@@ -355,16 +339,16 @@ suite('RPC over WebSocket', function () {
 				'params': ['testEvent']
 			}));
 
-			async.parallel([
-				async.apply(sendCommand, 'sum', [2, -2]),
-				async.apply(sendCommand, 'sum', {'a': 2, 'b': -2}),
-				async.apply(sendCommand, 'hello', null),
-				async.apply(sendCommand, 'asyncSum', ['1', '2']),
-				async.apply(sendCommand, 'dataTest', { a: { a: 5, b: 'test', extra: 'true' }}),
-				async.apply(sendCommand, 'sumArray', { ints: [1, 2, 3, 4]}),
-				async.apply(sendCommand, 'sumArray', [ [1, 2, 3, 4] ]),
-				async.apply(sendCommand, 'optionalArgs', { a: 'A', c: 'C' })
-			], function (err, result) {
+			Promise.all([
+				sendCommand('sum', [2, -2]),
+				sendCommand('sum', {'a': 2, 'b': -2}),
+				sendCommand('hello', null),
+				sendCommand('asyncSum', ['1', '2']),
+				sendCommand('dataTest', { a: { a: 5, b: 'test', extra: 'true' }}),
+				sendCommand('sumArray', { ints: [1, 2, 3, 4]}),
+				sendCommand('sumArray', [ [1, 2, 3, 4] ]),
+				sendCommand('optionalArgs', { a: 'A', c: 'C' })
+			]).then(function(result) {
 				expCommands = result.length;
 			});
 		});
@@ -372,18 +356,18 @@ suite('RPC over WebSocket', function () {
 		ws.on('message', function (data) {
 			var parsedData = JSON.parse(data);
 			if (Object.keys(parsedData).length == 0) return;
-			assert.isNotNull(parsedData);
+			expect(parsedData).not.to.be.null;
 			if (parsedData.error) console.log(parsedData.error);
-			assert.isUndefined(parsedData.error);
-			assert.isDefined(parsedData.id);
+			expect(parsedData.error).to.be.undefined;
+			expect(parsedData.id).to.be.defined;
 			if (parsedData.id == 'testEvent') {
 				events++;
 			} else {
 				recCommands++;
 				if (typeof parsedData.result === 'object') {
-					assert.deepEqual(parsedData.result, expected[parsedData.id]);
+					expect(parsedData.result).to.deep.eq(expected[parsedData.id]);
 				} else {
-					assert.strictEqual(parsedData.result, expected[parsedData.id]);
+					expect(parsedData.result).to.eq(expected[parsedData.id]);
 				}
 				results[parsedData.id] = parsedData.result;
 			}
@@ -391,9 +375,9 @@ suite('RPC over WebSocket', function () {
 
 		var finalEvents = 0;
 		setTimeout(function () {
-			assert.deepEqual(expected, results);
-			assert.equal(recCommands, expCommands);
-			assert.isTrue(events > 0, 'events > 0');
+			expect(expected).to.deep.eq(results);
+			expect(recCommands).to.eq(expCommands);
+			expect(events).to.be.above(0);
 			ws.send(JSON.stringify({
 				'jsonrpc': '2.0',
 				'method': 'rpc.off',
@@ -407,13 +391,13 @@ suite('RPC over WebSocket', function () {
 		}, 2000);
 
 		setTimeout(function () {
-			assert.equal(events, finalEvents, 'events do not fire after unsubscribe');
+			expect(events).to.eq(finalEvents, 'events do not fire after unsubscribe');
 			ws.close();
 			done();
 		}, 3000);
 	});
 
-	test('WebSocket: error codes', function (done) {
+	it('returns error codes', function(done) {
 		this.timeout(660);
 		var ws = new WebSocket(serverWsUrl);
 		var id = 0;
@@ -423,7 +407,7 @@ suite('RPC over WebSocket', function () {
 			-32000, -32000, -32000, -32000];
 		var results = [];
 
-		function sendCommand(command, params, callback) {
+		function sendCommand(command, params) {
 			var commandData = {
 				id: id++,
 				method: command,
@@ -431,33 +415,40 @@ suite('RPC over WebSocket', function () {
 				jsonrpc: '2.0'
 			};
 			var request = JSON.stringify(commandData);
-			var cb = callback || params || command;
-			ws.send(request, cb);
+
+			return new Promise(function(resolve) {
+				ws.send(request, resolve);
+			});
 		}
 
-		function sendPartialCommand(commandData, callback) {
+		function sendPartialCommand(commandData) {
 			commandData.id = id++;
 			var request = JSON.stringify(commandData);
-			ws.send(request, callback);
+
+			return new Promise(function(resolve) {
+				ws.send(request, resolve);
+			});
 		}
 
 		function sendCommands() {
-			async.series([
-				async.apply(sendPartialCommand, {'jsonrpc': '1.0'}),
-				async.apply(sendCommand, 'inexistingMethod'),
-				async.apply(sendCommand),
-				async.apply(sendPartialCommand, {'jsonrpc': '2.0'}),
-				async.apply(sendPartialCommand, {'jsonrpc': '2.0', 'method': 'sum'}),
-				async.apply(sendCommand, 'sum'),
-				async.apply(sendCommand, 'sum', [2]),
-				async.apply(sendCommand, 'sum', {'a': 2, 'c': 1}),
-				async.apply(sendCommand, 'optionalArgs', []),
-				async.apply(sendCommand, 'hello', ['fake']),
-				async.apply(sendCommand, 'throwError'),
-				async.apply(sendCommand, 'dataTest', ['invalid']),
-				async.apply(sendCommand, 'dataTest', [1234]),
-				async.apply(sendCommand, 'sumArray', [1234])
-			]);
+			Bluebird.resolve([
+				sendPartialCommand.bind(null, {'jsonrpc': '1.0'}),
+				sendCommand.bind(null, 'inexistingMethod'),
+				sendCommand.bind(null),
+				sendPartialCommand.bind(null, {'jsonrpc': '2.0'}),
+				sendPartialCommand.bind(null, {'jsonrpc': '2.0', 'method': 'sum'}),
+				sendCommand.bind(null, 'sum'),
+				sendCommand.bind(null, 'sum', [2]),
+				sendCommand.bind(null, 'sum', {'a': 2, 'c': 1}),
+				sendCommand.bind(null, 'optionalArgs', []),
+				sendCommand.bind(null, 'hello', ['fake']),
+				sendCommand.bind(null, 'throwError'),
+				sendCommand.bind(null, 'dataTest', ['invalid']),
+				sendCommand.bind(null, 'dataTest', [1234]),
+				sendCommand.bind(null, 'sumArray', [1234])
+			]).each(function(func) {
+				return func();
+			});
 		}
 
 		ws.on('open', function () {
@@ -466,22 +457,22 @@ suite('RPC over WebSocket', function () {
 		ws.on('message', function (data) {
 			var parsedData = JSON.parse(data);
 			if (Object.keys(parsedData).length == 0) return;
-			assert.isNotNull(parsedData);
-			assert.isDefined(parsedData.error);
-			assert.isNotNull(parsedData.error);
-			assert.isDefined(parsedData.id);
-			assert.isNotNull(parsedData.id);
+			expect(parsedData).not.to.be.null;
+			expect(parsedData.error).to.be.defined;
+			expect(parsedData.error).not.to.be.null;
+			expect(parsedData.id).to.be.defined;
+			expect(parsedData.id).not.to.be.null;
 			results[parsedData.id] = parsedData.error.code;
 		});
 
 		setTimeout(function () {
-			assert.deepEqual(expected, results);
+			expect(expected).to.deep.eq(results);
 			ws.close();
 			done();
 		}, 500);
 	});
 
-	test('WebSocket: parse error', function (done) {
+	it('returns parse error for malformed JSON', function(done) {
 		this.timeout(150);
 		var ws = new WebSocket(serverWsUrl);
 		var messages = 0;
@@ -492,35 +483,31 @@ suite('RPC over WebSocket', function () {
 			var parsedData = JSON.parse(data);
 			if (Object.keys(parsedData).length == 0) return;
 			messages++;
-			assert.isNotNull(parsedData);
-			assert.isDefined(parsedData.error);
-			assert.isNotNull(parsedData.error);
-			assert.equal(parsedData.error.code, -32700);
+			expect(parsedData).not.to.be.null;
+			expect(parsedData.error).not.to.be.null;
+			expect(parsedData.error).to.be.defined;
+			expect(parsedData.error.code).to.eq(-32700);
 		});
 		setTimeout(function () {
-			assert.equal(messages, 1);
+			expect(messages).to.eq(1);
 			done();
 		}, 120);
 	});
 });
 
-suite('Node.JS proxy', function () {
-	setup();
+describe('node.js proxy', function() {
+	before(setupServer);
 
-	test('Legal method calls', function (done) {
-		jsonws.proxy(httpProxyUrl, function (err, proxy) {
-			assert.notOk(err, 'error obtaining proxy');
-			assert.ok(proxy, 'invalid proxy object');
+	var getProxy = Bluebird.promisify(jsonws.proxy, jsonws);
 
-			if (err) {
-				done();
-				return;
-			}
+	it('works with legal method calls', function() {
+		return getProxy(httpProxyUrl).then(function(proxy) {
+			expect(proxy).to.be.ok;
 
 			var t = new proxy.Tester(serverUrl);
 			var expected = [5, 6, 10, 6, 10, 25, {a: 5, b: 'test'}, 'Abc', 'ABc', 'ABC', 'world'];
 
-			Q.all([
+			return Promise.all([
 				t.sum(2, 3),
 				t.sum('2', 4),
 				t.sumArray([1, 2, 3, 4]),
@@ -532,60 +519,46 @@ suite('Node.JS proxy', function () {
 				t.optionalArgs('A', 'B'),
 				t.optionalArgs('A', 'B', 'C'),
 				t.hello()
-			]).then(function (results) {
-				assert.deepEqual(results, expected, 'invalid results');
-			}).finally(done)
-			.done();
+			]).then(function(results) {
+				expect(results).to.deep.eq(expected, 'invalid results');
+			});
 		});
 	});
 
-	test('Error codes', function (done) {
-		jsonws.proxy(httpProxyUrl, function (err, proxy) {
-			assert.notOk(err, 'error obtaining proxy');
-			assert.ok(proxy, 'invalid proxy object');
-
-			if (err) {
-				done();
-				return;
-			}
+	it('returns error codes', function() {
+		return getProxy(httpProxyUrl).then(function(proxy) {
+			expect(proxy).to.be.ok;
 
 			var t = new proxy.Tester(serverUrl);
 			var expected = [-32000, -32602, -32602, 3, -32602, 'world'];
 			var actual = [];
 
-			Q.allSettled([
+			return Bluebird.settle([
 				t.throwError(),
 				t.sum(1),
 				t.sum(),
 				t.sum(1, 2, 3),
 				t.optionalArgs(),
 				t.hello('fake', 'argument') // JavaScript proxies filter out unneeded arguments, so this won't throw
-			]).then(function (results) {
-				results.forEach(function (result) {
-					if (result.state === "rejected") {
-						actual.push(result.reason.code);
+			]).then(function(results) {
+				results.forEach(function(result) {
+					if (result.isRejected()) {
+						actual.push(result.reason().code);
 					} else {
-						actual.push(result.value);
+						actual.push(result.value());
 					}
 				});
-			}).finally(function() {
-				assert.deepEqual(expected, actual);
-				done();
-			}).done();
+
+				expect(expected).to.deep.eq(actual);
+			});
 		});
 	});
 
-	test('Events', function (done) {
+	it('works with events', function(done) {
 		this.timeout(5000);
 
-		jsonws.proxy(httpProxyUrl, function (err, proxy) {
-			assert.notOk(err, 'error obtaining proxy');
-			assert.ok(proxy, 'invalid proxy object');
-
-			if (err) {
-				done();
-				return;
-			}
+		getProxy(httpProxyUrl).then(function(proxy) {
+			expect(proxy).to.be.ok;
 
 			var t = new proxy.Tester(serverUrl);
 			var h1 = 0;
@@ -598,51 +571,45 @@ suite('Node.JS proxy', function () {
 
 			t.on('testEvent', eventHandler1);
 			t.on('testDataEvent', function(e) { data = e; });
-			setTimeout(function () {
+			setTimeout(function() {
 				t.on('testEvent', eventHandler2);
 				t.on('test.the.namespace.event', eventHandler3);
 			}, 500);
 
-			setTimeout(function () {
-				assert.isTrue(h1 > 0);
+			setTimeout(function() {
+				expect(h1).to.be.above(0);
 				t.removeListener('testEvent', eventHandler1);
 				h1 = 0;
 			}, 1000);
 
-			setTimeout(function () {
-				assert.isTrue(h2 > 0);
-				assert.isTrue(h3 > 0);
+			setTimeout(function() {
+				expect(h2).to.be.above(0);
+				expect(h3).to.be.above(0);
 				t.removeAllListeners('testEvent');
 				t.removeAllListeners('test.the.namespace.event');
 				h2 = h3 = 0;
 			}, 1500);
 
-			setTimeout(function () {
-				assert.equal(h1 + h2 + h3, 0);
-				assert.deepEqual(data, { hello: 'world'});
+			setTimeout(function() {
+				expect(h1 + h2 + h3).to.eq(0);
+				expect(data).to.deep.eq({ hello: 'world'});
 				done();
 			}, 2000);
-		});
+		}).catch(done);
 	});
 
-	test('Async return', function (done) {
+	it('works for async return methods', function(done) {
 		this.timeout(1000);
-		jsonws.proxy(httpProxyUrl, function (err, proxy) {
-			assert.notOk(err, 'error obtaining proxy');
-			assert.ok(proxy, 'invalid proxy object');
-
-			if (err) {
-				done();
-				return;
-			}
+		getProxy(httpProxyUrl).then(function(proxy) {
+			expect(proxy).to.be.ok;
 
 			var t = new proxy.Tester(serverUrl);
 			t.testAsyncReturn(false, function() {
 				t.testAsyncReturn(true, function(err) {
-					assert.ok(err);
+					expect(err).to.be.ok;
 					done();
 				});
 			});
-		});
+		}).catch(done);
 	});
 });

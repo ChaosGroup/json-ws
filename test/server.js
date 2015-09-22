@@ -5,141 +5,118 @@
 
 'use strict';
 
-var assert = require('chai').assert;
+var expect = require('chai').expect;
 var jsonws = require('../index.js');
 
 // TODO JSWS-53 Add test suite for generator functions once we migrate to io.js/node 0.12.x
 
-suite('Constructor', function() {
-	test('Valid constructor', function(done) {
-		jsonws.api('1.0', 'Test API');
-		done();
+describe('Constructor - jsonws.api()', function() {
+	it('instantiates properly with valid arguments', function() {
+		var api = jsonws.api('1.0', 'Test API');
+		expect(api.version).to.eq('1.0');
+		expect(api.friendlyName).to.eq('Test API');
 	});
 
-	test('Constructor with version, no name', function(done) {
-		var err;
-		try {
-			jsonws.api('1.0');
-		} catch (ex) {
-			err = ex;
-		}
-		assert(err != null, 'API must fail without a name');
-		done();
+	it('throws when no name is given', function() {
+		expect(jsonws.api.bind(jsonws, '1.0')).to.throw(/version and name/);
 	});
 
-	test('Constructor with neither version nor name', function(done) {
-		var err;
-		try {
-			jsonws.api();
-		} catch (ex) {
-			err = ex;
-		}
-		assert(err != null, 'API must fail without a name');
-		done();
+	it('throws when neither name nor version are given', function() {
+		expect(jsonws.api.bind(jsonws)).to.throw(/version and name/);
 	});
 
-	test('Version property must be read-only', function(done) {
-		var api = jsonws.api('1.0', 'Test');
-		assert.throws(function() {api.version = '1.1'}, TypeError);
-		done();
+	it('keeps the version property read-only', function() {
+		var api = jsonws.api('1.0', 'Test API');
+		expect(function() { api.version = '1.1'; }).to.throw(TypeError);
 	});
 });
 
-suite('Enums', function() {
-
+describe('Enums - api.enum() and api.type(_, _, _, isEnum = true)', function() {
 	var enumValues = {
 		A: 0,
 		B: 1
 	};
 
 	var enumValuesAsArray = [ 'A', 'B' ];
+	var api;
 
-	test('Valid definition (name and values) using enum()', function(done) {
-		var api = jsonws.api('1.0', 'Test');
+	beforeEach(function() {
+		api = jsonws.api('1.0', 'Test API');
+	});
 
+	it('creates enums through enum() when name and values are given', function() {
 		api.enum('Test', enumValues);
-		assert.deepEqual(api.typeMap['Test'].struct, enumValues);
-		assert.equal(api.typeMap['Test'].description, '');
+		expect(api.typeMap['Test'].struct).to.deep.eq(enumValues);
+		expect(api.typeMap['Test'].description).to.be.empty;
 
 		api.enum('TestArray', enumValuesAsArray);
-		assert.deepEqual(api.typeMap['TestArray'].struct, enumValues);
-		assert.equal(api.typeMap['TestArray'].description, '');
-
-		done();
+		expect(api.typeMap['TestArray'].struct).to.deep.eq(enumValues);
+		expect(api.typeMap['TestArray'].description).to.be.empty;
 	});
 
-	test('Valid definition (name and values) using type()', function(done) {
-		var api = jsonws.api('1.0', 'Test');
+	it('creates enums through type() when name and values are given', function() {
 		api.type('Test', enumValues, 'Test description', true);
-		assert.isTrue(api.typeMap['Test'].enum);
-		assert.deepEqual(api.typeMap['Test'].struct, enumValues);
-		done();
+		expect(api.typeMap['Test'].enum).to.be.true;
+		expect(api.typeMap['Test'].struct).to.deep.eq(enumValues);
+		expect(api.typeMap['Test'].description).to.eq('Test description');
 	});
 
-	test('Invalid definition (name, NO values) using enum()', function(done) {
-		var api = jsonws.api('1.0', 'Test');
-		assert.throws(function() { api.enum('Test') }, /Type .* is undefined/);
-		done();
+	it('throws when enum() is called without values', function() {
+		expect(api.enum.bind(api, 'Test')).to.throw(/Type .* is undefined/);
 	});
 
-	test('Invalid definition (name, NO values) using type()', function(done) {
-		var api = jsonws.api('1.0', 'Test');
-		assert.throws(function() { api.type('Test') }, /Type .* is undefined/);
-		done();
+	it('throws when type() is called without values', function() {
+		expect(api.type.bind(api, 'Test')).to.throw(/Type .* is undefined/);
 	});
 
-	test('Invalid definition (name, values, but passing wrong isEnum flag)', function(done) {
-		var api = jsonws.api('1.0', 'Test');
-		assert.throws(function() { api.type('Test', enumValues) }, /Invalid type field struct/);
-		done();
+	it('throws when type() is called with wrong isEnum flag', function() {
+		expect(api.type.bind(api, 'Test', enumValues)).to.throw(/Invalid type field struct/);
 	});
 
-	test('Invalid definition (empty values)', function(done) {
-		var api = jsonws.api('1.0', 'Test');
-		assert.throws(function() { api.enum('Test', {}) }, /Empty enums are not allowed/);
-		done();
+	it('throws when enum() is called with empty values', function() {
+		expect(api.enum.bind(api, 'Test', {})).to.throw(/Empty enums are not allowed/);
 	});
 
-	test('Invalid definition (non-object values)', function(done) {
-		var api = jsonws.api('1.0', 'Test');
-		assert.throws(function() { api.enum('Test', 'Invalid') }, /Enum definition must be an object/);
-		done();
+	it('throws when enum() is called with non-object values', function() {
+		expect(api.enum.bind(api, 'Test', 'Invalid')).to.throw(/Enum definition must be an object/);
 	});
 
-	test('Invalid definition (non-numeric values)', function(done) {
-		var api = jsonws.api('1.0', 'Test');
-		assert.throws(function() { api.enum('Test', {A: 'a', B: 'b'}) }, /Enum values must be numbers/);
-		done();
+	it('throws when enum() is called with non-numeric values', function() {
+		expect(api.enum.bind(api, 'Test', { A: 'a', B: 'b' })).to.throw(/Enum values must be numbers/);
 	});
 
-	test('Converter', function(done) {
-		var api = jsonws.api('1.0', 'Test');
+	it('converts values to names and names to names', function() {
 		api.enum('Test', enumValues);
 		var enumType = api.type('Test');
-		assert.isNotNull(enumType);
-		assert.isFunction(enumType.convert);
-		assert.throws(function() { enumType.convert([]) }, /only numbers or strings are allowed/);
-		assert.throws(function() { enumType.convert({}) }, /only numbers or strings are allowed/);
-		assert.doesNotThrow(function() { enumType.convert(0) });
-		assert.doesNotThrow(function() { enumType.convert(1) });
-		assert.strictEqual(enumType.convert(0), 'A');
-		assert.strictEqual(enumType.convert(1), 'B');
-		assert.strictEqual(enumType.convert('A'), 'A');
-		assert.strictEqual(enumType.convert('B'), 'B');
-		assert.throws(function() { enumType.convert(2) }, /Unknown enum .* value/);
-		assert.throws(function() { enumType.convert('C') }, /Unknown enum .* value/);
-		done();
+
+		expect(enumType).to.not.be.null;
+		expect(enumType.convert).to.be.a('function');
+		expect(enumType.convert.bind(enumType, [])).to.throw(/only numbers or strings are allowed/);
+		expect(enumType.convert.bind(enumType, {})).to.throw(/only numbers or strings are allowed/);
+		expect(enumType.convert.bind(enumType, 0)).to.not.throw();
+		expect(enumType.convert.bind(enumType, 1)).to.not.throw();
+		expect(enumType.convert(0)).to.eq('A');
+		expect(enumType.convert(1)).to.eq('B');
+		expect(enumType.convert('A')).to.eq('A');
+		expect(enumType.convert('B')).to.eq('B');
+		expect(enumType.convert.bind(enumType, 2)).to.throw(/Unknown enum .* value/);
+		expect(enumType.convert.bind(enumType, 'C')).to.throw(/Unknown enum .* value/);
 	});
 });
 
-suite('Types', function() {
-	test('Valid definition (name and def)', function(done) {
-		var api = jsonws.api('1.0', 'Test');
+describe('Types - api.type()', function() {
+	var api;
+
+	beforeEach(function() {
+		api = jsonws.api('1.0', 'Test');
+	});
+
+	it('creates type through type() when name and definition are given', function() {
 		api.type('Test', { width: 'int' }, 'Sample descriptive text');
-		assert.isDefined(api.typeMap['Test']);
-		assert.isUndefined(api.typeMap['Test'].enum);
-		assert.equal(api.typeMap['Test'].description, 'Sample descriptive text');
-		assert.deepEqual(api.typeMap['Test'].struct, {
+		expect(api.typeMap['Test']).to.not.be.undefined;
+		expect(api.typeMap['Test'].enum).to.be.undefined;
+		expect(api.typeMap['Test'].description).to.eq('Sample descriptive text');
+		expect(api.typeMap['Test'].struct).to.deep.eq({
 			width: {
 				name: 'width',
 				type: 'int',
@@ -149,218 +126,189 @@ suite('Types', function() {
 				description: ''
 			}
 		}, 'type struct');
-		done();
 	});
 
-	test('Internal types - */any', function(done) {
-		var api = jsonws.api('1.0', 'Test');
+	it('creates internal types - */any', function() {
 		['*', 'any'].forEach(function(name) {
-			var type = api.type(name);
-			assert.ok(type);
-			assert.equal(type.type, name);
-			assert.isFunction(type.convert);
-			assert.strictEqual(type.convert(), undefined);
-			assert.strictEqual(type.convert(1), 1);
-			assert.strictEqual(type.convert('1'), '1');
+			var testType = api.type(name);
+			expect(testType).to.be.ok;
+			expect(testType.type).to.eq(name);
+			expect(testType.convert).to.be.a('function');
+			expect(testType.convert()).to.be.undefined;
+			expect(testType.convert(1)).to.eq(1);
+			expect(testType.convert('1')).to.eq('1');
 			var o = {};
-			assert.strictEqual(type.convert(o), o);
+			expect(testType.convert(o)).to.eq(o);
 			var a = [];
-			assert.strictEqual(type.convert(a), a);
+			expect(testType.convert(a)).to.eq(a);
 		});
-		done();
 	});
 
-	test('Internal types - int/integer', function(done) {
-		var api = jsonws.api('1.0', 'Test');
+	it('creates internal types - int/integer', function() {
 		['int', 'integer'].forEach(function(name) {
-			var type = api.type(name);
-			assert.ok(type);
-			assert.equal(type.type, name);
-			assert.isFunction(type.convert);
-			assert.strictEqual(type.convert(1), 1);
-			assert.strictEqual(type.convert('1'), 1);
-			assert.strictEqual(type.convert(-1), -1);
-			assert.strictEqual(type.convert('-1'), -1);
-			assert.strictEqual(type.convert(1.1), 1);
-			assert.strictEqual(type.convert(1.6), 1);
-			assert.strictEqual(type.convert('1.1'), 1);
-			assert.strictEqual(type.convert('1.6'), 1);
-			assert.strictEqual(type.convert('1.6 invalid'), 1);
-			assert.equal(type.convert('invalid').toString(), 'NaN');
-			assert.throws(function(){type.convert({})}, /Invalid integer value/);
-			assert.throws(function(){type.convert([])}, /Invalid integer value/);
+			var testType = api.type(name);
+			expect(testType).to.be.ok;
+			expect(testType.type).to.eq(name);
+			expect(testType.convert).to.be.a('function');
+			expect(testType.convert(1)).to.eq(1);
+			expect(testType.convert('1')).to.eq(1);
+			expect(testType.convert(-1)).to.eq(-1);
+			expect(testType.convert('-1')).to.eq(-1);
+			expect(testType.convert(1.1)).to.eq(1);
+			expect(testType.convert(1.6)).to.eq(1);
+			expect(testType.convert('1.1')).to.eq(1);
+			expect(testType.convert('1.6')).to.eq(1);
+			expect(testType.convert('1.6 invalid')).to.eq(1);
+			expect(isNaN(testType.convert('invalid'))).to.be.true;
+			expect(testType.convert.bind(testType, {})).to.throw(/Invalid integer value/);
+			expect(testType.convert.bind(testType, [])).to.throw(/Invalid integer value/);
 		});
-		done();
 	});
 
-	test('Internal types - number/float/double', function(done) {
-		var api = jsonws.api('1.0', 'Test');
+	it('creates internal types - number/float/double', function() {
 		['number', 'float', 'double'].forEach(function(name) {
-			var type = api.type(name);
-			assert.ok(type);
-			assert.equal(type.type, name);
-			assert.isFunction(type.convert);
-			assert.strictEqual(type.convert(1), 1);
-			assert.strictEqual(type.convert('1'), 1);
-			assert.strictEqual(type.convert(1.1), 1.1);
-			assert.strictEqual(type.convert(1.6), 1.6);
-			assert.strictEqual(type.convert('1.1'), 1.1);
-			assert.strictEqual(type.convert(-1.1), -1.1);
-			assert.strictEqual(type.convert('1.6'), 1.6);
-			assert.strictEqual(type.convert('-1.6'), -1.6);
-			assert.strictEqual(type.convert('-1.6 invalid'), -1.6);
-			assert.strictEqual(type.convert('invalid'), 0);
-			assert.throws(function(){type.convert({})}, /Invalid number value/);
-			assert.throws(function(){type.convert([])}, /Invalid number value/);
+			var testType = api.type(name);
+			expect(testType).to.be.ok;
+			expect(testType.type).to.eq(name);
+			expect(testType.convert).to.be.a('function');
+			expect(testType.convert(1)).to.eq(1);
+			expect(testType.convert('1')).to.eq(1);
+			expect(testType.convert(1.1)).to.eq(1.1);
+			expect(testType.convert('1.1')).to.eq(1.1);
+			expect(testType.convert(-1.1)).to.eq(-1.1);
+			expect(testType.convert(1.6)).to.eq(1.6);
+			expect(testType.convert('-1.6')).to.eq(-1.6);
+			expect(testType.convert('-1.6 invalid')).to.eq(-1.6);
+			expect(testType.convert('invalid')).to.eq(0);
+			expect(testType.convert.bind(testType, {})).to.throw(/Invalid number value/);
+			expect(testType.convert.bind(testType, [])).to.throw(/Invalid number value/);
 		});
-		done();
 	});
 
-	test('Internal types - date/time', function(done) {
-		var api = jsonws.api('1.0', 'Test');
+	it('creates internal types - date/time', function() {
 		['date', 'time'].forEach(function(name) {
-			var type = api.type(name);
-			assert.ok(type);
-			assert.equal(type.type, name);
-			assert.isFunction(type.convert);
-			assert.strictEqual(type.convert(), undefined);
+			var testType = api.type(name);
+			expect(testType).to.be.ok;
+			expect(testType.type).to.eq(name);
+			expect(testType.convert).to.be.a('function');
+			expect(testType.convert()).to.be.undefined;
 			var date = new Date();
-			assert.strictEqual(type.convert(date).toString(), new Date(date).toString());
-			assert.strictEqual(type.convert(date.getTime()).toString(), new Date(date).toString());
-			assert.strictEqual(type.convert(date.toString()).toString(), new Date(date).toString());
-			assert.throws(function(){type.convert([])}, /Invalid date value/);
-			assert.throws(function(){type.convert({})}, /Invalid date value/);
+
+			expect(testType.convert(date).toString()).to.eq(new Date(date).toString());
+			expect(testType.convert(date.getTime()).toString()).to.eq(new Date(date).toString());
+			expect(testType.convert(date.toString()).toString()).to.eq(new Date(date).toString());
+			expect(testType.convert.bind(testType, [])).to.throw(/Invalid date value/);
+			expect(testType.convert.bind(testType, {})).to.throw(/Invalid date value/);
 		});
-		done();
 	});
 
-	test('Internal types - bool/boolean', function(done) {
-		var api = jsonws.api('1.0', 'Test');
+	it('creates internal types - bool/boolean', function() {
 		['bool', 'boolean'].forEach(function(name) {
-			var type = api.type(name);
-			assert.ok(type);
-			assert.equal(type.type, name);
-			assert.isFunction(type.convert);
-			assert.isTrue(type.convert(true));
-			assert.isTrue(type.convert('true'));
-			assert.isFalse(type.convert(false));
-			assert.isFalse(type.convert('false'));
-			assert.throws(function() { type.convert('wrong') }, /Invalid boolean value/);
-			assert.isTrue(type.convert({}));
-			assert.isTrue(type.convert(1));
-			assert.isFalse(type.convert(0));
-			assert.isFalse(type.convert(null));
-			assert.isFalse(type.convert(/*undefined*/));
+			var testType = api.type(name);
+			expect(testType).to.be.ok;
+			expect(testType.type).to.eq(name);
+			expect(testType.convert).to.be.a('function');
+			expect(testType.convert(true)).to.be.true;
+			expect(testType.convert('true')).to.be.true;
+			expect(testType.convert(false)).to.be.false;
+			expect(testType.convert('false')).to.be.false;
+			expect(testType.convert.bind(testType, 'wrong')).to.throw(/Invalid boolean value/);
+			expect(testType.convert(1)).to.be.true;
+			expect(testType.convert({})).to.be.true;
+			expect(testType.convert(0)).to.be.false;
+			expect(testType.convert(null)).to.be.false;
+			expect(testType.convert()).to.be.false; // testType.convert(undefined)
 		});
-		done();
 	});
 
-	test('Internal types - object/json', function(done) {
-		var api = jsonws.api('1.0', 'Test');
+	it('creates internal types - object/json', function() {
 		['object', 'json'].forEach(function(name) {
-			var type = api.type(name);
-			assert.ok(type);
-			assert.equal(type.type, name);
-			assert.isFunction(type.convert);
-			assert.deepEqual(type.convert({test: 'me'}), {test: 'me'});
-			assert.deepEqual(type.convert('{"test": "me"}'), {test: 'me'});
-			assert.deepEqual(type.convert('["string",{"key":"value"},1234]'), ['string', { key: 'value'}, 1234]);
-			assert.equal(type.convert(1234), 1234);
-			assert.throws(function() { type.convert('invalid json') }, /Unexpected token/);
+			var testType = api.type(name);
+			expect(testType).to.be.ok;
+			expect(testType.type).to.eq(name);
+			expect(testType.convert).to.be.a('function');
+			expect(testType.convert({test: 'me'})).to.deep.eq({test: 'me'});
+			expect(testType.convert('{"test": "me"}')).to.deep.eq({test: 'me'});
+			expect(testType.convert('["string",{"key":"value"},1234]')).to.deep.eq(['string', {key: 'value'}, 1234]);
+			expect(testType.convert(1234)).to.deep.eq(1234);
+			expect(testType.convert.bind(testType, 'invalid json')).to.throw(/Unexpected token/);
 		});
-		done();
 	});
 
-	test('Internal types - string', function(done) {
-		var api = jsonws.api('1.0', 'Test');
-		var type = api.type('string');
-		assert.ok(type);
-		assert.equal(type.type, 'string');
-		assert.isFunction(type.convert);
-		assert.strictEqual(type.convert('test'), 'test');
-		assert.strictEqual(type.convert({test: 'me'}), JSON.stringify({test: 'me'}));
-		assert.strictEqual(type.convert(1234), '1234');
-		done();
+	it('creates internal types - string', function() {
+		var testType = api.type('string');
+		expect(testType).to.be.ok;
+		expect(testType.type).to.eq('string');
+		expect(testType.convert).to.be.a('function');
+		expect(testType.convert('test')).to.eq('test');
+		expect(testType.convert({test: 'me'})).to.eq(JSON.stringify({test: 'me'}));
+		expect(testType.convert(1234)).to.eq('1234');
 	});
 
-	test('Internal types - url', function(done) {
-		var api = jsonws.api('1.0', 'Test');
-		var type = api.type('url');
+	it('creates internal types - url', function() {
 		var url = require('url');
 		var testUrl = 'http://test.org/path';
-		assert.ok(type);
-		assert.equal(type.type, 'url');
-		assert.isFunction(type.convert);
-		assert.strictEqual(type.convert(null), null);
-		assert.deepEqual(type.convert(testUrl), url.parse(testUrl));
-		assert.strictEqual(type.convert(testUrl, true), testUrl);
-		assert.ok(type.convert(testUrl) instanceof url.Url);
-		assert.throws(function(){type.convert('')}, /Invalid URL value/);
-		assert.throws(function(){type.convert([])}, /Invalid URL value/);
-		assert.throws(function(){type.convert({})}, /Invalid URL value/);
-		done();
+		var testType = api.type('url');
+		expect(testType).to.be.ok;
+		expect(testType.type).to.eq('url');
+		expect(testType.convert).to.be.a('function');
+		expect(testType.convert(null)).to.be.null;
+		expect(testType.convert(testUrl)).to.deep.eq(url.parse(testUrl));
+		expect(testType.convert(testUrl, true)).to.eq(testUrl);
+		expect(testType.convert(testUrl)).to.be.instanceOf(url.Url);
+		expect(testType.convert.bind(testType, '')).to.throw(/Invalid URL value/);
+		expect(testType.convert.bind(testType, [])).to.throw(/Invalid URL value/);
+		expect(testType.convert.bind(testType, {})).to.throw(/Invalid URL value/);
 	});
 
-	test('Internal types - binary/buffer', function(done) {
-		var api = jsonws.api('1.0', 'Test');
-		var type = api.type('buffer');
-		assert.ok(type);
-		assert.equal(type.type, 'buffer');
-		assert.isFunction(type.convert);
-		assert.strictEqual(type.convert(new Buffer('test')).toString('base64'), new Buffer('test').toString('base64'));
-		assert.strictEqual(type.convert(new Buffer('test').toString('base64')).toString('base64'), new Buffer('test').toString('base64'));
-		assert.throws(function() { type.convert({test: 'me'}) }, /Invalid buffer data/);
-		done();
+	it('creates internal types - binary/buffer', function() {
+		['binary', 'buffer'].forEach(function(name) {
+			var testType = api.type(name);
+			expect(testType).to.be.ok;
+			expect(testType.type).to.eq(name);
+			expect(testType.convert).to.be.a('function');
+			expect(testType.convert(new Buffer('test')).toString('base64')).to.eq(new Buffer('test').toString('base64'));
+			expect(testType.convert(new Buffer('test').toString('base64')).toString('base64')).to.eq(new Buffer('test').toString('base64'));
+			expect(testType.convert.bind(testType, {test: 'me'})).to.throw(/Invalid buffer data/);
+		});
 	});
 
-	test('Invalid definition (no name)', function(done) {
-		var api = jsonws.api('1.0', 'Test');
-		assert.throws(function() { api.type() }, /Types must have a name/);
-		assert.throws(function() { api.type(null) }, /Types must have a name/);
-		done();
+	it('throws when type() is called without name', function() {
+		expect(api.type.bind(api)).to.throw(/Types must have a name/);
+		expect(api.type.bind(api, null)).to.throw(/Types must have a name/);
 	});
 
-	test('Invalid definition (name, NO def)', function(done) {
-		var api = jsonws.api('1.0', 'Test');
-		assert.throws(function() { api.type('Test') }, /Type .* is undefined/);
-		done();
+	it('throws when type() is called without definition', function() {
+		expect(api.type.bind(api, 'Test')).to.throw(/Type .* is undefined/);
 	});
 
-	test('Invalid definition (override user types)', function(done) {
-		var api = jsonws.api('1.0', 'Test');
-		api.type('Test', { test: 'string'});
-		assert.throws(function() { api.type('Test', { test: 'string' }) }, /Types cannot be overriden/);
-		done();
+	it('throws when type() is called to override already defined user types', function() {
+		api.type('Test', {test: 'string'});
+		expect(api.type.bind(api, 'Test', {test: 'string'})).to.throw(/Types cannot be overriden/);
 	});
 
-	test('Invalid definition (override internal types)', function(done) {
-		var api = jsonws.api('1.0', 'Test');
+	it('throws when type() is called to override internal types', function() {
 		['*', 'any', 'int', 'integer', 'number', 'float', 'double',
 		 'date', 'time', 'bool', 'boolean', 'object', 'json',
-		 'string', 'url', 'buffer', 'binary'].forEach(
-			function(internalType) {
-				assert.throws(function() { api.type(internalType, {}) }, /Internal types cannot be overriden/);
+		 'string', 'url', 'buffer', 'binary'].forEach(function(internalType) {
+				expect(api.type.bind(api, internalType, {})).to.throw(/Internal types cannot be overriden/);
 			});
-		done();
 	});
 
-	test('Invalid definition (invalid field types)', function(done) {
-		var api = jsonws.api('1.0', 'Test');
-		assert.throws(function() { api.type('Test', { test: 'invalid' }) }, /Referenced type .* is undefined/);
-		assert.throws(function() { api.type('Test', { test: {} }) }, /Missing type for field/);
-		assert.throws(function() { api.type('Test', { test: 1234 }) }, /Invalid type field struct/);
-		assert.throws(function() { api.type('Test', { test: {} }) }, /Missing type for field/);
-		assert.throws(function() { api.type('Test', { test: {type: 1234}}) }, /Invalid type field struct/);
-		assert.throws(function() { api.type('Test', { test: {type: null}}) }, /Missing type for field/);
-		assert.throws(function() { api.type('Test', { test: {type: {}}}) }, /Invalid type field struct/);
-		assert.throws(function() { api.type('Test', { test: {type: []}}) }, /Missing type for field/);
-		assert.throws(function() { api.type('Test', { test: {type: [1234]} }) }, /Invalid type field struct/);
-		assert.throws(function() { api.type('Test', { test: {type: [{}]} }) }, /Invalid type field struct/);
-		done();
+	it('throws when type() is called with invalid field types', function() {
+		expect(api.type.bind(api, 'Test', {test: 'invalid' })).to.throw(/Referenced type .* is undefined/);
+		expect(api.type.bind(api, 'Test', {test: {}})).to.throw(/Missing type for field/);
+		expect(api.type.bind(api, 'Test', {test: 1234})).to.throw(/Invalid type field struct/);
+		expect(api.type.bind(api, 'Test', {test: {}})).to.throw(/Missing type for field/);
+		expect(api.type.bind(api, 'Test', {test: {type: 1234}})).to.throw(/Invalid type field struct/);
+		expect(api.type.bind(api, 'Test', {test: {type: null}})).to.throw(/Missing type for field/);
+		expect(api.type.bind(api, 'Test', {test: {type: {}}})).to.throw(/Invalid type field struct/);
+		expect(api.type.bind(api, 'Test', {test: {type: []}})).to.throw(/Missing type for field/);
+		expect(api.type.bind(api, 'Test', {test: {type: [1234]}})).to.throw(/Invalid type field struct/);
+		expect(api.type.bind(api, 'Test', {test: {type: [{}]}})).to.throw(/Invalid type field struct/);
 	});
 
-	test('Simple type definition (only internal types, no arrays or enums)', function(done) {
-		var api = jsonws.api('1.0', 'Test');
+	it('allows simple type definition (only internal types, no arrays or enums)', function() {
 		api.type('Test', {
 			s: 'string',
 			n: 'int',
@@ -377,44 +325,31 @@ suite('Types', function() {
 			}
 		});
 
-		var type = api.type('Test');
+		var testType = api.type('Test');
 
-		assert.strictEqual(type.struct.notRequired.description, 'my description');
+		expect(testType.struct.notRequired.description).to.eq('my description');
 
-		assert.throws(function() { type.convert() }, /Simple value cannot be converted/);
-		assert.throws(function() { type.convert(1234) }, /Simple value cannot be converted/);
-		assert.throws(function() { type.convert('invalid') }, /Simple value cannot be converted/);
-		assert.throws(function() { type.convert({}) }, /Required field has no value: s/);
-		assert.throws(function() { type.convert({s: 's'}) }, /Required field has no value: n/);
-		assert.throws(function() { type.convert({s: 's', n: 1}) }, /Required field has no value: o/);
-		assert.doesNotThrow(function() { type.convert({s: 's', n: 1, o: {test: 'any'}}) });
-		assert.doesNotThrow(function() { type.convert(null) }, 'null structs are valid');
-		assert.throws(function() { type.convert(void 0) });
-
-		assert.throws(function() { type.convert({s: null, n: 1, o: {test: 'any'}}) }, /Required field has no value/);
-		assert.throws(function() { type.convert({s: '', n: 0, o: undefined}) }, /Required field has no value/);
-
-		assert.deepEqual(type.convert(
-			{
-				s: 's',
-				n: '1',
-				o: '{"test": "any"}'
-			}),
-			{
-				s: 's',
-				n: 1,
-				o: {test: 'any'},
-				notRequired: 1234,
-				notRequiredNoDefault: undefined
-			}
-		);
-
-		done();
+		expect(testType.convert.bind(testType)).to.throw(/Simple value cannot be converted/);
+		expect(testType.convert.bind(testType, 1234)).to.throw(/Simple value cannot be converted/);
+		expect(testType.convert.bind(testType, 'invalid')).to.throw(/Simple value cannot be converted/);
+		expect(testType.convert.bind(testType, {})).to.throw(/Required field has no value: s/);
+		expect(testType.convert.bind(testType, {s: 's'})).to.throw(/Required field has no value: n/);
+		expect(testType.convert.bind(testType, {s: 's', n: 1})).to.throw(/Required field has no value: o/);
+		expect(testType.convert.bind(testType, {s: 's', n: 1, o: {test: 'any'}})).not.to.throw();
+		expect(testType.convert.bind(testType, {s: null, n: 1, o: {test: 'any'}})).to.throw(/Required field has no value/);
+		expect(testType.convert.bind(testType, null)).not.to.throw;
+		expect(testType.convert.bind(testType, void 0)).to.throw;
+		expect(testType.convert.bind(testType, {s: '', n: 0, o: undefined})).to.throw(/Required field has no value/);
+		expect(testType.convert({s: 's', n: '1', o: '{"test": "any"}'})).to.deep.eq({
+			s: 's',
+			n: 1,
+			o: {test: 'any'},
+			notRequired: 1234,
+			notRequiredNoDefault: undefined
+		});
 	});
 
-	test('Complex type definition (referenced types, deep nesting)', function(done) {
-		var api = jsonws.api('1.0', 'Test');
-
+	it('allows complex type definition (refenced types, deep nesting)', function() {
 		api.enum('TestMode', {A: 1, B: 2});
 		api.type('Options', {
 			testMode: 'TestMode',
@@ -442,83 +377,67 @@ suite('Types', function() {
 
 		var testType = api.type('Test');
 
-		assert.deepEqual(
-			testType.convert({
-				name: 'test name',
-				options: {
-					testMode: 1,
-					parameter1: 'p1',
-					parameter2: 0.0
-				}
-			}),
-			{
-				name: 'test name',
-				options: {
-					testMode: 'A',
-					parameter1: 'p1',
-					parameter2: 0.0,
-					parameter3: undefined
-				},
-				defaultOptions: {
-					testMode: 'B',
-					parameter1: 'string',
-					parameter2: 1.1,
-					parameter3: 10
-				}
+		expect(testType.convert({
+			name: 'test name',
+			options: {
+				testMode: 1,
+				parameter1: 'p1',
+				parameter2: 0.0
 			}
-		);
-
-		assert.doesNotThrow(function() {
-			testType.convert({
-				name: 'test name',
-				options: {
-					testMode: 1,
-					parameter1: 'p1',
-					parameter2: 0.0
-				}
-			});
+		})).to.deep.eq({
+			name: 'test name',
+			options: {
+				testMode: 'A',
+				parameter1: 'p1',
+				parameter2: 0.0,
+				parameter3: undefined
+			},
+			defaultOptions: {
+				testMode: 'B',
+				parameter1: 'string',
+				parameter2: 1.1,
+				parameter3: 10
+			}
 		});
 
-		assert.throws(function() {
-			testType.convert({
-				name: 'test name',
-				options: {
-					testMode: 1,
-					parameter1: 'p1'
-				}
-			});
-		}, /Required field has no value: parameter2/);
+		expect(testType.convert.bind(testType, {
+			name: 'test name',
+			options: {
+				testMode: 1,
+				parameter1: 'p1',
+				parameter2: 0.0
+			}
+		})).to.not.throw;
 
-		assert.throws(function() {
-			testType.convert({
-				name: 'test name',
-				options: {
-					testMode: 1
-				}
-			});
-		}, /Required field has no value: parameter1/);
+		expect(testType.convert.bind(testType, {
+			name: 'test name',
+			options: {
+				testMode: 1,
+				parameter1: 'p1'
+			}
+		})).to.throw(/Required field has no value: parameter2/);
 
-		assert.throws(function() {
-			testType.convert({
-				name: 'test name',
-				options: {
-					testMode: 0
-				}
-			});
-		}, /Unknown enum .* value/);
+		expect(testType.convert.bind(testType, {
+			name: 'test name',
+			options: {
+				testMode: 1
+			}
+		})).to.throw(/Required field has no value: parameter1/);
 
-		assert.throws(function() {
-			testType.convert({
-				name: 'test name'
-			});
-		}, /Required field has no value: options/);
+		expect(testType.convert.bind(testType, {
+			name: 'test name',
+			options: {
+				testMode: 0
+			}
+		})).to.throw(/Unknown enum .* value/);
 
-		done();
+		expect(testType.convert.bind(testType, {
+			name: 'test name'
+		})).to.throw(/Required field has no value: options/);
 	});
 
-    test('Complex type definition (arrays)', function(done) {
-		var api = jsonws.api('1.0', 'Test');
-		api.type('Foo', { bar: 'string'	});
+	it('allow complex type definition (arrays)', function() {
+		api.type('Foo', {bar: 'string'});
 		api.type('Test', {
 			ints: ['int'],
 			complex: {
@@ -527,218 +446,211 @@ suite('Types', function() {
 		});
 		api.type('OptionalTest', {
 			ints: ['int'],
-			field1: { type: 'Foo', required: false },
-			field2: { type: ['Foo'], required: false }
+			field1: {type: 'Foo', required: false},
+			field2: {type: ['Foo'], required: false}
 		});
 
 		var testType = api.type('Test');
 
-		assert.deepEqual(testType.convert({
+		expect(testType.convert({
 			ints: [1, '2', '3.3', 4, 5],
-			complex: [{ "bar": "string" }, { bar: [1234, 5678] }, { bar: 1234 }]
-		}), {
+			complex: [{bar: "string" }, {bar: [1234, 5678]}, {bar: 1234}]
+		})).to.deep.eq({
 			ints: [1, 2, 3, 4, 5],
-			complex: [ {bar: 'string'} , {bar: '[1234,5678]'}, { bar: '1234' } ]
+			complex: [{bar: 'string'} , {bar: '[1234,5678]'}, {bar: '1234'}]
 		});
 
-		assert.throws(function() {
-			testType.convert({
-				ints: 'invalid',
-				complex: {}
-			});
-		}, /Field .* must be an array/);
+		expect(testType.convert.bind(testType, {
+			ints: 'invalid',
+			complex: {}
+		})).to.throw(/Field .* must be an array/);
 
-		assert.throws(function() {
-			testType.convert({
-				ints: [0, 1, 2],
-				complex: {
-					type: {} // invalid
-				}
-			});
-		}, /Field .* must be an array/);
+		expect(testType.convert.bind(testType, {
+			ints: [0, 1, 2],
+			complex: {
+				type: {} // invalid
+			}
+		})).to.throw(/Field .* must be an array/);
 
 		// Optional type test
 		testType = api.type('OptionalTest');
 
-		assert.deepEqual(testType.convert({
-			ints: [1, '2', '3.3', 4, 5]
-		}), {
+		expect(testType.convert({ints: [1, '2', '3.3', 4, 5]})).to.deep.eq({
 			ints: [1, 2, 3, 4, 5],
 			field1: undefined,
 			field2: undefined
 		});
 
-		assert.deepEqual(testType.convert({	ints: [1], field1: { bar: 'test'} }), {
+		expect(testType.convert({ints: [1], field1: { bar: 'test'}})).to.deep.eq({
 			ints: [1],
 			field1: { bar: 'test'},
 			field2: undefined
 		});
 
-		assert.deepEqual(testType.convert({	ints: [1], field2: [{ bar: 'test'}] }), {
+		expect(testType.convert({ints: [1], field2: [{ bar: 'test'}]})).to.deep.eq({
 			ints: [1],
 			field1: undefined,
 			field2: [{ bar: 'test'}]
 		});
-
-		done();
 	});
 });
 
-suite('Events', function() {
-	test('Valid definition', function (done) {
-		var api = jsonws.api('1.0', 'Test');
+describe('Events', function() {
+	var api;
 
-		assert.doesNotThrow(function() { api.event('OnTestEvent') });
-		assert.ok(api.eventMap['OnTestEvent']);
-		assert.deepEqual(api.eventMap['OnTestEvent'], {
+	beforeEach(function() {
+		api = jsonws.api('1.0', 'Test API');
+	});
+
+	it('works with valid definition - no type or description', function() {
+		expect(api.event.bind(api, 'OnTestEvent')).not.to.throw();
+		expect(api.eventMap['OnTestEvent']).to.be.ok;
+		expect(api.eventMap['OnTestEvent']).to.deep.eq({
 			name: 'OnTestEvent',
 			type: null,
 			isArray: false,
 			description: ''
 		});
+	});
 
-		assert.doesNotThrow(function() { api.event('OnOtherEvent', { type: 'int', description: 'Foobar' }) });
-		assert.ok(api.eventMap['OnOtherEvent']);
-		assert.deepEqual(api.eventMap['OnOtherEvent'], {
+	it('works with valid definition - type and description', function() {
+		expect(api.event.bind(api, 'OnOtherEvent', {type: 'int', description: 'Foobar'})).not.to.throw();
+		expect(api.eventMap['OnOtherEvent']).to.be.ok;
+		expect(api.eventMap['OnOtherEvent']).to.deep.eq({
 			name: 'OnOtherEvent',
 			type: 'int',
 			isArray: false,
 			description: 'Foobar'
 		});
+	});
 
-		assert.doesNotThrow(function() { api.event('OnEventWithDescription', 'Description') });
-		assert.ok(api.eventMap['OnEventWithDescription']);
-		assert.deepEqual(api.eventMap['OnEventWithDescription'], {
+	it('works with valid definition - only description', function() {
+		expect(api.event.bind(api, 'OnEventWithDescription', 'Description')).not.to.throw();
+		expect(api.eventMap['OnEventWithDescription']).to.be.ok;
+		expect(api.eventMap['OnEventWithDescription']).to.deep.eq({
 			name: 'OnEventWithDescription',
 			type: null,
 			isArray: false,
 			description: 'Description'
 		});
+	});
 
-		assert.doesNotThrow(function() { api.namespace('test.me'); api.event('OnTestEvent') });
-		assert.ok(api.eventMap['test.me.OnTestEvent']);
-		assert.deepEqual(api.eventMap['test.me.OnTestEvent'], {
+	it('works with valid definition - namespaced event', function() {
+		api.namespace('test.me');
+		expect(api.event.bind(api, 'OnTestEvent')).not.to.throw();
+		expect(api.eventMap['test.me.OnTestEvent']).to.be.ok;
+		expect(api.eventMap['test.me.OnTestEvent']).to.deep.eq({
 			name: 'test.me.OnTestEvent',
 			type: null,
 			isArray: false,
 			description: ''
 		});
-
-		done();
 	});
 
-	test('Invalid definition', function(done) {
-		var api = jsonws.api('1.0', 'Test');
-		assert.throws(function() { api.event() }, /Service events MUST have a name/);
-		assert.throws(function() { api.event('OnEvent', ['invalid options']) }, /Event options must be an object/);
-		assert.throws(function() { api.event('OnEvent', 1234) }, /Event options must be an object/);
-		assert.throws(function() { api.event('OnEvent', {type:'Unkown Type'}) }, /Undefined event type/);
-		assert.throws(function() { api.event('OnEvent'); api.event('OnEvent') }, /Overriding events is not allowed/);
-		assert.throws(function() { api.define({ name: 'OnEvent', event: true }); }, /Registering events using the define method is obsolete/);
-		done();
-	});
+	it('does not work with invalid definitions', function() {
+		expect(api.event.bind(api)).to.throw(/Service events MUST have a name/);
+		expect(api.event.bind(api, 'OnEvent', ['invalid options'])).to.throw(/Event options must be an object/);
+		expect(api.event.bind(api, 'OnEvent', 1234)).to.throw(/Event options must be an object/);
+		expect(api.event.bind(api, 'OnEvent', {type:'Unkown Type'})).to.throw(/Undefined event type/);
+		api.event('OnEvent');
+		expect(api.event.bind(api, 'OnEvent')).to.throw(/Overriding events is not allowed/);
+		expect(api.define.bind(api, { name: 'OnEvent', event: true })).to.throw(/Registering events using the define method is obsolete/);
+	})
 });
 
-suite('Methods', function() {
-	test('Empty definition', function(done) {
-		var api = jsonws.api('1.0', 'Test');
+describe('Methods', function() {
+	var api;
+
+	beforeEach(function() {
+		api = jsonws.api('1.0', 'Test API');
+	});
+
+	it('supports empty definition with string, throws on usage', function() {
 		api.define('method');
-		assert.ok(api.methodMap['method']);
-		assert.throws(function(){ api.fn.method() }, /not yet implemented/);
 
-		api = jsonws.api('1.0', 'Test');
-		api.define({ name: 'method' });
-		assert.ok(api.methodMap['method']);
-		assert.throws(function(){ api.fn.method() }, /not yet implemented/);
-
-		done();
+		expect(api.methodMap['method']).to.be.ok;
+		expect(api.fn.method.bind(api.fn)).to.throw(/not yet implemented/);
 	});
 
-	test('String name, function', function(done) {
-		var api = jsonws.api('1.0', 'Test');
-		api.define('method', function() {return 1;});
-		assert.ok(api.methodMap['method']);
-		assert.doesNotThrow(function(){ api.fn.method() });
-		assert.equal(api.fn.method(), 1);
-		done();
+	it('supports empty definition with object, throws on usage', function() {
+		api.define({name: 'method'});
+
+		expect(api.methodMap['method']).to.be.ok;
+		expect(api.fn.method.bind(api.fn)).to.throw(/not yet implemented/);
 	});
 
-	test('Invalid definition', function(done) {
-		var api = jsonws.api('1.0', 'Test');
+	it('supports definition with string name and function', function() {
+		api.define('method', function() { return 1; });
 
-		assert.throws(function() { api.define() }, /Invalid definition options/);
-		assert.throws(function() { api.define(['invalid']) }, /Invalid definition options/);
-		assert.throws(function() { api.define(1234) }, /Invalid definition options/);
-
-		assert.throws(function() { api.define({}) }, /Service methods MUST have a name/);
-		assert.throws(function() { api.define({name: 'test', returns: 'invalid'}) }, /Undefined return type/);
-		assert.throws(function() { api.define({name: 'test', returns: []}) }, /Undefined return type/);
-
-		assert.throws(function() { api.define({name: 'test', params: 'invalid'}) }, /The params property must be an array/);
-		assert.throws(function() { api.define({name: 'test', params: {}}) }, /The params property must be an array/);
-		assert.throws(function() { api.define({name: 'test', params: 1234}) }, /The params property must be an array/);
-
-		assert.throws(function() { api.define({name: 'test', params: [{}]}) }, /Unnamed method parameter/);
-		assert.throws(function() { api.define({name: 'test', params: [{type: 'string'}]}) }, /Unnamed method parameter/);
-
-		assert.throws(function() { api.define({name: 'test', params: [{name: 'test', type: ['strings'] }]}) }, /Undefined type/);
-		assert.throws(function() { api.define({name: 'test', params: [{name: 'test', type: [] }]}) }, /Missing type for param test/);
-
-		assert.throws(function() { api.define({name: 'test', params: [{name: 'test', type: { name: 'invalid' }}]}) }, /Inline type definitions are not supported/);
-		assert.throws(function() { api.define({name: 'test', params: [{name: 'test', type: 'invalid'}]}) }, /Undefined type/);
-
-		done();
+		expect(api.methodMap['method']).to.be.ok;
+		expect(api.fn.method.bind(api.fn)).not.to.throw();
+		expect(api.fn.method()).to.eq(1);
 	});
 
-	test('Complex definitions (parameters and context this)', function(done) {
-		var api = jsonws.api('1.0', 'Test');
+	it('does not work with invalid definitions', function() {
+		expect(api.define.bind(api)).to.throw(/Invalid definition options/);
+		expect(api.define.bind(api, ['invalid'])).to.throw(/Invalid definition options/);
+		expect(api.define.bind(api, 1234)).to.throw(/Invalid definition options/);
 
+		expect(api.define.bind(api, {})).to.throw(/Service methods MUST have a name/);
+		expect(api.define.bind(api, {name: 'test', returns: 'invalid'})).to.throw(/Undefined return type/);
+		expect(api.define.bind(api, {name: 'test', returns: []})).to.throw(/Undefined return type/);
+
+		expect(api.define.bind(api, {name: 'test', params: 'invalid'})).to.throw(/The params property must be an array/);
+		expect(api.define.bind(api, {name: 'test', params: {}})).to.throw(/The params property must be an array/);
+		expect(api.define.bind(api, {name: 'test', params: 1234})).to.throw(/The params property must be an array/);
+
+		expect(api.define.bind(api, {name: 'test', params: [{}]})).to.throw(/Unnamed method parameter/);
+		expect(api.define.bind(api, {name: 'test', params: [{type: 'string'}]})).to.throw(/Unnamed method parameter/);
+
+		expect(api.define.bind(api, {name: 'test', params: [{name: 'test', type: ['strings'] }]})).to.throw(/Undefined type/);
+		expect(api.define.bind(api, {name: 'test', params: [{name: 'test', type: [] }]})).to.throw(/Missing type for param test/);
+
+		expect(api.define.bind(api, {name: 'test', params: [{name: 'test', type: { name: 'invalid' }}]})).to.throw(/Inline type definitions are not supported/);
+		expect(api.define.bind(api, {name: 'test', params: [{name: 'test', type: 'invalid'}]})).to.throw(/Undefined type/);
+	});
+
+	it('supports complex definitions - parameters and context this', function() {
 		api.define({
 			name: 'test',
-			params: [{name: 'a', type: 'int'},{name: 'b', type: 'int'}]
+			params: [{name: 'a', type: 'int'}, {name: 'b', type: 'int'}]
 		}, function(a, b) { return a + b });
-		assert.strictEqual(api.fn.test(2, 3), 5);
+		expect(api.fn.test(2, 3)).to.eq(5);
 
 		api.define({
 			name: 'test2',
-			params: [{name: 'a', type: 'int'},{name: 'b', type: 'int'}],
+			params: [{name: 'a', type: 'int'}, {name: 'b', type: 'int'}],
 			'this': { sum: function(a, b) { return a + b }}
 		}, function(a, b) { return this.sum(a, b) });
-		assert.strictEqual(api.fn.test2(2, 3), 5);
+		expect(api.fn.test2(2, 3)).to.eq(5);
 
 		api.define({
 			name: 'sum',
 			'this': { sum: function(a, b) { return a + b }}
 		});
-		assert.strictEqual(api.fn.sum(2, 3), 5);
+		expect(api.fn.sum(2, 3)).to.eq(5);
 
 		api.define({
 			name: 'sumRemapped',
 			'this': { internalMethodToRemap: function(a, b) { return a + b }}
 		}, 'internalMethodToRemap');
-		assert.strictEqual(api.fn.sumRemapped(2, 3), 5);
+		expect(api.fn.sumRemapped(2, 3)).to.eq(5);
 
 		api.define({
 			name: 'fail',
 			'this': { fail: function() { throw new Error('Custom error') }}
 		});
-		assert.throws(function() { api.fn.fail() }, /Custom error/);
+		expect(api.fn.fail.bind(api)).to.throw(/Custom error/);
 
-		api.define({
-			name: 'fail',
-			'this': {}
-		}, 'fail');
-		assert.throws(function() { api.fn.fail() }, /Invalid method invocation/);
+		api.define({name: 'fail', 'this': {}}, 'fail');
+		expect(api.fn.fail.bind(api)).to.throw(/Invalid method invocation/);
 
-		api.define({
-			name: 'missing',
-			'this': { }
-		}, 'remappedMissing');
-		assert.throws(function() { api.fn.missing() }, /Invalid method invocation/);
+		api.define({name: 'missing', 'this': {}}, 'remappedMissing');
+		expect(api.fn.missing.bind(api)).to.throw(/Invalid method invocation/);
 
 		api.define({name: 'testArrayParam', params: [{name: 'test', type: ['string'] }]});
-		assert.strictEqual(api.methodMap['testArrayParam'].params[0].isArray, true);
-		assert.strictEqual(api.methodMap['testArrayParam'].params[0].type, 'string');
+		expect(api.methodMap['testArrayParam'].params[0].isArray).to.be.true;
+		expect(api.methodMap['testArrayParam'].params[0].type).to.eq('string');
 
 		api.define({
 			name: 'optionalArgs',
@@ -748,118 +660,107 @@ suite('Methods', function() {
 				{ name: 'p2', type: 'int', default: 1 }
 			]
 		});
-		assert.strictEqual(api.methodMap['optionalArgs'].params[0].name, 'required');
-		assert.strictEqual(api.methodMap['optionalArgs'].params[1].name, 'p1');
-		assert.strictEqual(api.methodMap['optionalArgs'].params[2].name, 'p2');
-		assert.strictEqual(api.methodMap['optionalArgs'].params[1].default, 0);
-		assert.strictEqual(api.methodMap['optionalArgs'].params[2].default, 1);
-
-		done();
+		expect(api.methodMap['optionalArgs'].params[0].name).to.eq('required');
+		expect(api.methodMap['optionalArgs'].params[1].name).to.eq('p1');
+		expect(api.methodMap['optionalArgs'].params[2].name).to.eq('p2');
+		expect(api.methodMap['optionalArgs'].params[1].default).to.eq(0);
+		expect(api.methodMap['optionalArgs'].params[2].default).to.eq(1);
 	});
 
-	test('Namespaces', function(done) {
-		var api = jsonws.api('1.0', 'Test');
-
+	it('supports namespaces', function() {
 		api.define('a.test');
 		api.define('b.test');
 		api.define('a.b.test');
 
-		assert.ok(api.fn.a.test);
-		assert.ok(api.fn.b.test);
-		assert.ok(api.fn.a.b.test);
+		expect(api.fn.a.test).to.be.ok;
+		expect(api.fn.b.test).to.be.ok;
+		expect(api.fn.a.b.test).to.be.ok;
 
-		assert.throws(function() { api.fn.a.test() }, /not yet implemented/);
-		assert.throws(function() { api.fn.b.test() }, /not yet implemented/);
-		assert.throws(function() { api.fn.a.b.test() }, /not yet implemented/);
+		expect(api.fn.a.test.bind(api.fn.a)).to.throw(/not yet implemented/);
+		expect(api.fn.b.test.bind(api.fn.b)).to.throw(/not yet implemented/);
+		expect(api.fn.a.b.test.bind(api.fn.a.b)).to.throw(/not yet implemented/);
 
 		api.define('test.namespace.math.sum', function(a, b) { return a + b });
-		assert.equal(api.fn.test.namespace.math.sum(2, 3), 5);
-
-		done();
+		expect(api.fn.test.namespace.math.sum(2, 3)).to.eq(5);
 	});
 
-	test('Define all / from object', function(done) {
-		done();
-	});
+	it('supports definitions from objects'); // TODO
 });
 
-suite('Groups', function() {
+describe('Groups', function() {
+	var api;
 
-	test('Default', function(done) {
-		var api = jsonws.api('1.0', 'Test');
-		api.define('method');
-		assert.ok(api.groups['Default']);
-		assert.equal(api.currentGroup.name, api.groups['Default'].name);
-		assert.equal(api.groups['Default'].items[0], 'method:method');
-		done();
+	beforeEach(function() {
+		api = jsonws.api('1.0', 'Test API');
 	});
 
-	test('Multiple', function(done) {
-		var api = jsonws.api('1.0', 'Test');
+	it('uses the default group by default', function() {
+		api.define('method');
+		expect(api.groups['Default']).to.be.ok;
+		expect(api.currentGroup.name).to.eq(api.groups['Default'].name);
+		expect(api.groups['Default'].items[0]).to.eq('method:method');
+	});
+
+	it('supports multiple groups', function() {
 		api.define('method');
 		api.group('Group1').define('method1');
 		api.group('Group2').define('method2');
-		assert.ok(api.groups['Group1']);
-		assert.equal(api.groups['Group1'].items[0], 'method:method1');
-		assert.ok(api.groups['Group2']);
-		assert.equal(api.groups['Group2'].items[0], 'method:method2');
-		done();
+		expect(api.groups['Group1']).to.be.ok;
+		expect(api.groups['Group1'].items[0]).to.eq('method:method1');
+		expect(api.groups['Group2']).to.be.ok;
+		expect(api.groups['Group2'].items[0]).to.eq('method:method2');
 	});
 
-	test('Description, name, valid structure', function(done) {
-		var api = jsonws.api('1.0', 'Test');
+	it('supports group description, name, structure', function() {
 		api.group('Test', 'Test description');
-		assert.equal(api.groups['Test'].name, 'Test');
-		assert.equal(api.groups['Test'].description, 'Test description');
-		assert.ok(Array.isArray(api.groups['Test'].items));
-		done();
+		expect(api.groups['Test'].name).to.eq('Test');
+		expect(api.groups['Test'].description).to.eq('Test description');
+		expect(api.groups['Test'].items).to.be.an('array');
 	});
-
 });
 
-suite('External definitions', function() {
+describe('External definitions', function() {
 	var path = require('path');
 	var implementations = {
 		sum: function(a, b) { return a + b },
 		method1: function(a, b) { return a + b},
 		method2: function() {}
 	};
+	var api;
 
-	test('Using code', function(done) {
-		var api = jsonws.api('1.0', 'Test');
-		api.import(path.resolve(__dirname, 'resources', 'server-def-code.js'));
-
-		assert.ok(api.fn.sum);
-		assert.equal(api.fn.sum(2, 3), 5);
-
-		assert.ok(api.typeMap['RenderMode']);
-		assert.ok(api.typeMap['RenderOptions']);
-
-		assert.equal(api.methodMap['sum'].description, 'Returns the sum of two numbers');
-
-		assert.ok(api.eventMap['ontest']);
-		assert.equal(api.eventMap['ontest'].description, 'test event');
-
-		done();
+	beforeEach(function() {
+		api = jsonws.api('1.0', 'Test API');
 	});
 
-	test('Using JSON', function(done) {
-		var api = jsonws.api('1.0', 'Test');
+	it('allows external definitions using code', function() {
+		api.import(path.resolve(__dirname, 'resources', 'server-def-code.js'));
+
+		expect(api.fn.sum).to.be.ok;
+		expect(api.fn.sum(2, 3)).to.eq(5);
+
+		expect(api.typeMap['RenderMode']).to.be.ok;
+		expect(api.typeMap['RenderOptions']).to.be.ok;
+
+		expect(api.methodMap['sum'].description).to.eq('Returns the sum of two numbers');
+
+		expect(api.eventMap['ontest']).to.be.ok;
+		expect(api.eventMap['ontest'].description).to.eq('test event');
+	});
+
+	it('allows external definitions using JSON', function() {
 		api.import(path.resolve(__dirname, 'resources', 'server-def-json.js'));
 		api.defineAll(implementations);
 
-		assert.ok(api.fn.sum, 'sum');
-		assert.equal(api.fn.sum(2, 3), 5);
+		expect(api.fn.sum).to.be.ok;
+		expect(api.fn.sum(2, 3)).to.eq(5);
 
-		assert.ok(api.typeMap['RenderMode'], 'RenderMode');
-		assert.ok(api.typeMap['RenderOptions'], 'RenderOptions');
+		expect(api.typeMap['RenderMode']).to.be.ok;
+		expect(api.typeMap['RenderOptions']).to.be.ok;
 
-		assert.equal(api.methodMap['sum'].description, 'Returns the sum of two numbers');
+		expect(api.methodMap['sum'].description).to.eq('Returns the sum of two numbers');
 
-		assert.ok(api.eventMap['ontest']);
-		assert.equal(api.eventMap['ontest'].description, 'test event');
-
-		done();
+		expect(api.eventMap['ontest']).to.be.ok;
+		expect(api.eventMap['ontest'].description).to.eq('test event');
 	});
 
 	function splitLines(text) {
@@ -872,20 +773,17 @@ suite('External definitions', function() {
 		return arr.splice(0, arr.length - 1);
 	}
 
-	function assertExamplesAndSnippets(api) {
-		assert.ok(api.methodMap['method1'].examples['JavaScript']);
-		assert.ok(api.methodMap['method1'].examples['Java']);
-		assert.deepEqual(splitLines(api.methodMap['method1'].examples['HTTP']), ['[1, 2]']);
-		assert.ok(api.methodMap['method2'].examples['HTTP']);
-		assert.deepEqual(splitLines(api.methodMap['method2'].examples['JavaScript']),
-			['proxy.method2();']);
-		assert.ok(api.snippetMap['snippet1']['JavaScript']);
-		assert.ok(api.snippetMap['snippet1']['Java']);
-		assert.ok(api.snippetMap['snippet1']['Node']);
-		assert.deepEqual(splitLines(api.snippetMap['snippet1']['Java']),
-			['int a = proxy.method1(1, 2).get();', 'proxy.method2().get();']);
-		assert.ok(api.snippetMap['snippet2']['JavaScript']);
-
+	function expectExamplesAndSnippets(api) {
+		expect(api.methodMap['method1'].examples['JavaScript']).to.be.ok;
+		expect(api.methodMap['method1'].examples['Java']).to.be.ok;
+		expect(splitLines(api.methodMap['method1'].examples['HTTP'])).to.deep.eq(['[1, 2]']);
+		expect(api.methodMap['method2'].examples['HTTP']).to.be.ok;
+		expect(splitLines(api.methodMap['method2'].examples['JavaScript'])).to.deep.eq(['proxy.method2();']);
+		expect(api.snippetMap['snippet1']['JavaScript']).to.be.ok;
+		expect(api.snippetMap['snippet1']['Java']).to.be.ok;
+		expect(api.snippetMap['snippet1']['Node']).to.be.ok;
+		expect(splitLines(api.snippetMap['snippet1']['Java'])).to.deep.eq(['int a = proxy.method1(1, 2).get();', 'proxy.method2().get();']);
+		expect(api.snippetMap['snippet2']['JavaScript']).to.be.ok;
 	};
 
 	function importExamples(api) {
@@ -895,17 +793,15 @@ suite('External definitions', function() {
 		api.examples(path.resolve(__dirname, 'resources', 'examples.curl'));
 	}
 
-	test('Import examples and snippets before definitions', function() {
-		var api = jsonws.api('1.0', 'Test');
+	it('imports examples and snippets before definitions', function() {
 		importExamples(api);
 		api.defineAll(implementations);
-		assertExamplesAndSnippets(api);
+		expectExamplesAndSnippets(api);
 	});
 
-	test('Import examples and snippets after definitions', function() {
-		var api = jsonws.api('1.0', 'Test');
+	it('imports examples and snippets after definitions', function() {
 		api.defineAll(implementations);
 		importExamples(api);
-		assertExamplesAndSnippets(api);
+		expectExamplesAndSnippets(api);
 	});
 });
