@@ -1,0 +1,9 @@
+{
+  "source": {
+    "include": ["lib", "./"],
+    "exclude": ["static", "test", "proxies"]
+  },
+  "opts": {
+    "destination": "./output/doc"
+  }
+}
