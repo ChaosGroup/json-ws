@@ -28,23 +28,11 @@ module.exports.transport = {
 		transport = new transport(httpServer, expressApp);
 		transport.trace = new Trace(debugLogger);
 		return transport;
-	},
-
-	// TODO: Socket.io transport is deprecated, remove
-	SocketIO: function(httpServer) {
-		if (!httpServer) {
-			throw new Error('SocketIO transport requires an HTTP server.');
-		}
-		var transport = require("./lib/sio-transport.js");
-		transport = new transport(httpServer);
-		transport.trace = new Trace(debugLogger);
-		return transport;
 	}
 };
 
 module.exports.transport.WebSocket.type = 'WebSocket';
 module.exports.transport.HTTP.type = 'HTTP';
-module.exports.transport.SocketIO.type = 'SocketIO';
 
 /**
  * Fetches proxy code from a URL
