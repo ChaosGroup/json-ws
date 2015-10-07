@@ -40,6 +40,9 @@ function buildTestApi() {
 	TestAPI.prototype.throwError = function () {
 		throw new Error('Throw error test');
 	};
+	TestAPI.prototype.throwUnexpectedError = function () {
+		throw new Error('Throw unexpected error test');
+	};
 
 	api.defineAll(new TestAPI());
 	api.type('TestData', {
@@ -59,7 +62,11 @@ function buildTestApi() {
 	});
 	api.define({
 		name: 'throwError',
-		returns: 'object'
+		returns: 'async'
+	});
+	api.define({
+		name: 'throwUnexpectedError',
+		returns: ['object']
 	});
 	api.define({
 		name: 'testAsyncReturn',
@@ -268,7 +275,7 @@ describe('RPC over HTTP', function() {
 			-32601, -32601, -32601,	 // method not found
 			-32602, -32602, -32602,  // invalid parameters
 			-32602, -32602,
-			-32000, -32000, -32602, -32602, -32000	 // internal server error
+			-32000, -32000, -32000, -32602, -32602, -32000	 // internal server error
 		];
 
 		return Promise.all([
@@ -282,16 +289,20 @@ describe('RPC over HTTP', function() {
 			getAsync('optionalArgs?b=b&c=c'),
 			getAsync('sumArray?ints=1234'),
 			getAsync('throwError'),
+			getAsync('throwUnexpectedError'),
 			getAsync('hello?params=["fake"]'),
 			postAsync('hello', {params:['fake']}),
 			getAsync('dataTest?params=[1234]')
-		], function(results) {
+		]).then(function(results) {
 			results = results.map(function (r) { // r === [response, body]
 				if (typeof r[1] === 'string') {
 					r[1] = JSON.parse(r[1]);
 				}
 				expect(r[1].error).to.be.defined;
 				expect(r[1].error).not.to.be.null;
+				if (r[1].id == 'throwUnexpectedError') {
+					expect(r[1].error.data).to.match(/unexpected error/);
+				}
 				return r[1].error.code;
 			});
 			expect(results).to.deep.eq(expected);

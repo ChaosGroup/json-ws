@@ -27,6 +27,10 @@ test.prototype.throwError = function throwError(callback) {
 	callback({'stack': 'error executing method'});
 };
 
+test.prototype.throwUnexpectedError = function throwError() {
+	throw new Error('Unexpected error');
+};
+
 test.prototype.testMe = function testMe(callback) {
 	callback(null, {
 			'property1': 'int',
@@ -139,6 +143,7 @@ module.exports = function() {
 		return buffer.length;
 	 })
 	.define({name: 'throwError', returns: 'int'})
+	.define({name: 'throwUnexpectedError', returns: ['object']})
 	.define({
 		'name': 'sum',
 		'description': 'Some test method example, does int sum',
