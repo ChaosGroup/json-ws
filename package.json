@@ -38,6 +38,7 @@
     "test": "gulp test",
     "lint": "gulp lint",
     "jsdoc": "jsdoc . -c conf.json",
-    "cover": "gulp cover"
+    "cover": "gulp cover",
+    "example-app": "node test/adhoc/app"
   }
 }
