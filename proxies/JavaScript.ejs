@@ -42,6 +42,7 @@
 		}
 	};
 	inherits(<%=localName%>, EventEmitter);
+	Object.defineProperty(<%= localName %>, 'VERSION', { value: '<%= metadata.version %>'});
 
 	<%=localName%>.prototype.useHTTP = function() {
 		this.defaultTransport = 'http';

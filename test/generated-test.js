@@ -42,6 +42,7 @@
 		}
 	};
 	inherits(GeneratedTest, EventEmitter);
+	Object.defineProperty(GeneratedTest, 'VERSION', { value: '1.0'});
 
 	GeneratedTest.prototype.useHTTP = function() {
 		this.defaultTransport = 'http';
