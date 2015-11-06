@@ -1,7 +1,18 @@
 'use strict';
 
 var Trace = require("./lib/trace.js");
+var vm = require('vm');
+var Module = require('module');
+var path = require('path');
+var request = require('request');
 var debugLogger;
+
+try {
+	require.resolve('json-ws');
+} catch(err) {
+	// Import error, make json-ws requireable (for require('json-ws/client') in proxies):
+	module.paths.unshift(path.resolve(__dirname, '..'));
+}
 
 module.exports = function(logger) {
 	debugLogger = logger;
@@ -46,7 +57,7 @@ module.exports.proxy = function(proxyUrl, sslSettings, callback) {
 		callback = sslSettings;
 		sslSettings = {};
 	}
-	var request = require('request');
+
 	request(proxyUrl, {
 		agentOptions: sslSettings
 	}, function(err, response, body) {
@@ -57,29 +68,19 @@ module.exports.proxy = function(proxyUrl, sslSettings, callback) {
 			return;
 		}
 
-		var fileName = proxyUrl.substring(0, proxyUrl.indexOf('?'));
-		var proxyExports = {};
+		var proxyModule = {exports: {}};
 
-		var vm = require('vm');
 		try {
-			vm.runInNewContext(body, {
-				module: {exports: proxyExports},
-				require: function(moduleName) {
-					if ('json-ws' === moduleName) {
-						return module.exports;
-					} else if ('json-ws/client' === moduleName) {
-						return module.exports.client;
-					} else {
-						return require(moduleName);
-					}
-				}
-			}, fileName);
+			var moduleWrapper = vm.runInThisContext(Module.wrap(body), {filename: proxyUrl});
+			moduleWrapper(proxyModule.exports, require, proxyModule);
 		} catch (vmError) {
-			callback(new TypeError('Error loading proxy: ' + vmError.message));
+			var err = new Error('Error loading proxy');
+			err.stack = vmError.stack;
+			callback(err);
 			return;
 		}
 
-		callback(null, proxyExports);
+		callback(null, proxyModule.exports);
 	});
 };
 
