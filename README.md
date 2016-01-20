@@ -48,6 +48,7 @@ A number of built-in types are available by default:
 - **string** - represents a string value
 - **url** - represents a URL; the service's code will receive an instance of the Url class in Node.JS when using this type; clients will receive either a proper URL class instance if the target framework (e.g. Java or .NET) supports it, or the URL value as a string
 - **buffer/binary** - represents raw binary data; the service's code will receive an instance of the Buffer class in Node.JS; clients will recieve the a byte array if the target framework supports it (e.g. Java or .NET), or an instance of the Buffer class (JavaScript - Node.JS and browsers).
+- **error** - represents an error value, which should be returned "as is", rather than thrown. It's an object with keys `name` and `message`, e.g. `{name: "Error", message: "Not enough free space"}`.
 
 #### User-defined types
 

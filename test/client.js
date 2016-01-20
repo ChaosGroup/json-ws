@@ -43,6 +43,9 @@ function buildTestApi() {
 	TestAPI.prototype.throwUnexpectedError = function () {
 		throw new Error('Throw unexpected error test');
 	};
+	TestAPI.prototype.returnError = function() {
+		return new Error('FooBar');
+	};
 
 	api.defineAll(new TestAPI());
 	api.type('TestData', {
@@ -127,6 +130,10 @@ function buildTestApi() {
 		params: [{name: 'a', type: 'TestData'}],
 		returns: 'TestData'
 	}, function (a) { return a;	});
+	api.define({
+		name: 'returnError',
+		returns: 'error'
+	});
 	api.event('testEvent');
 	api.event('testDataEvent');
 	api.event('test.the.namespace.event');
@@ -230,7 +237,8 @@ describe('RPC over HTTP', function() {
 			'world', 'world',
 			'Abc', 'ABc', 'AbC', 'ABC',
 			'Abc', 'ABc', 'ABC',
-			'Abc', 'ABc', 'AbC', 'ABC', 'ABC'
+			'Abc', 'ABc', 'AbC', 'ABC', 'ABC',
+			{name: 'Error', message: 'FooBar'}, {name: 'Error', message: 'FooBar'}
 		];
 		return Promise.all([
 			postAsync('sum', {params: {b: 1, a: 2}}),
@@ -258,7 +266,9 @@ describe('RPC over HTTP', function() {
 			postAsync('optionalArgs', { params: ['A', 'B']}),
 			postAsync('optionalArgs', { params: { a: 'A', c: 'C' } }),
 			postAsync('optionalArgs', { params: ['A', 'B', 'C'] }),
-			postAsync('optionalArgs', { params: { a: 'A', b: 'B', c: 'C' } })
+			postAsync('optionalArgs', { params: { a: 'A', b: 'B', c: 'C' } }),
+			getAsync('returnError'),
+			postAsync('returnError')
 		]).then(function(results) {
 			results = results.map(function(r) { // r === [response, body]
 				if (typeof r[1] === 'string') {
@@ -326,7 +336,8 @@ describe('RPC over WebSocket', function() {
 			hello: 'world',
 			dataTest: {a: 5, b: 'test'},
 			sumArray: 10,
-			optionalArgs: 'AbC'
+			optionalArgs: 'AbC',
+			returnError: {name: 'Error', message: 'FooBar'}
 		};
 		var results = {};
 
@@ -358,7 +369,8 @@ describe('RPC over WebSocket', function() {
 				sendCommand('dataTest', { a: { a: 5, b: 'test', extra: 'true' }}),
 				sendCommand('sumArray', { ints: [1, 2, 3, 4]}),
 				sendCommand('sumArray', [ [1, 2, 3, 4] ]),
-				sendCommand('optionalArgs', { a: 'A', c: 'C' })
+				sendCommand('optionalArgs', { a: 'A', c: 'C' }),
+				sendCommand('returnError')
 			]).then(function(result) {
 				expCommands = result.length;
 			});
@@ -516,7 +528,7 @@ describe('node.js proxy', function() {
 			expect(proxy).to.be.ok;
 
 			var t = new proxy.Tester(serverUrl);
-			var expected = [5, 6, 10, 6, 10, 25, {a: 5, b: 'test'}, 'Abc', 'ABc', 'ABC', 'world'];
+			var expected = [5, 6, 10, 6, 10, 25, {a: 5, b: 'test'}, 'Abc', 'ABc', 'ABC', 'world', {name: 'Error', message: 'FooBar'}];
 
 			return Promise.all([
 				t.sum(2, 3),
@@ -529,7 +541,8 @@ describe('node.js proxy', function() {
 				t.optionalArgs('A'),
 				t.optionalArgs('A', 'B'),
 				t.optionalArgs('A', 'B', 'C'),
-				t.hello()
+				t.hello(),
+				t.returnError()
 			]).then(function(results) {
 				expect(results).to.deep.eq(expected, 'invalid results');
 			});

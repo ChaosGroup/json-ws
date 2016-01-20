@@ -273,6 +273,21 @@ describe('Types - api.type()', function() {
 		});
 	});
 
+	it('creates internal types - error', function() {
+		var testType = api.type('error');
+
+		expect(testType).to.be.ok;
+		expect(testType.type).to.eq('error');
+		expect(testType.convert).to.be.a('function');
+		expect(testType.convert(new Error('FooBar'))).to.deep.eq({name: 'Error', message: 'FooBar'});
+		expect(testType.convert(new TypeError('FooBar'))).to.deep.eq({name: 'TypeError', message: 'FooBar'});
+		expect(testType.convert('FooBar')).to.deep.eq({name: 'Error', message: 'FooBar'});
+		expect(testType.convert({message: 'FooBar'})).to.deep.eq({name: 'Error', message: 'FooBar'});
+		expect(testType.convert({name: 'MyError', message: 'FooBar'})).to.deep.eq({name: 'MyError', message: 'FooBar'});
+		expect(testType.convert.bind(testType, 123)).to.throw(/Invalid error: 123/);
+		expect(testType.convert.bind(testType, {a: 1})).to.throw(/Invalid error/);
+	});
+
 	it('throws when type() is called without name', function() {
 		expect(api.type.bind(api)).to.throw(/Types must have a name/);
 		expect(api.type.bind(api, null)).to.throw(/Types must have a name/);

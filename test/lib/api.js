@@ -42,6 +42,10 @@ describe('Converters', function() {
 			bufferField: {
 				type: 'buffer',
 				required: false
+			},
+			errorField: {
+				type: 'error',
+				required: false
 			}
 		});
 
@@ -70,5 +74,9 @@ describe('Converters', function() {
 
 	it('adds the field name for invalid buffer values', function() {
 		expect(converting({bufferField: null})).to.throw(/\[TestType.bufferField\].*invalid buffer/i);
+	});
+
+	it('adds the field name for invalid error values', function() {
+		expect(converting({bufferField: '', errorField: 42})).to.throw(/\[TestType.errorField\].*invalid error/i);
 	});
 });
