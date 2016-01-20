@@ -554,7 +554,45 @@ describe('node.js proxy', function() {
 			]).then(function(results) {
 				results.forEach(function(result) {
 					if (result.isRejected()) {
-						actual.push(result.reason().code);
+						var reason = result.reason();
+						expect(reason).to.be.instanceof(Error);
+						expect(reason.data).to.be.ok;
+						expect(reason.code).to.be.a('number');
+						actual.push(reason.code);
+					} else {
+						actual.push(result.value());
+					}
+				});
+
+				expect(expected).to.deep.eq(actual);
+			});
+		});
+	});
+
+	it('returns error codes on the WebSockets Transport', function() {
+		return getProxy(httpProxyUrl).then(function(proxy) {
+			expect(proxy).to.be.ok;
+
+			var t = new proxy.Tester(serverUrl);
+			t.useWS();
+			var expected = [-32000, -32602, -32602, 3, -32602, 'world'];
+			var actual = [];
+
+			return Bluebird.settle([
+				t.throwError(),
+				t.sum(1),
+				t.sum(),
+				t.sum(1, 2, 3),
+				t.optionalArgs(),
+				t.hello('fake', 'argument') // JavaScript proxies filter out unneeded arguments, so this won't throw
+			]).then(function(results) {
+				results.forEach(function(result) {
+					if (result.isRejected()) {
+						var reason = result.reason();
+						expect(reason).to.be.instanceof(Error);
+						expect(reason.data).to.be.ok;
+						expect(reason.code).to.be.a('number');
+						actual.push(reason.code);
 					} else {
 						actual.push(result.value());
 					}
