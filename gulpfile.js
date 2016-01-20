@@ -15,6 +15,12 @@ var JS_FILES_GLOBS = [
 	'!proxies/**/*'
 ];
 
+var TEST_FILES_GLOBS = [
+	'test/lib/*.js',
+	'test/server.js',
+	'test/client.js'
+];
+
 var mochaFixCallback = function(callback) {
 	return _.once(function(err) {
 		callback(err);
@@ -32,7 +38,7 @@ gulp.task('lint', function() {
 });
 
 gulp.task('test', function(callback) {
-	gulp.src(['test/server.js', 'test/client.js'], { read: false })
+	gulp.src(TEST_FILES_GLOBS, {read: false})
 		.pipe(mocha())
 		.once('error', mochaFixCallback(callback))
 		.once('end', mochaFixCallback(callback));
@@ -45,7 +51,7 @@ gulp.task('cover', function(callback) {
 		}))
 		.pipe(istanbul.hookRequire()) // Force 'require' to return covered files
 		.on('finish', function() {
-			gulp.src(['test/server.js', 'test/client.js'])
+			gulp.src(TEST_FILES_GLOBS, {read: false})
 				.pipe(mocha())
 				.once('error', mochaFixCallback(callback))
 				.pipe(istanbul.writeReports({
