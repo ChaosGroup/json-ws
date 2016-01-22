@@ -20,7 +20,7 @@ if (typeof global.Promise != 'function') {
 	global.Promise = Bluebird;
 }
 var jsonws = require('../index.js');
-var request = Bluebird.promisifyAll(require('request'));
+var request = Bluebird.promisifyAll(require('request'), {multiArgs: true});
 var WebSocket = require('ws');
 var http = require('http');
 var express = require('express');

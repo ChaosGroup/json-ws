@@ -5,6 +5,7 @@
     "mocha": true,
     "es6": true
   },
+  "extends": "eslint:recommended",
   "rules": {
     "quotes": [2, "single", "avoid-escape"],
     "indent": [2, "tab"],
@@ -16,7 +17,7 @@
     "space-after-keywords": [2],
     "no-shadow": [0],
     "dot-notation": [0],
-    "eqeqeq": [0],
+    "eqeqeq": [2],
     "no-process-exit": [0],
     "no-extra-boolean-cast": [0],
     "no-loop-func": [1],
