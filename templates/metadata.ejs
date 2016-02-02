@@ -1,14 +1,14 @@
 <!DOCTYPE html><%
 
-function prettify(ujs, r) {
+function prettify(r) {
 	if (!r) return "void";
 	if (typeof r === 'string') return r;
-	var code = ujs.minify("_=" + JSON.stringify(r), {fromString: true, output: {beautify: true}}).code;
+	var code = locals.ujs.minify("_=" + JSON.stringify(r), {fromString: true, output: {beautify: true}}).code;
 	return code.substr(4, code.length - 5);
 }
 
 function anchorType(typeName) {
-	var typeInfo = metadata.typeMap[typeName];
+	var typeInfo = locals.metadata.typeMap[typeName];
 	if (typeInfo && typeInfo.struct) {
 	%><a class="linkMember" href="#<%- typeName %>"><%= typeName %></a><%
 	} else {
@@ -112,7 +112,7 @@ function renderExamples(exampleMap, name, type) {     // types: 'example', 'snip
 
 function renderType(typeInfo) {
 	%><code><%-typeInfo.enum ? 'enum' : 'struct'%> <a class="anchor" id="<%-typeInfo.name%>" name="<%-typeInfo.name%>"><strong><%= typeInfo.name %></strong></a>
-	<% if (typeInfo.enum) { %><pre><%- prettify(ujs, typeInfo.struct) %></pre><% } %>
+	<% if (typeInfo.enum) { %><pre><%- prettify(typeInfo.struct) %></pre><% } %>
 	</code>
 	<% if (!typeInfo.enum) { %>
 	<table class="table table-striped table-condensed table-bordered">
@@ -208,7 +208,7 @@ function renderMethod(methodInfo) {
 %><html lang="en">
 <head>
 	<meta charset="utf-8">
-	<title><%= metadata.friendlyName %> <%= metadata.version %></title>
+	<title><%= locals.metadata.friendlyName %> <%= locals.metadata.version %></title>
 
 	<meta name="viewport" content="width=device-width, initial-scale=1.0">
 	<link href="//netdna.bootstrapcdn.com/bootstrap/3.0.0/css/bootstrap.min.css" rel="stylesheet">
@@ -435,13 +435,13 @@ function renderMethod(methodInfo) {
 <div class="navbar navbar-default navbar-fixed-top">
 	<div class="container">
 		<div class="navbar-header">
-			<a class="navbar-brand" href="#"><%= metadata.friendlyName %> <%= metadata.version %></a>
+			<a class="navbar-brand" href="#"><%= locals.metadata.friendlyName %> <%= locals.metadata.version %></a>
 		</div>
 		<ul class="nav navbar-nav">
 			<li class="dropdown">
 				<a href="#" class="dropdown-toggle" data-toggle="dropdown">Proxies</a>
 				<ul class="dropdown-menu">
-					<% proxies.forEach(function(proxy) { %>
+					<% locals.proxies.forEach(function(proxy) { %>
 					<li><a href="?proxy=<%= proxy %>"><%= proxy %></a></li>
 					<% }); %>
 				</ul>
@@ -454,10 +454,10 @@ function renderMethod(methodInfo) {
 </div>
 
 <%
-var groups = Object.keys(metadata.groups);
+var groups = Object.keys(locals.metadata.groups);
 groups.sort();
 var groupsMap = [];
-groups.map(function(groupIndex) { return metadata.groups[groupIndex].items}).forEach(function(group, i) {
+groups.map(function(groupIndex) { return locals.metadata.groups[groupIndex].items}).forEach(function(group, i) {
 	if (group.length == 0) return;
 	var types = group.filter(function(i) { return i.indexOf('type:') == 0}).sort();
 	var events = group.filter(function(i) { return i.indexOf('event:') == 0}).sort();
@@ -469,11 +469,11 @@ groups.map(function(groupIndex) { return metadata.groups[groupIndex].items}).for
 	});
 	groupsMap[i] = {
 		name: groups[i],
-		description: metadata.groups[groups[i]].description,
+		description: locals.metadata.groups[groups[i]].description,
 		items: groupItems
 	};
 });
-var snippets = Object.keys(metadata.snippetMap).map(function(snipppet) {
+var snippets = Object.keys(locals.metadata.snippetMap).map(function(snipppet) {
 	return { type: 'snippet', item: snipppet };
 });
 if (snippets.length > 0) {
@@ -529,10 +529,10 @@ if (snippets.length > 0) {
 			<div class="entry<% if (group.name !== 'Snippets') { %> col-md-6<% } %>">
 		<%  var item = groupItemInfo.item;
 			switch (groupItemInfo.type) {
-				case 'type': renderType(metadata.typeMap[item]); break;
-				case 'event': renderEvent(metadata.eventMap[item]); break;
-				case 'method': renderMethod(metadata.methodMap[item]); break;
-				case 'snippet': renderExamples(metadata.snippetMap[item], item, 'snippet'); break;
+				case 'type': renderType(locals.metadata.typeMap[item]); break;
+				case 'event': renderEvent(locals.metadata.eventMap[item]); break;
+				case 'method': renderMethod(locals.metadata.methodMap[item]); break;
+				case 'snippet': renderExamples(locals.metadata.snippetMap[item], item, 'snippet'); break;
 			}
 		%>
 		</div>

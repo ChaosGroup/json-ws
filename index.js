@@ -9,7 +9,7 @@ var debugLogger;
 
 try {
 	require.resolve('json-ws');
-} catch(err) {
+} catch (err) {
 	// Import error, make json-ws requireable (for require('json-ws/client') in proxies):
 	module.paths.unshift(path.resolve(__dirname, '..'));
 }

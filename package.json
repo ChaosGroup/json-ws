@@ -1,7 +1,7 @@
 {
   "name": "json-ws",
-  "version": "1.1.14",
-  "author": "ChaosGroup (c) 2013-2015",
+  "version": "2.0.0-alpha",
+  "author": "ChaosGroup (c) 2013-2016",
   "description": "JSON-RPC based Web Services with automatic help and client side source creation for Java/JavaScript/.Net/Python/Node.js",
   "keywords": [
     "json",
@@ -14,10 +14,10 @@
   "bugs": "https://github.com/ChaosGroup/json-ws/issues",
   "license": "MIT",
   "dependencies": {
-    "bluebird": "^3.1.1",
-    "co": "^4.6.0",
+    "bluebird": "^2.9.34",
+    "co": "^4.5.2",
     "cookie": "^0.1.2",
-    "ejs": "^1.0.0",
+    "ejs": "^2.3.4",
     "request": "^2.67.0",
     "uglify-js": "^2.5.0",
     "ws": "0.8.0"
@@ -32,10 +32,10 @@
     "mocha": "^2.3.3"
   },
   "scripts": {
-    "test": "mocha test/lib/*.js test/server.js test/client.js",
-    "eslint": "eslint index.js lib/*.js test/**/*.js",
+    "test": "gulp test",
+    "lint": "gulp lint",
     "jsdoc": "jsdoc . -c conf.json",
-    "cover": "istanbul cover _mocha -- --reporter=dot test/lib/*.js test/server.js test/client.js",
+    "cover": "gulp cover",
     "example-app": "node test/adhoc/app"
   }
 }
