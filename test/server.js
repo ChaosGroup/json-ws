@@ -5,14 +5,15 @@
 
 'use strict';
 
-var expect = require('chai').expect;
-var jsonws = require('../index.js');
+const path = require('path');
+const expect = require('chai').expect;
+const jsonws = require('../index.js');
 
 // TODO JSWS-53 Add test suite for generator functions once we migrate to io.js/node 0.12.x
 
 describe('Constructor - jsonws.api()', function() {
 	it('instantiates properly with valid arguments', function() {
-		var api = jsonws.api('1.0', 'Test API');
+		const api = jsonws.api('1.0', 'Test API');
 		expect(api.version).to.eq('1.0');
 		expect(api.friendlyName).to.eq('Test API');
 	});
@@ -26,19 +27,19 @@ describe('Constructor - jsonws.api()', function() {
 	});
 
 	it('keeps the version property read-only', function() {
-		var api = jsonws.api('1.0', 'Test API');
+		const api = jsonws.api('1.0', 'Test API');
 		expect(function() { api.version = '1.1'; }).to.throw(TypeError);
 	});
 });
 
 describe('Enums - api.enum() and api.type(_, _, _, isEnum = true)', function() {
-	var enumValues = {
+	const enumValues = {
 		A: 0,
 		B: 1
 	};
 
-	var enumValuesAsArray = [ 'A', 'B' ];
-	var api;
+	const enumValuesAsArray = [ 'A', 'B' ];
+	let api;
 
 	beforeEach(function() {
 		api = jsonws.api('1.0', 'Test API');
@@ -87,7 +88,7 @@ describe('Enums - api.enum() and api.type(_, _, _, isEnum = true)', function() {
 
 	it('converts values to names and names to names', function() {
 		api.enum('Test', enumValues);
-		var enumType = api.type('Test');
+		const enumType = api.type('Test');
 
 		expect(enumType).to.not.be.null;
 		expect(enumType.convert).to.be.a('function');
@@ -105,7 +106,7 @@ describe('Enums - api.enum() and api.type(_, _, _, isEnum = true)', function() {
 });
 
 describe('Types - api.type()', function() {
-	var api;
+	let api;
 
 	beforeEach(function() {
 		api = jsonws.api('1.0', 'Test');
@@ -130,23 +131,23 @@ describe('Types - api.type()', function() {
 
 	it('creates internal types - */any', function() {
 		['*', 'any'].forEach(function(name) {
-			var testType = api.type(name);
+			const testType = api.type(name);
 			expect(testType).to.be.ok;
 			expect(testType.type).to.eq(name);
 			expect(testType.convert).to.be.a('function');
 			expect(testType.convert()).to.be.undefined;
 			expect(testType.convert(1)).to.eq(1);
 			expect(testType.convert('1')).to.eq('1');
-			var o = {};
+			const o = {};
 			expect(testType.convert(o)).to.eq(o);
-			var a = [];
+			const a = [];
 			expect(testType.convert(a)).to.eq(a);
 		});
 	});
 
 	it('creates internal types - int/integer', function() {
 		['int', 'integer'].forEach(function(name) {
-			var testType = api.type(name);
+			const testType = api.type(name);
 			expect(testType).to.be.ok;
 			expect(testType.type).to.eq(name);
 			expect(testType.convert).to.be.a('function');
@@ -167,7 +168,7 @@ describe('Types - api.type()', function() {
 
 	it('creates internal types - number/float/double', function() {
 		['number', 'float', 'double'].forEach(function(name) {
-			var testType = api.type(name);
+			const testType = api.type(name);
 			expect(testType).to.be.ok;
 			expect(testType.type).to.eq(name);
 			expect(testType.convert).to.be.a('function');
@@ -187,12 +188,12 @@ describe('Types - api.type()', function() {
 
 	it('creates internal types - date/time', function() {
 		['date', 'time'].forEach(function(name) {
-			var testType = api.type(name);
+			const testType = api.type(name);
 			expect(testType).to.be.ok;
 			expect(testType.type).to.eq(name);
 			expect(testType.convert).to.be.a('function');
 			expect(testType.convert()).to.be.undefined;
-			var date = new Date();
+			const date = new Date();
 
 			expect(testType.convert(date).toString()).to.eq(new Date(date).toString());
 			expect(testType.convert(date.getTime()).toString()).to.eq(new Date(date).toString());
@@ -204,7 +205,7 @@ describe('Types - api.type()', function() {
 
 	it('creates internal types - bool/boolean', function() {
 		['bool', 'boolean'].forEach(function(name) {
-			var testType = api.type(name);
+			const testType = api.type(name);
 			expect(testType).to.be.ok;
 			expect(testType.type).to.eq(name);
 			expect(testType.convert).to.be.a('function');
@@ -223,7 +224,7 @@ describe('Types - api.type()', function() {
 
 	it('creates internal types - object/json', function() {
 		['object', 'json'].forEach(function(name) {
-			var testType = api.type(name);
+			const testType = api.type(name);
 			expect(testType).to.be.ok;
 			expect(testType.type).to.eq(name);
 			expect(testType.convert).to.be.a('function');
@@ -236,7 +237,7 @@ describe('Types - api.type()', function() {
 	});
 
 	it('creates internal types - string', function() {
-		var testType = api.type('string');
+		const testType = api.type('string');
 		expect(testType).to.be.ok;
 		expect(testType.type).to.eq('string');
 		expect(testType.convert).to.be.a('function');
@@ -246,9 +247,9 @@ describe('Types - api.type()', function() {
 	});
 
 	it('creates internal types - url', function() {
-		var url = require('url');
-		var testUrl = 'http://test.org/path';
-		var testType = api.type('url');
+		const url = require('url');
+		const testUrl = 'http://test.org/path';
+		const testType = api.type('url');
 		expect(testType).to.be.ok;
 		expect(testType.type).to.eq('url');
 		expect(testType.convert).to.be.a('function');
@@ -263,7 +264,7 @@ describe('Types - api.type()', function() {
 
 	it('creates internal types - binary/buffer', function() {
 		['binary', 'buffer'].forEach(function(name) {
-			var testType = api.type(name);
+			const testType = api.type(name);
 			expect(testType).to.be.ok;
 			expect(testType.type).to.eq(name);
 			expect(testType.convert).to.be.a('function');
@@ -274,7 +275,7 @@ describe('Types - api.type()', function() {
 	});
 
 	it('creates internal types - error', function() {
-		var testType = api.type('error');
+		const testType = api.type('error');
 
 		expect(testType).to.be.ok;
 		expect(testType.type).to.eq('error');
@@ -306,8 +307,8 @@ describe('Types - api.type()', function() {
 		['*', 'any', 'int', 'integer', 'number', 'float', 'double',
 		 'date', 'time', 'bool', 'boolean', 'object', 'json',
 		 'string', 'url', 'buffer', 'binary'].forEach(function(internalType) {
-				expect(api.type.bind(api, internalType, {})).to.throw(/Internal types cannot be overriden/);
-			});
+			expect(api.type.bind(api, internalType, {})).to.throw(/Internal types cannot be overriden/);
+		});
 	});
 
 	it('throws when type() is called with invalid field types', function() {
@@ -340,7 +341,7 @@ describe('Types - api.type()', function() {
 			}
 		});
 
-		var testType = api.type('Test');
+		const testType = api.type('Test');
 
 		expect(testType.struct.notRequired.description).to.eq('my description');
 
@@ -390,7 +391,7 @@ describe('Types - api.type()', function() {
 			}
 		});
 
-		var testType = api.type('Test');
+		const testType = api.type('Test');
 
 		expect(testType.convert({
 			name: 'test name',
@@ -465,11 +466,11 @@ describe('Types - api.type()', function() {
 			field2: {type: ['Foo'], required: false}
 		});
 
-		var testType = api.type('Test');
+		let testType = api.type('Test');
 
 		expect(testType.convert({
 			ints: [1, '2', '3.3', 4, 5],
-			complex: [{bar: "string" }, {bar: [1234, 5678]}, {bar: 1234}]
+			complex: [{bar: 'string' }, {bar: [1234, 5678]}, {bar: 1234}]
 		})).to.deep.eq({
 			ints: [1, 2, 3, 4, 5],
 			complex: [{bar: 'string'} , {bar: '[1234,5678]'}, {bar: '1234'}]
@@ -511,7 +512,7 @@ describe('Types - api.type()', function() {
 });
 
 describe('Events', function() {
-	var api;
+	let api;
 
 	beforeEach(function() {
 		api = jsonws.api('1.0', 'Test API');
@@ -570,11 +571,11 @@ describe('Events', function() {
 		api.event('OnEvent');
 		expect(api.event.bind(api, 'OnEvent')).to.throw(/Overriding events is not allowed/);
 		expect(api.define.bind(api, { name: 'OnEvent', event: true })).to.throw(/Registering events using the define method is obsolete/);
-	})
+	});
 });
 
 describe('Methods', function() {
-	var api;
+	let api;
 
 	beforeEach(function() {
 		api = jsonws.api('1.0', 'Test API');
@@ -629,31 +630,31 @@ describe('Methods', function() {
 		api.define({
 			name: 'test',
 			params: [{name: 'a', type: 'int'}, {name: 'b', type: 'int'}]
-		}, function(a, b) { return a + b });
+		}, function(a, b) { return a + b; });
 		expect(api.fn.test(2, 3)).to.eq(5);
 
 		api.define({
 			name: 'test2',
 			params: [{name: 'a', type: 'int'}, {name: 'b', type: 'int'}],
-			'this': { sum: function(a, b) { return a + b }}
-		}, function(a, b) { return this.sum(a, b) });
+			'this': { sum: function(a, b) { return a + b; }}
+		}, function(a, b) { return this.sum(a, b); });
 		expect(api.fn.test2(2, 3)).to.eq(5);
 
 		api.define({
 			name: 'sum',
-			'this': { sum: function(a, b) { return a + b }}
+			'this': { sum: function(a, b) { return a + b; }}
 		});
 		expect(api.fn.sum(2, 3)).to.eq(5);
 
 		api.define({
 			name: 'sumRemapped',
-			'this': { internalMethodToRemap: function(a, b) { return a + b }}
+			'this': { internalMethodToRemap: function(a, b) { return a + b; }}
 		}, 'internalMethodToRemap');
 		expect(api.fn.sumRemapped(2, 3)).to.eq(5);
 
 		api.define({
 			name: 'fail',
-			'this': { fail: function() { throw new Error('Custom error') }}
+			'this': { fail: function() { throw new Error('Custom error'); }}
 		});
 		expect(api.fn.fail.bind(api)).to.throw(/Custom error/);
 
@@ -695,7 +696,7 @@ describe('Methods', function() {
 		expect(api.fn.b.test.bind(api.fn.b)).to.throw(/not yet implemented/);
 		expect(api.fn.a.b.test.bind(api.fn.a.b)).to.throw(/not yet implemented/);
 
-		api.define('test.namespace.math.sum', function(a, b) { return a + b });
+		api.define('test.namespace.math.sum', function(a, b) { return a + b; });
 		expect(api.fn.test.namespace.math.sum(2, 3)).to.eq(5);
 	});
 
@@ -703,7 +704,7 @@ describe('Methods', function() {
 });
 
 describe('Groups', function() {
-	var api;
+	let api;
 
 	beforeEach(function() {
 		api = jsonws.api('1.0', 'Test API');
@@ -735,13 +736,12 @@ describe('Groups', function() {
 });
 
 describe('External definitions', function() {
-	var path = require('path');
-	var implementations = {
-		sum: function(a, b) { return a + b },
-		method1: function(a, b) { return a + b},
+	const implementations = {
+		sum: function(a, b) { return a + b; },
+		method1: function(a, b) { return a + b; },
 		method2: function() {}
 	};
-	var api;
+	let api;
 
 	beforeEach(function() {
 		api = jsonws.api('1.0', 'Test API');
@@ -779,7 +779,7 @@ describe('External definitions', function() {
 	});
 
 	function splitLines(text) {
-		var arr;
+		let arr;
 		if (text.indexOf('\r\n') > -1) {
 			arr = text.split('\r\n');
 		} else {
@@ -799,7 +799,7 @@ describe('External definitions', function() {
 		expect(api.snippetMap['snippet1']['Node']).to.be.ok;
 		expect(splitLines(api.snippetMap['snippet1']['Java'])).to.deep.eq(['int a = proxy.method1(1, 2).get();', 'proxy.method2().get();']);
 		expect(api.snippetMap['snippet2']['JavaScript']).to.be.ok;
-	};
+	}
 
 	function importExamples(api) {
 		api.examples(path.resolve(__dirname, 'resources', 'examples_snippets.js'));

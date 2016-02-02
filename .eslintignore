@@ -1,5 +1,7 @@
-!node_modules/**/*
-!static/**/*
-!test/**/*
-!output/**/*
-!proxies/**/*
+node_modules/**/*
+static/**/*
+test/adhoc/**
+test/browser/**
+test/resources/**
+output/**/*
+proxies/**/*

@@ -14,7 +14,7 @@
   "bugs": "https://github.com/ChaosGroup/json-ws/issues",
   "license": "MIT",
   "dependencies": {
-    "bluebird": "^2.9.34",
+    "bluebird": "^3.2.1",
     "co": "^4.5.2",
     "cookie": "^0.1.2",
     "ejs": "^2.3.4",

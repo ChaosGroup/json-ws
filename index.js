@@ -1,11 +1,11 @@
 'use strict';
 
-var Trace = require("./lib/trace.js");
-var vm = require('vm');
-var Module = require('module');
-var path = require('path');
-var request = require('request');
-var debugLogger;
+const Trace = require('./lib/trace.js');
+const vm = require('vm');
+const Module = require('module');
+const path = require('path');
+const request = require('request');
+let debugLogger;
 
 try {
 	require.resolve('json-ws');
@@ -17,16 +17,16 @@ try {
 module.exports = function(logger) {
 	debugLogger = logger;
 	return module.exports;
-}
+};
 
-module.exports.api = require("./lib/api.js");
+module.exports.api = require('./lib/api.js');
 
-module.exports.client = require("./lib/client.js").RpcClient;
+module.exports.client = require('./lib/client.js').RpcClient;
 
 module.exports.transport = {
 	WebSocket: function(httpServer) {
-		var transport = require("./lib/ws-transport");
-		transport = new transport(httpServer);
+		const WsTransport = require('./lib/ws-transport');
+		const transport = new WsTransport(httpServer);
 		transport.trace = new Trace(debugLogger);
 		return transport;
 	},
@@ -35,8 +35,8 @@ module.exports.transport = {
 		if (!httpServer || !expressApp) {
 			throw new Error('HTTP transport requires an HTTP server and an Express application instance.');
 		}
-		var transport = require("./lib/rest-transport");
-		transport = new transport(httpServer, expressApp);
+		const WsTransport = require('./lib/rest-transport');
+		const transport = new WsTransport(httpServer, expressApp);
 		transport.trace = new Trace(debugLogger);
 		return transport;
 	}
@@ -68,13 +68,13 @@ module.exports.proxy = function(proxyUrl, sslSettings, callback) {
 			return;
 		}
 
-		var proxyModule = {exports: {}};
+		const proxyModule = {exports: {}};
 
 		try {
-			var moduleWrapper = vm.runInThisContext(Module.wrap(body), {filename: proxyUrl});
+			const moduleWrapper = vm.runInThisContext(Module.wrap(body), {filename: proxyUrl});
 			moduleWrapper(proxyModule.exports, require, proxyModule);
 		} catch (vmError) {
-			var err = new Error('Error loading proxy');
+			const err = new Error('Error loading proxy');
 			err.stack = vmError.stack;
 			callback(err);
 			return;
@@ -89,24 +89,24 @@ module.exports.getClientProxy = function(apiRoot, apiType, version, sslSettings,
 		callback = sslSettings;
 		sslSettings = {};
 	}
-	var serviceUrl = apiRoot + '/' + apiType + '/' + version;
-	var proxyClassName = apiType.split(/\W+/).map(function(string) {
+	const serviceUrl = apiRoot + '/' + apiType + '/' + version;
+	const proxyClassName = apiType.split(/\W+/).map(function(string) {
 		return string[0].toUpperCase() + string.slice(1).toLowerCase();
 	}).join('') + 'Proxy';
-	var proxyUrl = serviceUrl + '?proxy=JavaScript&localName=' + proxyClassName;
+	const proxyUrl = serviceUrl + '?proxy=JavaScript&localName=' + proxyClassName;
 	module.exports.proxy(proxyUrl, sslSettings, function(err, proxy) {
 		if (err) {
 			callback(err, null);
 		} else {
-			var proxyClass = proxy[proxyClassName];
-			if (proxyClass) {
-				callback(null, new proxyClass(serviceUrl, sslSettings));
+			const ProxyClass = proxy[proxyClassName];
+			if (ProxyClass) {
+				callback(null, new ProxyClass(serviceUrl, sslSettings));
 			} else {
 				callback(new Error('Proxy not available'));
 			}
 		}
 	});
-}
+};
 
 /**
  * API Registry middleware for Express/Connect
@@ -115,7 +115,7 @@ module.exports.getClientProxy = function(apiRoot, apiType, version, sslSettings,
  * @param {String} rootPath Mount point of the service registry.
  */
 module.exports.registry = function(rootPath) {
-	var registry = require('./lib/registry');
+	const registry = require('./lib/registry');
 	return registry(rootPath);
 };
 

@@ -10,23 +10,18 @@
 // -32000: internal server error
 // -32700: parse error
 
-var Bluebird = require('bluebird');
-var _ = require('lodash');
-var chai = require('chai');
-var expect = chai.expect;
+const Bluebird = require('bluebird');
+const chai = require('chai');
+const expect = chai.expect;
 
-if (typeof global.Promise != 'function') {
-	// Polyfill Promise for Node 0.10.x
-	global.Promise = Bluebird;
-}
-var jsonws = require('../index.js');
-var request = Bluebird.promisifyAll(require('request'), {multiArgs: true});
-var WebSocket = require('ws');
-var http = require('http');
-var express = require('express');
+const jsonws = require('../index.js');
+const request = Bluebird.promisifyAll(require('request'), {multiArgs: true});
+const WebSocket = require('ws');
+const http = require('http');
+const express = require('express');
 
 function buildTestApi() {
-	var api = require('../index.js').api('1.0', 'Test');
+	const api = require('../index.js').api('1.0', 'Test');
 
 	function TestAPI() {
 	}
@@ -78,7 +73,7 @@ function buildTestApi() {
 	}, function(throwError, callback) {
 		setImmediate(function() {
 			callback(throwError ? new Error('Callback error') : null);
-		})
+		});
 	});
 	api.define({
 		name: 'sum',
@@ -92,7 +87,7 @@ function buildTestApi() {
 		name: 'hello',
 		returns: 'string'
 	}, function() {
-		return 'world'
+		return 'world';
 	});
 	api.define({
 		name: 'asyncSum',
@@ -109,14 +104,14 @@ function buildTestApi() {
 			{name: 'b', type: 'int'}
 		],
 		returns: 'int'
-	}, function(a, b) { return a * b });
+	}, function(a, b) { return a * b; });
 	api.define({
 		name: 'sumArray',
 		params: [
 			{name: 'ints', type: ['int']}
 		],
 		returns: 'int'
-	}, function(ints) { var sum = 0; ints.forEach(function(i){sum += i}); return sum; });
+	}, function(ints) { let sum = 0; ints.forEach(function(i){sum += i;}); return sum; });
 	api.define({
 		name: 'test.some.namespace.mul',
 		params: [
@@ -124,7 +119,7 @@ function buildTestApi() {
 			{name: 'b', type: 'int'}
 		],
 		returns: 'int'
-	}, function(a, b) { return a * b });
+	}, function(a, b) { return a * b; });
 	api.define({
 		name: 'dataTest',
 		params: [{name: 'a', type: 'TestData'}],
@@ -143,31 +138,31 @@ function buildTestApi() {
 		api.emit('test.the.namespace.event');
 	}, 100);
 	setInterval(function () {
-		api.emit('testDataEvent', { hello: 'world' })
+		api.emit('testDataEvent', { hello: 'world' });
 	}, 100);
 
 	return api;
 }
 
-var srv;
-var serverUrl;
-var serverWsUrl;
-var httpProxyUrl;
+let srv;
+let serverUrl;
+let serverWsUrl;
+let httpProxyUrl;
 
 function startServer(done) {
-	var PORT = 3000;
-	var PATH = '/endpoint';
-	var app = express();
-	var registry = jsonws.registry(PATH);
+	const PORT = 3000;
+	const PATH = '/endpoint';
+	const app = express();
+	const registry = jsonws.registry(PATH);
 
 	app.use(express.json());
 	app.use(express.urlencoded());
 	app.use(registry.router());
 
-	var api = buildTestApi();
+	const api = buildTestApi();
 
 	srv = http.createServer(app).listen(PORT, function () {
-		api.listen(PATH, [jsonws.transport.HTTP(srv, app), jsonws.transport.WebSocket(srv)]);
+		api.listen(PATH, [jsonws.transport.HTTP(srv, app), jsonws.transport.WebSocket(srv)]); //eslint-disable-line new-cap
 		serverUrl = 'http://localhost:' + srv.address().port + api.path;
 		serverWsUrl = serverUrl.replace('http', 'ws');
 		httpProxyUrl = serverUrl + '?proxy=JavaScript&localName=Tester';
@@ -175,7 +170,7 @@ function startServer(done) {
 	});
 
 	srv.on('error', function (err) {
-		console.log(err);
+		console.log(err); //eslint-disable-line no-console
 		process.exit();
 	});
 }
@@ -189,7 +184,7 @@ describe('Metadata', function() {
 
 	it('returns metadata in JSON format', function() {
 		return request.getAsync(serverUrl + '?json', { json: true }).then(function(result) {
-			var json = result[1]; // result === [response, body]
+			const json = result[1]; // result === [response, body]
 			expect(json.name).to.be.defined;
 			expect(json.version).to.be.defined;
 			expect(json.transports).to.be.defined;
@@ -200,15 +195,15 @@ describe('Metadata', function() {
 	});
 
 	it('returns proxies for the supported languages', function() {
-		var languages = ['JavaScript', 'Java', 'CSharp', 'Python', 'Php'];
-		var proxyRequests = languages.map(function (language) {
+		const languages = ['JavaScript', 'Java', 'CSharp', 'Python', 'Php'];
+		const proxyRequests = languages.map(function (language) {
 			return request.getAsync(serverUrl + '?proxy=' + language);
 		});
 
 		return Promise.all(proxyRequests).then(function(results) {
 			results.forEach(function(result) { // result === [response, body]
-				var r = result[0];
-				expect(r.statusCode).to.eq(200, 'Missing proxy for ' + r.req.path.substr(20))
+				const r = result[0];
+				expect(r.statusCode).to.eq(200, 'Missing proxy for ' + r.req.path.substr(20));
 			});
 		});
 	});
@@ -231,7 +226,7 @@ describe('RPC over HTTP', function() {
 	}
 
 	it('works with legal method calls', function() {
-		var expected = [
+		const expected = [
 			3, 3, 3, '12', 3, 6, 12,
 			{a: 12, b: 'hello'}, 10, 11, 12, 13,
 			'world', 'world',
@@ -281,7 +276,7 @@ describe('RPC over HTTP', function() {
 	});
 
 	it('returns error codes', function() {
-		var expected = [
+		const expected = [
 			-32601, -32601, -32601,	 // method not found
 			-32602, -32602, -32602,  // invalid parameters
 			-32602, -32602,
@@ -326,11 +321,11 @@ describe('RPC over WebSocket', function() {
 	it('works with legal method calls and event subscription', function(done) {
 		this.timeout(4000);
 
-		var ws = new WebSocket(serverWsUrl);
-		var events = 0;
-		var recCommands = 0;
-		var expCommands;
-		var expected = {
+		const ws = new WebSocket(serverWsUrl);
+		let events = 0;
+		let recCommands = 0;
+		let expCommands;
+		const expected = {
 			'sum': 0,
 			asyncSum: '12',
 			hello: 'world',
@@ -339,16 +334,16 @@ describe('RPC over WebSocket', function() {
 			optionalArgs: 'AbC',
 			returnError: {name: 'Error', message: 'FooBar'}
 		};
-		var results = {};
+		const results = {};
 
 		function sendCommand(command, params) {
-			var commandData = {
+			const commandData = {
 				id: command,
 				method: command,
 				params: params,
 				jsonrpc: '2.0'
 			};
-			var request = JSON.stringify(commandData);
+			const request = JSON.stringify(commandData);
 			return new Promise(function(resolve) {
 				ws.send(request, resolve);
 			});
@@ -377,10 +372,10 @@ describe('RPC over WebSocket', function() {
 		});
 
 		ws.on('message', function (data) {
-			var parsedData = JSON.parse(data);
+			const parsedData = JSON.parse(data);
 			if (Object.keys(parsedData).length == 0) return;
 			expect(parsedData).not.to.be.null;
-			if (parsedData.error) console.log(parsedData.error);
+			if (parsedData.error) console.log(parsedData.error); //eslint-disable-line no-console
 			expect(parsedData.error).to.be.undefined;
 			expect(parsedData.id).to.be.defined;
 			if (parsedData.id == 'testEvent') {
@@ -396,7 +391,7 @@ describe('RPC over WebSocket', function() {
 			}
 		});
 
-		var finalEvents = 0;
+		let finalEvents = 0;
 		setTimeout(function () {
 			expect(expected).to.deep.eq(results);
 			expect(recCommands).to.eq(expCommands);
@@ -422,22 +417,22 @@ describe('RPC over WebSocket', function() {
 
 	it('returns error codes', function(done) {
 		this.timeout(660);
-		var ws = new WebSocket(serverWsUrl);
-		var id = 0;
-		var expected = [-32600,
+		const ws = new WebSocket(serverWsUrl);
+		let id = 0;
+		const expected = [-32600,
 			-32601, -32601, -32601,
 			-32602, -32602, -32602, -32602, -32602, -32602,
 			-32000, -32000, -32000, -32000];
-		var results = [];
+		const results = [];
 
 		function sendCommand(command, params) {
-			var commandData = {
+			const commandData = {
 				id: id++,
 				method: command,
 				params: params,
 				jsonrpc: '2.0'
 			};
-			var request = JSON.stringify(commandData);
+			const request = JSON.stringify(commandData);
 
 			return new Promise(function(resolve) {
 				ws.send(request, resolve);
@@ -446,7 +441,7 @@ describe('RPC over WebSocket', function() {
 
 		function sendPartialCommand(commandData) {
 			commandData.id = id++;
-			var request = JSON.stringify(commandData);
+			const request = JSON.stringify(commandData);
 
 			return new Promise(function(resolve) {
 				ws.send(request, resolve);
@@ -478,7 +473,7 @@ describe('RPC over WebSocket', function() {
 			sendCommands();
 		});
 		ws.on('message', function (data) {
-			var parsedData = JSON.parse(data);
+			const parsedData = JSON.parse(data);
 			if (Object.keys(parsedData).length == 0) return;
 			expect(parsedData).not.to.be.null;
 			expect(parsedData.error).to.be.defined;
@@ -497,13 +492,13 @@ describe('RPC over WebSocket', function() {
 
 	it('returns parse error for malformed JSON', function(done) {
 		this.timeout(150);
-		var ws = new WebSocket(serverWsUrl);
-		var messages = 0;
+		const ws = new WebSocket(serverWsUrl);
+		let messages = 0;
 		ws.on('open', function () {
 			ws.send('Parse Error must be returned.');
 		});
 		ws.on('message', function (data) {
-			var parsedData = JSON.parse(data);
+			const parsedData = JSON.parse(data);
 			if (Object.keys(parsedData).length == 0) return;
 			messages++;
 			expect(parsedData).not.to.be.null;
@@ -521,14 +516,14 @@ describe('RPC over WebSocket', function() {
 describe('node.js proxy', function() {
 	before(setupServer);
 
-	var getProxy = Bluebird.promisify(jsonws.proxy, jsonws);
+	const getProxy = Bluebird.promisify(jsonws.proxy, jsonws);
 
 	it('works with legal method calls', function() {
 		return getProxy(httpProxyUrl).then(function(proxy) {
 			expect(proxy).to.be.ok;
 
-			var t = new proxy.Tester(serverUrl);
-			var expected = [5, 6, 10, 6, 10, 25, {a: 5, b: 'test'}, 'Abc', 'ABc', 'ABC', 'world', {name: 'Error', message: 'FooBar'}];
+			const t = new proxy.Tester(serverUrl);
+			const expected = [5, 6, 10, 6, 10, 25, {a: 5, b: 'test'}, 'Abc', 'ABc', 'ABC', 'world', {name: 'Error', message: 'FooBar'}];
 
 			return Promise.all([
 				t.sum(2, 3),
@@ -553,9 +548,9 @@ describe('node.js proxy', function() {
 		return getProxy(httpProxyUrl).then(function(proxy) {
 			expect(proxy).to.be.ok;
 
-			var t = new proxy.Tester(serverUrl);
-			var expected = [-32000, -32602, -32602, 3, -32602, 'world'];
-			var actual = [];
+			const t = new proxy.Tester(serverUrl);
+			const expected = [-32000, -32602, -32602, 3, -32602, 'world'];
+			const actual = [];
 
 			return Bluebird.settle([
 				t.throwError(),
@@ -567,7 +562,7 @@ describe('node.js proxy', function() {
 			]).then(function(results) {
 				results.forEach(function(result) {
 					if (result.isRejected()) {
-						var reason = result.reason();
+						const reason = result.reason();
 						expect(reason).to.be.instanceof(Error);
 						expect(reason.data).to.be.ok;
 						expect(reason.code).to.be.a('number');
@@ -586,10 +581,10 @@ describe('node.js proxy', function() {
 		return getProxy(httpProxyUrl).then(function(proxy) {
 			expect(proxy).to.be.ok;
 
-			var t = new proxy.Tester(serverUrl);
+			const t = new proxy.Tester(serverUrl);
 			t.useWS();
-			var expected = [-32000, -32602, -32602, 3, -32602, 'world'];
-			var actual = [];
+			const expected = [-32000, -32602, -32602, 3, -32602, 'world'];
+			const actual = [];
 
 			return Bluebird.settle([
 				t.throwError(),
@@ -601,7 +596,7 @@ describe('node.js proxy', function() {
 			]).then(function(results) {
 				results.forEach(function(result) {
 					if (result.isRejected()) {
-						var reason = result.reason();
+						const reason = result.reason();
 						expect(reason).to.be.instanceof(Error);
 						expect(reason.data).to.be.ok;
 						expect(reason.code).to.be.a('number');
@@ -622,11 +617,11 @@ describe('node.js proxy', function() {
 		getProxy(httpProxyUrl).then(function(proxy) {
 			expect(proxy).to.be.ok;
 
-			var t = new proxy.Tester(serverUrl);
-			var h1 = 0;
-			var h2 = 0;
-			var h3 = 0;
-			var data = null;
+			const t = new proxy.Tester(serverUrl);
+			let h1 = 0;
+			let h2 = 0;
+			let h3 = 0;
+			let data = null;
 			function eventHandler1() { h1++; }
 			function eventHandler2() { h2++; }
 			function eventHandler3() { h3++; }
@@ -665,7 +660,7 @@ describe('node.js proxy', function() {
 		getProxy(httpProxyUrl).then(function(proxy) {
 			expect(proxy).to.be.ok;
 
-			var t = new proxy.Tester(serverUrl);
+			const t = new proxy.Tester(serverUrl);
 			t.testAsyncReturn(false, function() {
 				t.testAsyncReturn(true, function(err) {
 					expect(err).to.be.ok;

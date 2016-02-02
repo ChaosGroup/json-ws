@@ -4,16 +4,16 @@
 
 'use strict';
 
-var expect = require('chai').expect;
-var jsonws = require('../../index.js');
+const expect = require('chai').expect;
+const jsonws = require('../../index.js');
 
 describe('Converters', function() {
-	var api;
-	var testType;
-	var converting = function(value) {
+	let api;
+	let testType;
+	const converting = function(value) {
 		return function() {
 			testType.convert(value);
-		}
+		};
 	};
 
 	beforeEach(function() {
