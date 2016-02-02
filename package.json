@@ -32,10 +32,10 @@
     "mocha": "^2.3.3"
   },
   "scripts": {
-    "test": "gulp test",
-    "lint": "gulp lint",
+    "test": "mocha test/lib/* test/server.js test/client.js",
+    "lint": "eslint .",
     "jsdoc": "jsdoc . -c conf.json",
-    "cover": "gulp cover",
+    "cover": "istanbul cover _mocha -- test/lib/* test/server.js test/client.js",
     "example-app": "node test/adhoc/app"
   }
 }
