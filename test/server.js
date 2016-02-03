@@ -13,21 +13,21 @@ const jsonws = require('../index.js');
 
 describe('Constructor - jsonws.api()', function() {
 	it('instantiates properly with valid arguments', function() {
-		const api = jsonws.api('1.0', 'Test API');
-		expect(api.version).to.eq('1.0');
-		expect(api.friendlyName).to.eq('Test API');
+		const api = jsonws.api('1.0.0', 'Test API');
+		expect(api.version).to.eq('1.0.0');
+		expect(api.name).to.eq('Test API');
 	});
 
 	it('throws when no name is given', function() {
-		expect(jsonws.api.bind(jsonws, '1.0')).to.throw(/version and name/);
+		expect(jsonws.api.bind(jsonws, '1.0.0')).to.throw(/Invalid name/);
 	});
 
 	it('throws when neither name nor version are given', function() {
-		expect(jsonws.api.bind(jsonws)).to.throw(/version and name/);
+		expect(jsonws.api.bind(jsonws)).to.throw(/Invalid version/);
 	});
 
 	it('keeps the version property read-only', function() {
-		const api = jsonws.api('1.0', 'Test API');
+		const api = jsonws.api('1.0.0', 'Test API');
 		expect(function() { api.version = '1.1'; }).to.throw(TypeError);
 	});
 });
@@ -42,7 +42,7 @@ describe('Enums - api.enum() and api.type(_, _, _, isEnum = true)', function() {
 	let api;
 
 	beforeEach(function() {
-		api = jsonws.api('1.0', 'Test API');
+		api = jsonws.api('1.0.0', 'Test API');
 	});
 
 	it('creates enums through enum() when name and values are given', function() {
@@ -71,7 +71,7 @@ describe('Enums - api.enum() and api.type(_, _, _, isEnum = true)', function() {
 	});
 
 	it('throws when type() is called with wrong isEnum flag', function() {
-		expect(api.type.bind(api, 'Test', enumValues)).to.throw(/Invalid type field struct/);
+		expect(api.type.bind(api, 'Test', enumValues)).to.throw(/Invalid type field definition/);
 	});
 
 	it('throws when enum() is called with empty values', function() {
@@ -109,7 +109,7 @@ describe('Types - api.type()', function() {
 	let api;
 
 	beforeEach(function() {
-		api = jsonws.api('1.0', 'Test');
+		api = jsonws.api('1.0.0', 'Test');
 	});
 
 	it('creates type through type() when name and definition are given', function() {
@@ -314,14 +314,14 @@ describe('Types - api.type()', function() {
 	it('throws when type() is called with invalid field types', function() {
 		expect(api.type.bind(api, 'Test', {test: 'invalid' })).to.throw(/Referenced type .* is undefined/);
 		expect(api.type.bind(api, 'Test', {test: {}})).to.throw(/Missing type for field/);
-		expect(api.type.bind(api, 'Test', {test: 1234})).to.throw(/Invalid type field struct/);
+		expect(api.type.bind(api, 'Test', {test: 1234})).to.throw(/Invalid type field definition/);
 		expect(api.type.bind(api, 'Test', {test: {}})).to.throw(/Missing type for field/);
-		expect(api.type.bind(api, 'Test', {test: {type: 1234}})).to.throw(/Invalid type field struct/);
+		expect(api.type.bind(api, 'Test', {test: {type: 1234}})).to.throw(/Invalid type field definition/);
 		expect(api.type.bind(api, 'Test', {test: {type: null}})).to.throw(/Missing type for field/);
-		expect(api.type.bind(api, 'Test', {test: {type: {}}})).to.throw(/Invalid type field struct/);
+		expect(api.type.bind(api, 'Test', {test: {type: {}}})).to.throw(/Invalid type field definition/);
 		expect(api.type.bind(api, 'Test', {test: {type: []}})).to.throw(/Missing type for field/);
-		expect(api.type.bind(api, 'Test', {test: {type: [1234]}})).to.throw(/Invalid type field struct/);
-		expect(api.type.bind(api, 'Test', {test: {type: [{}]}})).to.throw(/Invalid type field struct/);
+		expect(api.type.bind(api, 'Test', {test: {type: [1234]}})).to.throw(/Invalid type field definition/);
+		expect(api.type.bind(api, 'Test', {test: {type: [{}]}})).to.throw(/Invalid type field definition/);
 	});
 
 	it('allows simple type definition (only internal types, no arrays or enums)', function() {
@@ -515,7 +515,7 @@ describe('Events', function() {
 	let api;
 
 	beforeEach(function() {
-		api = jsonws.api('1.0', 'Test API');
+		api = jsonws.api('1.0.0', 'Test API');
 	});
 
 	it('works with valid definition - no type or description', function() {
@@ -552,7 +552,7 @@ describe('Events', function() {
 	});
 
 	it('works with valid definition - namespaced event', function() {
-		api.namespace('test.me');
+		api.setNamespace('test.me');
 		expect(api.event.bind(api, 'OnTestEvent')).not.to.throw();
 		expect(api.eventMap['test.me.OnTestEvent']).to.be.ok;
 		expect(api.eventMap['test.me.OnTestEvent']).to.deep.eq({
@@ -578,7 +578,7 @@ describe('Methods', function() {
 	let api;
 
 	beforeEach(function() {
-		api = jsonws.api('1.0', 'Test API');
+		api = jsonws.api('1.0.0', 'Test API');
 	});
 
 	it('supports empty definition with string, throws on usage', function() {
@@ -700,14 +700,14 @@ describe('Methods', function() {
 		expect(api.fn.test.namespace.math.sum(2, 3)).to.eq(5);
 	});
 
-	it('supports definitions from objects'); // TODO
+	it.skip('supports definitions from objects'); // TODO
 });
 
 describe('Groups', function() {
 	let api;
 
 	beforeEach(function() {
-		api = jsonws.api('1.0', 'Test API');
+		api = jsonws.api('1.0.0', 'Test API');
 	});
 
 	it('uses the default group by default', function() {
@@ -719,8 +719,8 @@ describe('Groups', function() {
 
 	it('supports multiple groups', function() {
 		api.define('method');
-		api.group('Group1').define('method1');
-		api.group('Group2').define('method2');
+		api.setGroup('Group1').define('method1');
+		api.setGroup('Group2').define('method2');
 		expect(api.groups['Group1']).to.be.ok;
 		expect(api.groups['Group1'].items[0]).to.eq('method:method1');
 		expect(api.groups['Group2']).to.be.ok;
@@ -728,7 +728,7 @@ describe('Groups', function() {
 	});
 
 	it('supports group description, name, structure', function() {
-		api.group('Test', 'Test description');
+		api.setGroup('Test', 'Test description');
 		expect(api.groups['Test'].name).to.eq('Test');
 		expect(api.groups['Test'].description).to.eq('Test description');
 		expect(api.groups['Test'].items).to.be.an('array');
@@ -744,7 +744,7 @@ describe('External definitions', function() {
 	let api;
 
 	beforeEach(function() {
-		api = jsonws.api('1.0', 'Test API');
+		api = jsonws.api('1.0.0', 'Test API');
 	});
 
 	it('allows external definitions using code', function() {

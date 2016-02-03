@@ -1,4 +1,4 @@
-var api = require('../../index.js').api('1.0', 'Test API');
+var api = require('../../index.js').api('1.0.0', 'Test API');
 
 function test() {
 }
@@ -81,12 +81,12 @@ var testObj = new test();
 
 module.exports = function() {
 	api
-	.group('All Methods', 'Every single method is here')
+	.setGroup('All Methods', 'Every single method is here')
 	.event('testEvent',{
 		'description': 'This event is fired every second, and returns a data count.',
 		'type': 'int'
 	})
-	.namespace('')
+	.setNamespace('')
 	.defineAll(testObj)
 	.enum('RenderMode', {
 		Production: -1,
@@ -134,7 +134,7 @@ module.exports = function() {
 		return [renderOptions, renderOptions, renderOptions];
 	})
 	.define({name: 'echoObject', params: ['a'], returns: 'json'})
-	.group('Other methods')
+	.setGroup('Other methods')
 	.define({name: 'echoStringAsBuffer', params: [{ name: 'theString', type: 'string' }], returns: 'binary'}, function(theString) {
 		return new Buffer(theString);
 	})
@@ -211,17 +211,17 @@ module.exports = function() {
 	})
 	.define({name: 'testMe1', returns: 'async'})
 
-	.namespace('ns1')
+	.setNamespace('ns1')
 	.define({
 			'name': 'method1',
 			'returns': 'string'
 		}, testObj.testMe1)
 	.event('testEvent1')
 
-	.namespace('ns1.sub1.sub2')
+	.setNamespace('ns1.sub1.sub2')
 	.define('method1')
 
-	.namespace('ns2.sub1.sub2')
+	.setNamespace('ns2.sub1.sub2')
 	.define('method1');
 	//	.examples(path.resolve('test.examples.js'))
 	//	.examples(path.resolve('test.examples.node.js'))

@@ -14,7 +14,7 @@ var apis = [1, 2, 3, 4, 5].map(function(i) {
 	return api;
 });
 var registries = apis.map(function(api) {
-	return jsonws.registry('/' + api.friendlyName);
+	return jsonws.registry('/' + api.name);
 });
 
 var app = express();
@@ -41,8 +41,8 @@ app.get('/test', function(req, res) {
 
 var srv = http.createServer(app).listen(app.get('port'), function () {
 	apis.forEach(function(api, idx) {		
-		api.listen("/" + api.friendlyName, [transport.HTTP(srv, app), transport.WebSocket(srv)], registries[idx]);
-		console.log(api.friendlyName + ' ' + api.path);
+		api.listen("/" + api.name, [transport.HTTP(srv, app), transport.WebSocket(srv)], registries[idx]);
+		console.log(api.name + ' ' + api.path);
 	});	
 	
 	console.log("Express server listening on " + JSON.stringify(srv.address()));

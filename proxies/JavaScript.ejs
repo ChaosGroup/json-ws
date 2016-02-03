@@ -1,4 +1,7 @@
-(function (exports) {
+<%
+var metadata = locals.metadata;
+var localName = locals.localName;
+%>(function (exports) {
 	var RpcClient = (function () {
 		try {
 			return require('json-ws/client');

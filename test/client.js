@@ -21,7 +21,7 @@ const http = require('http');
 const express = require('express');
 
 function buildTestApi() {
-	const api = require('../index.js').api('1.0', 'Test');
+	const api = require('../index.js').api('1.0.0', 'Test');
 
 	function TestAPI() {
 	}

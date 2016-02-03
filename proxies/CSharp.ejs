@@ -1,5 +1,6 @@
 <% // Code Generator utilities
-
+var metadata = locals.metadata;
+var localName = locals.localName;
 function mapCSharpType(jsType, isArray) {
 	var returnType = '';
 	switch (jsType) {
@@ -62,7 +63,7 @@ function camelCase(literal) {
 }
 
 function generateTypes() {
-	var types = Object.keys(metadata.types).map(function(key) { return metadata.types[key] });
+	var types = Object.keys(locals.metadata.types).map(function(key) { return locals.metadata.types[key] });
 %>#region Types
 
 		public class BaseRpcObject

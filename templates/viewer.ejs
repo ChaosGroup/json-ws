@@ -1,7 +1,7 @@
 <html>
 <head>
 	<meta charset="utf-8">
-	<title><%= title %> - Playground</title>
+	<title><%= locals.title %> - Playground</title>
 	<link rel="stylesheet" href="./static/codemirror.css">
 	<link href="//netdna.bootstrapcdn.com/bootstrap/3.0.0/css/bootstrap.min.css" rel="stylesheet">
 	<script src="//ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js"></script>
@@ -83,13 +83,13 @@
 			</div>
 		</div>
 		</li>
-		<% if(examples.length > 0) { %>
+		<% if (locals.examples.length > 0) { %>
 		<li class="dropdown">
 			<button class="btn btn-sm dropdown-toggle" type="button" id="examplesBtn" data-toggle="dropdown">
 				Examples <span class="caret"></span>
 			</button>
 			<ul class="dropdown-menu" role="menu" aria-labelledby="examplesBtn">
-				<% examples.forEach(function(example) {
+				<% locals.examples.forEach(function(example) {
 				var link = url + "?viewer&example=" + example; %>
 				<li role="presentation"><a role="menuitem" tabindex="-1" href="<%- link %>"><%- example %></a></li>
 				<% }); %>
@@ -97,13 +97,13 @@
 		</li>
 		<% } %>
 
-		<% if(snippets.length > 0) { %>
+		<% if (locals.snippets.length > 0) { %>
 		<li class="dropdown">
 			<button class="btn btn-sm dropdown-toggle" type="button" id="snippetsBtn" data-toggle="dropdown">
 				Snippets <span class="caret"></span>
 			</button>
 			<ul class="dropdown-menu" role="menu" aria-labelledby="snippetsBtn">
-				<% snippets.forEach(function(snippet) {
+				<% locals.snippets.forEach(function(snippet) {
 				var link = url + "?viewer&snippet=" + snippet; %>
 				<li role="presentation"><a role="menuitem" tabindex="-1" href="<%- link %>"><%- snippet %></a></li>
 				<% }); %>
@@ -115,8 +115,8 @@
 
 	<div class="row">
 		<div class="col-xs-6">
-			<label for="codeTextArea">Code</label><textarea id="codeTextArea"><% if (code) { %>
-<%- code %>  <% } %>
+			<label for="codeTextArea">Code</label><textarea id="codeTextArea"><% if (locals.code) { %>
+<%- locals.code %>  <% } %>
 			</textarea>
 		</div>
 		<div class="col-xs-6">
@@ -160,14 +160,14 @@
 		}
 		initEditor();
 
-		<% if (code) { %>
+		<% if (locals.code) { %>
 			editor.setValue(getFirstLine() + $('#codeTextArea').text());
 		<% } %>
 
 		function run() {
 			var code = editor.getValue();
 			outputString = '';
-			new Function('console', code)({
+			new Function('console', locals.code)({
 				log: function () {
 					var text = '';
 					for (var i = 0; i < arguments.length; i++) {
