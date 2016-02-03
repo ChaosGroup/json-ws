@@ -20,7 +20,7 @@
     "ejs": "^2.3.4",
     "request": "^2.67.0",
     "uglify-js": "^2.5.0",
-    "ws": "0.8.0"
+    "ws": "^1.0.1"
   },
   "devDependencies": {
     "chai": "^3.3.0",
