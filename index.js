@@ -19,13 +19,13 @@ module.exports = function(logger) {
 	return module.exports;
 };
 
-module.exports.api = require('./lib/api.js');
+module.exports.api = require('./lib/service/api.js');
 
 module.exports.client = require('./lib/client.js').RpcClient;
 
 module.exports.transport = {
 	WebSocket: function(httpServer) {
-		const WsTransport = require('./lib/ws-transport');
+		const WsTransport = require('./lib/transport/ws-transport');
 		const transport = new WsTransport(httpServer);
 		transport.trace = new Trace(debugLogger);
 		return transport;
@@ -35,7 +35,7 @@ module.exports.transport = {
 		if (!httpServer || !expressApp) {
 			throw new Error('HTTP transport requires an HTTP server and an Express application instance.');
 		}
-		const WsTransport = require('./lib/rest-transport');
+		const WsTransport = require('./lib/transport/rest-transport');
 		const transport = new WsTransport(httpServer, expressApp);
 		transport.trace = new Trace(debugLogger);
 		return transport;
