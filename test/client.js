@@ -145,42 +145,42 @@ function buildTestApi() {
 	return api;
 }
 
-let srv;
+let httpServer;
 let serverUrl;
 let serverWsUrl;
 let httpProxyUrl;
 
 function startServer(done) {
 	const PORT = 3000;
-	const PATH = '/endpoint';
-	const app = express();
+	const rootPath = '/endpoint';
+	const expressApp = express();
 
-	srv = http.createServer(app);
-	const registry = jsonws.registry(PATH, srv, app);
+	httpServer = http.createServer(expressApp);
+	const registry = jsonws.registry({ rootPath, httpServer, expressApp });
 
-	app.use(bodyParser.json());
+	expressApp.use(bodyParser.json());
 	registry.attachExpressRouter();
 
 	const api = buildTestApi();
 
-	srv.listen(PORT, function () {
+	httpServer.listen(PORT, function () {
 		registry.addTransport(jsonws.transport.HTTP);
 		//registry.addTransport(jsonws.transport.WebSocket);
 		const servicePathPrefix = registry.addService(api);
-		serverUrl = `http://localhost:${srv.address().port}${registry.rootPath}${servicePathPrefix}`;
+		serverUrl = `http://localhost:${httpServer.address().port}${registry.rootPath}${servicePathPrefix}`;
 		serverWsUrl = serverUrl.replace('http', 'ws');
 		httpProxyUrl = serverUrl + '?proxy=JavaScript&localName=Tester';
 		done();
 	});
 
-	srv.on('error', function (err) {
+	httpServer.on('error', function (err) {
 		console.log(err); //eslint-disable-line no-console
 		process.exit();
 	});
 }
 
 function setupServer(done) {
-	srv ? done() : startServer(done);
+	httpServer ? done() : startServer(done);
 }
 
 describe('Metadata', function() {

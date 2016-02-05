@@ -1,11 +1,9 @@
 'use strict';
 
-const Trace = require('./lib/trace.js');
 const vm = require('vm');
 const Module = require('module');
 const path = require('path');
 const request = require('request');
-let debugLogger;
 
 try {
 	require.resolve('json-ws');
@@ -14,33 +12,18 @@ try {
 	module.paths.unshift(path.resolve(__dirname, '..'));
 }
 
-module.exports = function(logger) {
-	debugLogger = logger;
-	return module.exports;
-};
-
 module.exports.service = require('./lib/service/service.js');
 
 module.exports.client = require('./lib/client.js').RpcClient;
 
+module.exports.registry = require('./lib/registry');
+
+module.exports.getLanguageProxy = require('./lib/get-language-proxy');
+
 module.exports.transport = {
-	WebSocket: function(httpServer) {
-		const WsTransport = require('./lib/transport/ws-transport');
-		const transport = new WsTransport(httpServer);
-		transport.trace.setLogger(debugLogger);
-		return transport;
-	},
-
-	HTTP: function(registry) {
-		const HttpTransport = require('./lib/transport/http-transport');
-		const transport = new HttpTransport(registry);
-		transport.trace.setLogger(debugLogger);
-		return transport;
-	}
+	HTTP: require('./lib/transport/http-transport'),
+	WebSocket: require('./lib/transport/ws-transport')
 };
-
-module.exports.transport.WebSocket.type = 'WebSocket';
-module.exports.transport.HTTP.type = 'HTTP';
 
 /**
  * Fetches proxy code from a URL
@@ -104,16 +87,3 @@ module.exports.getClientProxy = function(apiRoot, apiType, version, sslSettings,
 		}
 	});
 };
-
-/**
- * API Registry middleware for Express/Connect
- * Responds to OPTIONS request, renders a page listing all registered services
- * and serves the NodeJS/browser client library.
- * @param {String} rootPath Mount point of the service registry.
- */
-module.exports.registry = function(rootPath, httpServer, expressApp) {
-	const registry = require('./lib/registry');
-	return registry(rootPath, httpServer, expressApp);
-};
-
-module.exports.getLanguageProxy = require('./lib/get-language-proxy');
