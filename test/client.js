@@ -19,9 +19,10 @@ const request = Bluebird.promisifyAll(require('request'), {multiArgs: true});
 const WebSocket = require('ws');
 const http = require('http');
 const express = require('express');
+const bodyParser = require('body-parser');
 
 function buildTestApi() {
-	const api = require('../index.js').api('1.0.0', 'Test');
+	const api = require('../index.js').service('1.0.0', 'test');
 
 	function TestAPI() {
 	}
@@ -153,17 +154,20 @@ function startServer(done) {
 	const PORT = 3000;
 	const PATH = '/endpoint';
 	const app = express();
-	const registry = jsonws.registry(PATH);
 
-	app.use(express.json());
-	app.use(express.urlencoded());
-	app.use(registry.router());
+	srv = http.createServer(app);
+	const registry = jsonws.registry(PATH, srv, app);
+
+	app.use(bodyParser.json());
+	registry.attachExpressRouter();
 
 	const api = buildTestApi();
 
-	srv = http.createServer(app).listen(PORT, function () {
-		api.listen(PATH, [jsonws.transport.HTTP(srv, app), jsonws.transport.WebSocket(srv)]); //eslint-disable-line new-cap
-		serverUrl = 'http://localhost:' + srv.address().port + api.path;
+	srv.listen(PORT, function () {
+		registry.addTransport(jsonws.transport.HTTP);
+		//registry.addTransport(jsonws.transport.WebSocket);
+		const servicePathPrefix = registry.addService(api);
+		serverUrl = `http://localhost:${srv.address().port}${registry.rootPath}${servicePathPrefix}`;
 		serverWsUrl = serverUrl.replace('http', 'ws');
 		httpProxyUrl = serverUrl + '?proxy=JavaScript&localName=Tester';
 		done();

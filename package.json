@@ -18,15 +18,16 @@
     "co": "^4.5.2",
     "cookie": "^0.1.2",
     "ejs": "^2.3.4",
+    "express": "^4.13.4",
     "request": "^2.67.0",
     "semver": "^5.1.0",
     "uglify-js": "^2.5.0",
     "ws": "^1.0.1"
   },
   "devDependencies": {
+    "body-parser": "^1.14.2",
     "chai": "^3.3.0",
     "eslint": "^1.10.3",
-    "express": "^3.21.2",
     "istanbul": "^0.4.2",
     "jsdoc": "^3.4.0",
     "lodash": "^3.10.1",

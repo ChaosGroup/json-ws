@@ -1,18 +1,23 @@
-var express = require('express');
-var http = require('http');
-var jsonws = require('../../index.js');
-var transport = jsonws.transport;
-var api = require('./api.js');
-var path = require('path');
+'use strict';
 
-var registry = jsonws.registry('/endpoint');
-var app = express();
+// Example/test application
+
+const http = require('http');
+const express = require('express');
+const bodyParser = require('body-parser');
+const jsonws = require('../../index.js');
+const transport = jsonws.transport;
+const serviceApi = require('./api.js');
+const path = require('path');
+
+const app = express();
+const srv = http.createServer(app);
+const registry = jsonws.registry('/endpoint', srv, app);
+
 app.set('port', 3000);
-app.use(express.json());
-app.use(express.urlencoded());
+app.use(bodyParser.json());
 app.use(express.static(path.join(__dirname, '..', 'browser')));
-app.use(registry.router());
-app.use(express.logger('dev'));
+registry.attachExpressRouter();
 
 app.get('/', function(req, res) {
 	res.send('hello world');
@@ -22,7 +27,8 @@ app.get('/test', function(req, res) {
 	res.sendfile(path.join(__dirname, '..', 'browser', 'test.html'));
 });
 
-var srv = http.createServer(app).listen(app.get('port'), function () {
-	api.listen('/endpoint', [transport.HTTP(srv, app), transport.WebSocket(srv)], registry);
+srv.listen(app.get('port'), function () {
+	registry.addTransport(transport.HTTP);
+	registry.addService(serviceApi);
 	console.log('Express server listening on ' + JSON.stringify(srv.address()));
 });

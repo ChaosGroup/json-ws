@@ -1,12 +1,19 @@
-<html>
+<%
+	var root = locals.root;
+	var title = locals.title;
+	var url = locals.url;
+	var examples = locals.examples;
+	var snippets = locals.snippets;
+	var code = locals.code;
+%><html>
 <head>
 	<meta charset="utf-8">
-	<title><%= locals.title %> - Playground</title>
+	<title><%= title %> - Playground</title>
 	<link rel="stylesheet" href="./static/codemirror.css">
 	<link href="//netdna.bootstrapcdn.com/bootstrap/3.0.0/css/bootstrap.min.css" rel="stylesheet">
 	<script src="//ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js"></script>
 	<script src="//netdna.bootstrapcdn.com/bootstrap/3.0.0/js/bootstrap.min.js"></script>
-	<script src="./client"></script>
+	<script src="../client"></script>
 	<script src="?proxy=JavaScript&localName=Proxy"></script>
 	<script src="./static/codemirror.js"></script>
 	<script src="./static/javascriptMode.js"></script>
@@ -83,13 +90,13 @@
 			</div>
 		</div>
 		</li>
-		<% if (locals.examples.length > 0) { %>
+		<% if (examples.length > 0) { %>
 		<li class="dropdown">
 			<button class="btn btn-sm dropdown-toggle" type="button" id="examplesBtn" data-toggle="dropdown">
 				Examples <span class="caret"></span>
 			</button>
 			<ul class="dropdown-menu" role="menu" aria-labelledby="examplesBtn">
-				<% locals.examples.forEach(function(example) {
+				<% examples.forEach(function(example) {
 				var link = url + "?viewer&example=" + example; %>
 				<li role="presentation"><a role="menuitem" tabindex="-1" href="<%- link %>"><%- example %></a></li>
 				<% }); %>
@@ -97,13 +104,13 @@
 		</li>
 		<% } %>
 
-		<% if (locals.snippets.length > 0) { %>
+		<% if (snippets.length > 0) { %>
 		<li class="dropdown">
 			<button class="btn btn-sm dropdown-toggle" type="button" id="snippetsBtn" data-toggle="dropdown">
 				Snippets <span class="caret"></span>
 			</button>
 			<ul class="dropdown-menu" role="menu" aria-labelledby="snippetsBtn">
-				<% locals.snippets.forEach(function(snippet) {
+				<% snippets.forEach(function(snippet) {
 				var link = url + "?viewer&snippet=" + snippet; %>
 				<li role="presentation"><a role="menuitem" tabindex="-1" href="<%- link %>"><%- snippet %></a></li>
 				<% }); %>
@@ -115,8 +122,8 @@
 
 	<div class="row">
 		<div class="col-xs-6">
-			<label for="codeTextArea">Code</label><textarea id="codeTextArea"><% if (locals.code) { %>
-<%- locals.code %>  <% } %>
+			<label for="codeTextArea">Code</label><textarea id="codeTextArea"><% if (code) { %>
+<%- code %>  <% } %>
 			</textarea>
 		</div>
 		<div class="col-xs-6">
@@ -160,14 +167,14 @@
 		}
 		initEditor();
 
-		<% if (locals.code) { %>
+		<% if (code) { %>
 			editor.setValue(getFirstLine() + $('#codeTextArea').text());
 		<% } %>
 
 		function run() {
 			var code = editor.getValue();
 			outputString = '';
-			new Function('console', locals.code)({
+			new Function('console', code)({
 				log: function () {
 					var text = '';
 					for (var i = 0; i < arguments.length; i++) {

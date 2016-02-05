@@ -19,7 +19,7 @@ module.exports = function(logger) {
 	return module.exports;
 };
 
-module.exports.api = require('./lib/service/api.js');
+module.exports.service = require('./lib/service/service.js');
 
 module.exports.client = require('./lib/client.js').RpcClient;
 
@@ -27,17 +27,14 @@ module.exports.transport = {
 	WebSocket: function(httpServer) {
 		const WsTransport = require('./lib/transport/ws-transport');
 		const transport = new WsTransport(httpServer);
-		transport.trace = new Trace(debugLogger);
+		transport.trace.setLogger(debugLogger);
 		return transport;
 	},
 
-	HTTP: function(httpServer, expressApp) {
-		if (!httpServer || !expressApp) {
-			throw new Error('HTTP transport requires an HTTP server and an Express application instance.');
-		}
-		const WsTransport = require('./lib/transport/rest-transport');
-		const transport = new WsTransport(httpServer, expressApp);
-		transport.trace = new Trace(debugLogger);
+	HTTP: function(registry) {
+		const HttpTransport = require('./lib/transport/http-transport');
+		const transport = new HttpTransport(registry);
+		transport.trace.setLogger(debugLogger);
 		return transport;
 	}
 };
@@ -114,9 +111,9 @@ module.exports.getClientProxy = function(apiRoot, apiType, version, sslSettings,
  * and serves the NodeJS/browser client library.
  * @param {String} rootPath Mount point of the service registry.
  */
-module.exports.registry = function(rootPath) {
+module.exports.registry = function(rootPath, httpServer, expressApp) {
 	const registry = require('./lib/registry');
-	return registry(rootPath);
+	return registry(rootPath, httpServer, expressApp);
 };
 
 module.exports.getLanguageProxy = require('./lib/get-language-proxy');

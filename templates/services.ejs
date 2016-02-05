@@ -24,8 +24,8 @@
 	</div>
 
 	<% locals.services.forEach(function(service) { %>
-		<p><a href="<%= service.path %>"><%= service.name %> <%= service.version %> (<%= service.path %>)</a></p>
-		<small><%= service.description %></small>
+		<p><a href="<%= service.path %>"><%= service.metadata.name %> <%= service.metadata.version %> (<%= service.path %>)</a></p>
+		<small><%= service.metadata.description %></small>
 		<hr>
 	<% }); %>
 </div>

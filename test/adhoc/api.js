@@ -1,86 +1,89 @@
-var api = require('../../index.js').api('1.0.0', 'Test API');
+'use strict';
 
-function test() {
-}
+var service = require('../../index.js').service('1.0.0', 'test-api');
 
-test.prototype.sum = function sum(a, b, callback) {
-	setTimeout(function() { callback(null, a + b); }, 0);
-};
+const testObj = {
 
-test.prototype.sumReturn = function sumReturn(a, b) {
-	console.log('A + B = ' + (a + b));
-	return a + b;
-};
+	sum(a, b, callback) {
+		setTimeout(function () {
+			callback(null, a + b);
+		}, 0);
+	},
 
-test.prototype.echo = function echo(a) {
-	console.log(a);
-	var RenderMode = api.type('RenderMode').struct;
-	console.log('RenderMode value: '+ RenderMode[a.renderMode]);
-	return a;
-};
+	sumReturn(a, b) {
+		console.log('A + B = ' + (a + b));
+		return a + b;
+	},
 
-test.prototype.echoObject = function echoObject(a, callback) {
-	callback(null, a);
-};
+	echo(a) {
+		console.log(a);
+		var RenderMode = service.type('RenderMode').struct;
+		console.log('RenderMode value: ' + RenderMode[a.renderMode]);
+		return a;
+	},
 
-test.prototype.throwError = function throwError(callback) {
-	callback({'stack': 'error executing method'});
-};
+	echoObject(a, callback) {
+		callback(null, a);
+	},
 
-test.prototype.throwUnexpectedError = function throwError() {
-	throw new Error('Unexpected error');
-};
+	throwError(callback) {
+		callback({'stack': 'error executing method'});
+	},
 
-test.prototype.testMe = function testMe(callback) {
-	callback(null, {
+	throwUnexpectedError() {
+		throw new Error('Unexpected error');
+	},
+
+	testMe(callback) {
+		callback(null, {
 			'property1': 'int',
 			'asdf': 'Аз съм Сънчо',
-			'complex' : {
+			'complex': {
 				a: 1,
 				b: 3
-			}});
-};
+			}
+		});
+	},
 
-test.prototype.testMe1 = function testMe1(callback) {
-	callback(null, 'test1');
-};
+	testMe1(callback) {
+		callback(null, 'test1');
+	},
 
-test.prototype.testMe2 = function testMe2(a, callback) {
-	callback(null, 'test2' + a);
-};
+	testMe2(a, callback) {
+		callback(null, 'test2' + a);
+	},
 
-test.prototype.testMe3 = function testMe3(callback) {
-	callback(null, 'Some async method test 3');
-};
+	testMe3(callback) {
+		callback(null, 'Some async method test 3');
+	},
 
-test.prototype.testMe4 = function testMe4(callback) {
-	callback(null, 'Some async method test 4');
+	testMe4(callback) {
+		callback(null, 'Some async method test 4');
+	}
 };
 
 var c = 0;
 
 setInterval(function() {
 	var data = {testData: c++};
-	api.emit('testEvent', data.testData);
-	api.emit('testEvent3', {
+	service.emit('testEvent', data.testData);
+	service.emit('testEvent3', {
 		'a': 1
 	});
-	api.emit('ns1.testEvent1');
-	api.emit('testBinaryEvent', new Buffer('test binary event'));
+	service.emit('ns1.testEvent1');
+	service.emit('testBinaryEvent', new Buffer('test binary event'));
 }, 1000);
 
 setInterval(function() {
-	api.emit('testEvent2', [{
+	service.emit('testEvent2', [{
 		width: 1,
 		height: 2,
 		renderMode: 0
 	}]);
 }, 2000);
 
-var testObj = new test();
-
 module.exports = function() {
-	api
+	service
 	.setGroup('All Methods', 'Every single method is here')
 	.event('testEvent',{
 		'description': 'This event is fired every second, and returns a data count.',
@@ -150,7 +153,7 @@ module.exports = function() {
 		'params': [{ 'name' : 'a', 'type' : 'int'}, { 'name' : 'b', 'type' : 'int'}],
 		'returns': 'int'
 	});
-	api.define({
+	service.define({
 		name: 'returnFrom0ToN',
 		params: [{name: 'n', type: 'int'}],
 		returns: ['int']
@@ -161,7 +164,7 @@ module.exports = function() {
 		}
 		return arr;
 	});
-	api.define({
+	service.define({
 		name: 'optionalArgs',
 		params: [
 			{ name: 'required', type: 'bool' },
@@ -169,7 +172,7 @@ module.exports = function() {
 			{ name: 'p2', type: 'int', default: 1 }
 		]
 	}, function(required, p1, p2) { console.log('optionalArgs called with', arguments); });
-	api.define({
+	service.define({
 		name: 'sumArray',
 		params: [
 			{name: 'ints', type: ['int']}
@@ -227,5 +230,5 @@ module.exports = function() {
 	//	.examples(path.resolve('test.examples.node.js'))
 	//	.examples(path.resolve('test.examples.java'))
 	//	.examples(path.resolve('test.examples.curl'))
-	return api;
+	return service;
 }();
