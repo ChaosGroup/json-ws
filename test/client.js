@@ -166,7 +166,7 @@ function startServer(done) {
 
 	httpServer.listen(PORT, function () {
 		registry.addTransport(jsonws.transport.HTTP);
-		//registry.addTransport(jsonws.transport.WebSocket);
+		registry.addTransport(jsonws.transport.WebSocket);
 		const servicePathPrefix = registry.addService(api);
 		serverUrl = `http://localhost:${httpServer.address().port}${registry.rootPath}${servicePathPrefix}`;
 		serverWsUrl = serverUrl.replace('http', 'ws');

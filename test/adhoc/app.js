@@ -33,6 +33,7 @@ expressApp.get('/test', function(req, res) {
 
 httpServer.listen(expressApp.get('port'), function () {
 	registry.addTransport(transport.HTTP);
+	registry.addTransport(transport.WebSocket);
 	registry.addService(serviceApi);
 	console.log('Express server listening on ' + JSON.stringify(httpServer.address()));
 });
