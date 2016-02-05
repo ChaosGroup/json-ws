@@ -13,21 +13,21 @@ const jsonws = require('../index.js');
 
 describe('Constructor - jsonws.service()', function() {
 	it('instantiates properly with valid arguments', function() {
-		const api = jsonws.service('1.0.0', 'Test API');
+		const api = new jsonws.service('1.0.0', 'Test API');
 		expect(api.version).to.eq('1.0.0');
 		expect(api.name).to.eq('Test API');
 	});
 
 	it('throws when no name is given', function() {
-		expect(jsonws.service.bind(jsonws, '1.0.0')).to.throw(/Invalid name/);
+		expect(() => new jsonws.service('1.0.0')).to.throw(/Invalid name/);
 	});
 
 	it('throws when neither name nor version are given', function() {
-		expect(jsonws.service.bind(jsonws)).to.throw(/Invalid version/);
+		expect(() => new jsonws.service()).to.throw(/Invalid version/);
 	});
 
 	it('keeps the version property read-only', function() {
-		const api = jsonws.service('1.0.0', 'Test API');
+		const api = new jsonws.service('1.0.0', 'Test API');
 		expect(function() { api.version = '1.1'; }).to.throw(TypeError);
 	});
 });
@@ -42,7 +42,7 @@ describe('Enums - api.enum() and api.type(_, _, _, isEnum = true)', function() {
 	let api;
 
 	beforeEach(function() {
-		api = jsonws.service('1.0.0', 'Test API');
+		api = new jsonws.service('1.0.0', 'Test API');
 	});
 
 	it('creates enums through enum() when name and values are given', function() {
@@ -109,7 +109,7 @@ describe('Types - api.type()', function() {
 	let api;
 
 	beforeEach(function() {
-		api = jsonws.service('1.0.0', 'Test');
+		api = new jsonws.service('1.0.0', 'Test');
 	});
 
 	it('creates type through type() when name and definition are given', function() {
@@ -515,7 +515,7 @@ describe('Events', function() {
 	let api;
 
 	beforeEach(function() {
-		api = jsonws.service('1.0.0', 'Test API');
+		api = new jsonws.service('1.0.0', 'Test API');
 	});
 
 	it('works with valid definition - no type or description', function() {
@@ -578,7 +578,7 @@ describe('Methods', function() {
 	let api;
 
 	beforeEach(function() {
-		api = jsonws.service('1.0.0', 'Test API');
+		api = new jsonws.service('1.0.0', 'Test API');
 	});
 
 	it('supports empty definition with string, throws on usage', function() {
@@ -707,7 +707,7 @@ describe('Groups', function() {
 	let api;
 
 	beforeEach(function() {
-		api = jsonws.service('1.0.0', 'Test API');
+		api = new jsonws.service('1.0.0', 'Test API');
 	});
 
 	it('uses the default group by default', function() {
@@ -744,7 +744,7 @@ describe('External definitions', function() {
 	let api;
 
 	beforeEach(function() {
-		api = jsonws.service('1.0.0', 'Test API');
+		api = new jsonws.service('1.0.0', 'Test API');
 	});
 
 	it('allows external definitions using code', function() {

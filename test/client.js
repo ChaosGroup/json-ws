@@ -22,7 +22,8 @@ const express = require('express');
 const bodyParser = require('body-parser');
 
 function buildTestApi() {
-	const api = require('../index.js').service('1.0.0', 'test');
+	const jsonws = require('../index.js');
+	const api = new jsonws.service('1.0.0', 'test');
 
 	function TestAPI() {
 	}

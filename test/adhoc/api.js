@@ -1,6 +1,10 @@
 'use strict';
 
-var service = require('../../index.js').service('1.0.0', 'test-api');
+const Service = require('../../index.js').service;
+var service = new Service('1.0.0', 'test-api', (options) => {
+	if (options.sessionId == 'pass') return Promise.resolve({ data: options.sessionId });
+	return Promise.reject(new Error('Who are you?'));
+});
 
 const testObj = {
 
@@ -34,7 +38,8 @@ const testObj = {
 		throw new Error('Unexpected error');
 	},
 
-	testMe(callback) {
+	testMe(callback, context) {
+		console.log(context.data);
 		callback(null, {
 			'property1': 'int',
 			'asdf': 'Аз съм Сънчо',

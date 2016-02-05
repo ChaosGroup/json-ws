@@ -17,7 +17,7 @@ describe('Converters', function() {
 	};
 
 	beforeEach(function() {
-		api = jsonws.service('1.0.0', 'test-api');
+		api = new jsonws.service('1.0.0', 'test-api');
 		api.type('TestType', {
 			intField: {
 				type: 'int',

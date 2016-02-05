@@ -13,7 +13,7 @@ const path = require('path');
 const expressApp = express();
 const httpServer = http.createServer(expressApp);
 const registry = jsonws.registry({
-	rootPath: '/endpoint',
+	rootPath: '/endpoint/:sessionId',
 	httpServer,
 	expressApp
 });
