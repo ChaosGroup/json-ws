@@ -27,6 +27,7 @@ const testObj = {
 	},
 
 	echoObject(a, callback) {
+		a.b = a;
 		callback(null, a);
 	},
 
