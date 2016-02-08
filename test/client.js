@@ -20,10 +20,10 @@ const WebSocket = require('ws');
 const http = require('http');
 const express = require('express');
 const bodyParser = require('body-parser');
+const Service = jsonws.service;
 
 function buildTestApi() {
-	const jsonws = require('../index.js');
-	const api = new jsonws.service('1.0.0', 'test');
+	const api = new Service('1.0.0', 'test');
 
 	function TestAPI() {
 	}

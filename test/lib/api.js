@@ -6,6 +6,7 @@
 
 const expect = require('chai').expect;
 const jsonws = require('../../index.js');
+const Service = jsonws.service;
 
 describe('Converters', function() {
 	let api;
@@ -17,7 +18,7 @@ describe('Converters', function() {
 	};
 
 	beforeEach(function() {
-		api = new jsonws.service('1.0.0', 'test-api');
+		api = new Service('1.0.0', 'test-api');
 		api.type('TestType', {
 			intField: {
 				type: 'int',
