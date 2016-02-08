@@ -14,9 +14,7 @@
   "bugs": "https://github.com/ChaosGroup/json-ws/issues",
   "license": "MIT",
   "dependencies": {
-    "bluebird": "^3.2.1",
     "co": "^4.5.2",
-    "cookie": "^0.1.2",
     "ejs": "^2.3.4",
     "express": "^4.13.4",
     "path-to-regexp": "^1.2.1",
@@ -26,6 +24,7 @@
     "ws": "^1.0.1"
   },
   "devDependencies": {
+    "bluebird": "^3.2.1",
     "body-parser": "^1.14.2",
     "chai": "^3.3.0",
     "eslint": "^1.10.3",
