@@ -1,7 +1,7 @@
 'use strict';
 
 const Service = require('../../index.js').service;
-var service = new Service('1.0.0', 'test-api', (options) => {
+var service = new Service('1.0.0', 'test-api', (methodName, options) => {
 	if (options.sessionId == 'pass') return Promise.resolve({ data: options.sessionId });
 	return Promise.reject(new Error('Who are you?'));
 });

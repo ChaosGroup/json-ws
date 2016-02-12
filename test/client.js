@@ -160,7 +160,7 @@ function startServer(done) {
 	const registry = jsonws.registry({ rootPath, httpServer, expressApp });
 
 	expressApp.use(bodyParser.json());
-	registry.attachExpressRouter();
+	expressApp.use(registry.getRouter());
 
 	const api = buildTestApi();
 

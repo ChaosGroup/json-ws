@@ -14,14 +14,13 @@ const expressApp = express();
 const httpServer = http.createServer(expressApp);
 const registry = jsonws.registry({
 	rootPath: '/endpoint/:sessionId',
-	httpServer,
-	expressApp
+	httpServer
 });
 
 expressApp.set('port', 3000);
 expressApp.use(bodyParser.json());
 expressApp.use(express.static(path.join(__dirname, '..', 'browser')));
-registry.attachExpressRouter();
+expressApp.use(registry.getRouter());
 
 expressApp.get('/', function(req, res) {
 	res.send('hello world');
