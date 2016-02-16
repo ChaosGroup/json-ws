@@ -674,4 +674,47 @@ describe('node.js proxy', function() {
 			});
 		}).catch(done);
 	});
+
+	it('works with events for multiple clients', function(done) {
+		Promise.all([
+			getProxy(httpProxyUrl),
+			getProxy(httpProxyUrl)
+		]).then(function(proxies) {
+			expect(proxies[0]).to.be.ok;
+			expect(proxies[1]).to.be.ok;
+
+			const proxy1 = new proxies[0].Tester(serverUrl);
+			const proxy2 = new proxies[1].Tester(serverUrl);
+
+			let handler1Called = false;
+			let handler2Called = false;
+			let callCount = 0;
+			function eventHandler1() {
+				if (handler1Called) {
+					return;
+				}
+
+				handler1Called = true;
+				callCount++;
+				if (callCount == 2) {
+					done();
+				}
+			}
+
+			function eventHandler2() {
+				if (handler2Called) {
+					return;
+				}
+
+				handler2Called = true;
+				callCount++;
+				if (callCount == 2) {
+					done();
+				}
+			}
+
+			proxy1.on('testEvent', eventHandler1);
+			proxy2.on('testEvent', eventHandler2);
+		}).catch(done);
+	});
 });
