@@ -424,7 +424,7 @@ describe('Types - api.type()', function() {
 				parameter1: 'p1',
 				parameter2: 0.0
 			}
-		})).to.not.throw;
+		})).to.not.throw();
 
 		expect(testType.convert.bind(testType, {
 			name: 'test name',
@@ -777,6 +777,14 @@ describe('External definitions', function() {
 
 		expect(api.eventMap['ontest']).to.be.ok;
 		expect(api.eventMap['ontest'].description).to.eq('test event');
+	});
+
+	it('external definitions using JSON, import clause is at the top', function() {
+		expect(() => { api.import(path.resolve(__dirname, 'resources', 'server-def-json-include-top.js')); }).to.not.throw();
+	});
+
+	it('external definitions using JSON, import clause is at the bottom', function() {
+		expect(() => { api.import(path.resolve(__dirname, 'resources', 'server-def-json-include-bottom.js')); }).to.not.throw();
 	});
 
 	function splitLines(text) {
