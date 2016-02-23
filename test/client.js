@@ -13,6 +13,7 @@
 const Bluebird = require('bluebird');
 const chai = require('chai');
 const expect = chai.expect;
+const EventEmitter = require('events');
 
 const jsonws = require('../index.js');
 const request = Bluebird.promisifyAll(require('request'), {multiArgs: true});
@@ -22,34 +23,36 @@ const express = require('express');
 const bodyParser = require('body-parser');
 const Service = jsonws.service;
 
-function buildTestApi() {
-	const api = new Service('1.0.0', 'test');
+function buildTestService() {
+	const service = new Service('1.0.0', 'test');
 
-	function TestAPI() {
+	class TestAPI extends EventEmitter {
+		sum(a, b) {
+			return a + b;
+		}
+
+		asyncSum(a, b, callback) {
+			callback(null, a + b);
+		}
+
+		throwError() {
+			throw new Error('Throw error test');
+		}
+
+		throwUnexpectedError() {
+			throw new Error('Throw unexpected error test');
+		}
+
+		returnError() {
+			return new Error('FooBar');
+		}
 	}
 
-	TestAPI.prototype.sum = function (a, b) {
-		return a + b;
-	};
-	TestAPI.prototype.asyncSum = function (a, b, callback) {
-		callback(null, a + b);
-	};
-	TestAPI.prototype.throwError = function () {
-		throw new Error('Throw error test');
-	};
-	TestAPI.prototype.throwUnexpectedError = function () {
-		throw new Error('Throw unexpected error test');
-	};
-	TestAPI.prototype.returnError = function() {
-		return new Error('FooBar');
-	};
-
-	api.defineAll(new TestAPI());
-	api.type('TestData', {
+	service.type('TestData', {
 		a: 'int',
 		b: 'string'
 	});
-	api.define({
+	service.define({
 		name: 'optionalArgs',
 		params: [
 			{ name: 'a', type: 'string' },
@@ -60,15 +63,15 @@ function buildTestApi() {
 	}, function(a, b, c) {
 		return [a, b, c].join('');
 	});
-	api.define({
+	service.define({
 		name: 'throwError',
 		returns: 'async'
 	});
-	api.define({
+	service.define({
 		name: 'throwUnexpectedError',
 		returns: ['object']
 	});
-	api.define({
+	service.define({
 		name: 'testAsyncReturn',
 		params: [ {name: 'throwError', type: 'bool'} ],
 		returns: 'async'
@@ -77,7 +80,7 @@ function buildTestApi() {
 			callback(throwError ? new Error('Callback error') : null);
 		});
 	});
-	api.define({
+	service.define({
 		name: 'sum',
 		params: [
 			{name: 'a', type: 'int'},
@@ -85,13 +88,13 @@ function buildTestApi() {
 		],
 		returns: 'int'
 	});
-	api.define({
+	service.define({
 		name: 'hello',
 		returns: 'string'
 	}, function() {
 		return 'world';
 	});
-	api.define({
+	service.define({
 		name: 'asyncSum',
 		params: [
 			{name: 'a', type: '*'},
@@ -99,7 +102,7 @@ function buildTestApi() {
 		],
 		returns: '*'
 	});
-	api.define({
+	service.define({
 		name: 'mul',
 		params: [
 			{name: 'a', type: 'int'},
@@ -107,14 +110,14 @@ function buildTestApi() {
 		],
 		returns: 'int'
 	}, function(a, b) { return a * b; });
-	api.define({
+	service.define({
 		name: 'sumArray',
 		params: [
 			{name: 'ints', type: ['int']}
 		],
 		returns: 'int'
 	}, function(ints) { let sum = 0; ints.forEach(function(i){sum += i;}); return sum; });
-	api.define({
+	service.define({
 		name: 'test.some.namespace.mul',
 		params: [
 			{name: 'a', type: 'int'},
@@ -122,28 +125,31 @@ function buildTestApi() {
 		],
 		returns: 'int'
 	}, function(a, b) { return a * b; });
-	api.define({
+	service.define({
 		name: 'dataTest',
 		params: [{name: 'a', type: 'TestData'}],
 		returns: 'TestData'
 	}, function (a) { return a;	});
-	api.define({
+	service.define({
 		name: 'returnError',
 		returns: 'error'
 	});
-	api.event('testEvent');
-	api.event('testDataEvent');
-	api.event('test.the.namespace.event');
+	service.event('testEvent');
+	service.event('testDataEvent');
+	service.event('test.the.namespace.event');
+
+	const testAPI = new TestAPI();
+	service.defineAll(testAPI);
 
 	setInterval(function () {
-		api.emit('testEvent');
-		api.emit('test.the.namespace.event');
+		testAPI.emit('testEvent');
+		testAPI.emit('test.the.namespace.event');
 	}, 100);
 	setInterval(function () {
-		api.emit('testDataEvent', { hello: 'world' });
+		testAPI.emit('testDataEvent', { hello: 'world' });
 	}, 100);
 
-	return api;
+	return service;
 }
 
 let httpServer;
@@ -162,12 +168,10 @@ function startServer(done) {
 	expressApp.use(bodyParser.json());
 	expressApp.use(registry.getRouter());
 
-	const api = buildTestApi();
-
 	httpServer.listen(PORT, function () {
 		registry.addTransport(jsonws.transport.HTTP);
 		registry.addTransport(jsonws.transport.WebSocket);
-		const servicePathPrefix = registry.addService(api);
+		const servicePathPrefix = registry.addService(buildTestService());
 		serverUrl = `http://localhost:${httpServer.address().port}${registry.rootPath}${servicePathPrefix}`;
 		serverWsUrl = serverUrl.replace('http', 'ws');
 		httpProxyUrl = serverUrl + '?proxy=JavaScript&localName=Tester';
