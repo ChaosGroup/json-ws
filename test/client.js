@@ -137,6 +137,7 @@ function buildTestService() {
 	service.event('testEvent');
 	service.event('testDataEvent');
 	service.event('test.the.namespace.event');
+	service.event('testContextEvent');
 
 	const testAPI = new TestAPI();
 	service.defineAll(testAPI);
@@ -148,6 +149,10 @@ function buildTestService() {
 	setInterval(function () {
 		testAPI.emit('testDataEvent', { hello: 'world' });
 	}, 100);
+	setInterval(function() {
+		testAPI.emit('testContextEvent', {hello: 'hello1234'}, {ctxId: 'id1234'});
+		testAPI.emit('testContextEvent', {hello: 'hello5678'}, {ctxId: 'id5678'});
+	}, 100);
 
 	return service;
 }
@@ -156,6 +161,7 @@ let httpServer;
 let serverUrl;
 let serverWsUrl;
 let httpProxyUrl;
+let getContextUrl;
 
 function startServer(done) {
 	const PORT = 3000;
@@ -168,13 +174,21 @@ function startServer(done) {
 	expressApp.use(bodyParser.json());
 	expressApp.use(registry.getRouter());
 
+	registry.addRoute('/ctx/:ctxId');
+
 	httpServer.listen(PORT, function () {
 		registry.addTransport(jsonws.transport.HTTP);
 		registry.addTransport(jsonws.transport.WebSocket);
 		const servicePathPrefix = registry.addService(buildTestService());
-		serverUrl = `http://localhost:${httpServer.address().port}${registry.rootPath}${servicePathPrefix}`;
+		const registryRootUrl = `http://localhost:${httpServer.address().port}${registry.rootPath}`;
+		serverUrl = `${registryRootUrl}${servicePathPrefix}`;
+
+		getContextUrl = function(ctxId) {
+			return `${registryRootUrl}/ctx/${ctxId}${servicePathPrefix}`;
+		};
+
 		serverWsUrl = serverUrl.replace('http', 'ws');
-		httpProxyUrl = serverUrl + '?proxy=JavaScript&localName=Tester';
+		httpProxyUrl = `${serverUrl}?proxy=JavaScript&localName=Tester`;
 		done();
 	});
 
@@ -719,6 +733,65 @@ describe('node.js proxy', function() {
 
 			proxy1.on('testEvent', eventHandler1);
 			proxy2.on('testEvent', eventHandler2);
+		}).catch(done);
+	});
+
+	it('works with contextualized events', function(done) {
+		Promise.all([
+			getProxy(httpProxyUrl),
+			getProxy(httpProxyUrl),
+			getProxy(httpProxyUrl),
+			getProxy(httpProxyUrl)
+		]).then(function(proxies) {
+			expect(proxies[0]).to.be.ok;
+			expect(proxies[1]).to.be.ok;
+			expect(proxies[2]).to.be.ok;
+
+			const proxy1 = new proxies[0].Tester(serverUrl);
+			const proxy2 = new proxies[1].Tester(getContextUrl('id1234'));
+			const proxy3 = new proxies[2].Tester(getContextUrl('id5678'));
+			const proxy4 = new proxies[2].Tester(getContextUrl('id4321'));
+
+			let handler2Called = false;
+			let handler3Called = false;
+			let callCount = 0;
+
+			// Give time to ensure the event handler is not called:
+			setTimeout(function() {
+				callCount++;
+
+				if (callCount == 3) {
+					done();
+				}
+			}, 500);
+
+			function eventHandler2(data) {
+				expect(data.hello).to.eq('hello1234');
+				if (!handler2Called) {
+					handler2Called = true;
+					callCount++;
+					if (callCount == 3) {
+						done();
+					}
+				}
+			}
+
+			function eventHandler3(data) {
+				expect(data.hello).to.eq('hello5678');
+
+				if (!handler3Called) {
+					handler3Called = true;
+					callCount++;
+					if (callCount == 3) {
+						done();
+					}
+				}
+			}
+
+			proxy1.on('testContextEvent', function() { done(new Error('testContextEvent received without context')); });
+			proxy2.on('testContextEvent', eventHandler2);
+			proxy3.on('testContextEvent', eventHandler3);
+			proxy4.on('testContextEvent', function() { done(new Error('testContextEvent received for wrong context')); });
 		}).catch(done);
 	});
 });
