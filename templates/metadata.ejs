@@ -3,8 +3,13 @@
 function prettify(r) {
 	if (!r) return "void";
 	if (typeof r === 'string') return r;
-	var code = locals.ujs.minify("_=" + JSON.stringify(r), {fromString: true, output: {beautify: true}}).code;
-	return code.substr(4, code.length - 5);
+
+	if (typeof locals.ujs !== 'undefined') {
+		var code = locals.ujs.minify("_=" + JSON.stringify(r), {fromString: true, output: {beautify: true}}).code;
+		return code.substr(4, code.length - 5);
+	}
+
+	return JSON.stringify(r, null, '    ');
 }
 
 function anchorType(typeName) {
