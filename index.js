@@ -3,7 +3,8 @@
 const vm = require('vm');
 const Module = require('module');
 const path = require('path');
-const request = require('request');
+
+let request;
 
 try {
 	require.resolve('json-ws');
@@ -36,6 +37,10 @@ module.exports.proxy = function(proxyUrl, sslSettings, callback) {
 	if (!callback) {
 		callback = sslSettings;
 		sslSettings = {};
+	}
+
+	if (typeof request === 'undefined') {
+		request = require('request');
 	}
 
 	request(proxyUrl, {
