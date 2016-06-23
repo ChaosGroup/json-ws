@@ -243,8 +243,10 @@ describe('Types - api.type()', function() {
 		expect(testType.type).to.eq('string');
 		expect(testType.convert).to.be.a('function');
 		expect(testType.convert('test')).to.eq('test');
-		expect(testType.convert({test: 'me'})).to.eq(JSON.stringify({test: 'me'}));
-		expect(testType.convert(1234)).to.eq('1234');
+		expect(() => testType.convert({test: 'me'})).to.throw(/Invalid string value/);
+		expect(testType.convert({test: 'me'}, true)).to.eq(JSON.stringify({test: 'me'}));
+		expect(() => testType.convert(1234)).to.throw(/Invalid string value/);
+		expect(testType.convert(1234, true)).to.eq('1234');
 	});
 
 	it('creates internal types - url', function() {
@@ -472,7 +474,7 @@ describe('Types - api.type()', function() {
 		expect(testType.convert({
 			ints: [1, '2', '3.3', 4, 5],
 			complex: [{bar: 'string' }, {bar: [1234, 5678]}, {bar: 1234}]
-		})).to.deep.eq({
+		}, true)).to.deep.eq({
 			ints: [1, 2, 3, 4, 5],
 			complex: [{bar: 'string'} , {bar: '[1234,5678]'}, {bar: '1234'}]
 		});
