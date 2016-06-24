@@ -3,8 +3,9 @@
 const vm = require('vm');
 const Module = require('module');
 const path = require('path');
-
-let request;
+const http = require('http');
+const https = require('https');
+const url = require('url');
 
 try {
 	require.resolve('json-ws');
@@ -39,34 +40,61 @@ module.exports.proxy = function(proxyUrl, sslSettings, callback) {
 		sslSettings = {};
 	}
 
-	if (typeof request === 'undefined') {
-		request = require('request');
+	const parsedProxyUrl = url.parse(proxyUrl);
+	const useHttps = Object.keys(sslSettings).length > 0;
+
+	const requestSettings = {
+		protocol: parsedProxyUrl.protocol,
+		hostname: parsedProxyUrl.hostname,
+		port: parsedProxyUrl.port,
+		path: parsedProxyUrl.path
+	};
+
+	for (const s in sslSettings) {
+		if (sslSettings.hasOwnProperty(s)) {
+			requestSettings[s] = sslSettings[s];
+		}
 	}
 
-	request(proxyUrl, {
-		agentOptions: sslSettings
-	}, function(err, response, body) {
-		if (err) { callback(err); return; }
+	if (useHttps) {
+		requestSettings.agent = new https.Agent(requestSettings);
+	}
 
-		if (response.statusCode !== 200) {
+	const req = (useHttps ? https : http).request(requestSettings, function(res) {
+		if (res.statusCode !== 200) {
 			callback(new Error('Proxy not available at ' + proxyUrl));
 			return;
 		}
 
-		const proxyModule = {exports: {}};
-
-		try {
-			const moduleWrapper = vm.runInThisContext(Module.wrap(body), {filename: proxyUrl});
-			moduleWrapper(proxyModule.exports, require, proxyModule);
-		} catch (vmError) {
-			const err = new Error('Error loading proxy');
-			err.stack = vmError.stack;
-			callback(err);
+		const responseSize = Number(res.headers['content-length']);
+		if (isNaN(responseSize) || responseSize <= 0) {
+			callback(new Error('Empty response'));
 			return;
 		}
+		const responseBuffer = new Buffer(responseSize);
+		let offset = 0;
 
-		callback(null, proxyModule.exports);
+		res.on('data', chunk => {
+			offset += chunk.copy(responseBuffer, offset);
+		});
+		res.on('end', () => {
+			const proxyCode = responseBuffer.toString('utf8');
+			const proxyModule = {exports: {}};
+
+			try {
+				const moduleWrapper = vm.runInThisContext(Module.wrap(proxyCode), {filename: proxyUrl});
+				moduleWrapper(proxyModule.exports, require, proxyModule);
+			} catch (vmError) {
+				const err = new Error('Error loading proxy');
+				err.stack = vmError.stack;
+				callback(err);
+				return;
+			}
+
+			callback(null, proxyModule.exports);
+		});
 	});
+	req.end();
 };
 
 module.exports.getClientProxy = function(apiRoot, apiType, version, sslSettings, callback) {
