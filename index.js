@@ -31,12 +31,12 @@ module.exports.transport = {
 		return transport;
 	},
 
-	HTTP: function(httpServer, expressApp) {
+	HTTP: function(httpServer, expressApp, options) {
 		if (!httpServer || !expressApp) {
 			throw new Error('HTTP transport requires an HTTP server and an Express application instance.');
 		}
 		var transport = require("./lib/rest-transport");
-		transport = new transport(httpServer, expressApp);
+		transport = new transport(httpServer, expressApp, options);
 		transport.trace = new Trace(debugLogger);
 		return transport;
 	}
