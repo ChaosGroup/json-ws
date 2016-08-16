@@ -1,6 +1,6 @@
 {
   "name": "json-ws",
-  "version": "2.0.10-alpha",
+  "version": "2.0.11-alpha",
   "author": "ChaosGroup (c) 2013-2016",
   "description": "JSON-RPC based Web Services with automatic help and client side source creation for Java/JavaScript/.Net/Python/Node.js",
   "keywords": [
@@ -20,6 +20,7 @@
     "ejs": "^2.3.4",
     "express": "^4.13.4",
     "path-to-regexp": "^1.2.1",
+    "request": "^2.67.0",
     "semver": "^5.1.0",
     "ws": "^1.0.1"
   },
@@ -34,8 +35,7 @@
     "istanbul": "^0.4.2",
     "jsdoc": "^3.4.0",
     "lodash": "^3.10.1",
-    "mocha": "^2.3.3",
-    "request": "^2.67.0"
+    "mocha": "^2.3.3"
   },
   "scripts": {
     "test": "mocha test/lib/* test/server.js test/client.js",
