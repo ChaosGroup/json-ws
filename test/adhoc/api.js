@@ -1,9 +1,12 @@
 'use strict';
 
+const path = require('path');
+
 const Service = require('../../index.js').service;
 var service = new Service('1.0.0', 'test-api', (methodName, options) => {
-	if (options.sessionId == 'pass') return Promise.resolve({ data: options.sessionId });
-	return Promise.reject(new Error('Who are you?'));
+	//if (options.sessionId == 'pass')
+	return Promise.resolve({ data: options.sessionId });
+	//return Promise.reject(new Error('Who are you?'));
 });
 
 const testObj = {
@@ -231,7 +234,9 @@ module.exports = function() {
 	.define('method1')
 
 	.setNamespace('ns2.sub1.sub2')
-	.define('method1');
+	.define('method1')
+	.examples(path.join(__dirname, 'examples', 'examples.js'))
+	.examples(path.join(__dirname, 'examples', 'snippets.js'));
 	//	.examples(path.resolve('test.examples.js'))
 	//	.examples(path.resolve('test.examples.node.js'))
 	//	.examples(path.resolve('test.examples.java'))

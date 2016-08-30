@@ -17,7 +17,7 @@ function anchorType(typeName) {
 }
 
 function renderExamples(exampleMap, name, type) {     // types: 'example', 'snippet'
-	var languages = metadata.languages.sort();
+	var languages = locals.metadata.languages.sort();
 
 	// The number of values in paramsStr can be less or equal to the number of defined params
 	// They need to be in the same order.
@@ -26,7 +26,7 @@ function renderExamples(exampleMap, name, type) {     // types: 'example', 'snip
 		try {
 			var paramsArr = JSON.parse(paramsStr);
 			paramsArr.forEach(function(val, i) {
-				var paramName = metadata.methodMap[name].params[i].name;
+				var paramName = locals.metadata.methodMap[name].params[i].name;
 				if (!paramName) {
 					return null;
 				}
@@ -473,8 +473,8 @@ groups.map(function(groupIndex) { return locals.metadata.groups[groupIndex].item
 		items: groupItems
 	};
 });
-var snippets = Object.keys(locals.metadata.snippetMap).map(function(snipppet) {
-	return { type: 'snippet', item: snipppet };
+var snippets = Object.keys(locals.metadata.snippetMap).map(function(snippet) {
+	return { type: 'snippet', item: snippet };
 });
 if (snippets.length > 0) {
 	groupsMap.push({
