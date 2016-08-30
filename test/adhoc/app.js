@@ -27,7 +27,7 @@ expressApp.get('/', function(req, res) {
 });
 
 expressApp.get('/test', function(req, res) {
-	res.sendfile(path.join(__dirname, '..', 'browser', 'test.html'));
+	res.sendFile(path.join(__dirname, '..', 'browser', 'test.html'));
 });
 
 httpServer.listen(expressApp.get('port'), function () {
