@@ -10,153 +10,180 @@
 <head>
 	<meta charset="utf-8">
 	<title><%= title %> - Playground</title>
-	<link rel="stylesheet" href="./static/codemirror.css">
-	<link href="//netdna.bootstrapcdn.com/bootstrap/3.0.0/css/bootstrap.min.css" rel="stylesheet">
-	<script src="//ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js"></script>
-	<script src="//netdna.bootstrapcdn.com/bootstrap/3.0.0/js/bootstrap.min.js"></script>
 	<script>
 		<%-client%>
 	</script>
 	<script src="?proxy=JavaScript&localName=Proxy"></script>
-	<script src="./static/codeMirror.js"></script>
+	<script src="./static/ace.js"></script>
+	<script src="./static/ext-language_tools.js"></script>
 	<style>
-		.CodeMirror {
-			position: relative;;
-			border: 1px solid #ddd !important;
-			height: 85%;
+		body {
+			display: flex;
+			margin: 0;
+			flex-direction: column;
 		}
 
-		.CodeMirror-gutter-elt {
-			left: -22px !important;
+		.ace_editor {
+			margin: 0px;
 		}
 
-		.CodeMirror:hover {
-			cursor: text;
+		.editors {
+			display: flex;
+			flex-grow: 10;
+			justify-content: space-around;
+			align-self: stretch;
+			align-content: stretch;
 		}
+
+		.editors > div {
+			border: 1px solid #3b8ec2;
+			min-width: 49%;
+			flex-basis: inherit;
+		}
+
+		.editors + div {
+			flex-grow: 1;
+			height: 0.5em;
+		}
+
+		.styled-select {
+			display: flex;
+			align-self: center;
+			overflow: hidden;
+			margin: 0 5px;
+		}
+
+		.styled-select:hover {
+			background-color: #3cb0fd;
+			text-decoration: none;
+		}
+
+		.styled-select select {
+			background: transparent;
+			border: 0px;
+			font-size: 15px;
+			padding: 10px 5px;
+		}
+
+		option {
+			color: black;
+		}
+
+		.semi-square {
+			-webkit-border-radius: 5px;
+			-moz-border-radius: 5px;
+			border-radius: 8px;
+		}
+
+		/* -------------------- Colors: Background */
+		.blue    { background-color: #3b8ec2; }
+		.red     { background-color: #c10a00; }
+
+		/* -------------------- Colors: Text */
+		.blue select    { color: #fff; }
+		.blue select:hover    { color: #000; }
+
 
 		#buttons {
-			padding-left: 15px;
-			margin-top: 15px;
-			margin-bottom: 20px;
-		}
-
-		.tooltip-wrap {
-			position: relative;
-			display: inline-block;
-		}
-
-		.tooltip-wrap .tooltip-content {
-			display: none;
-			position: absolute;
-			width: 100px;
-			bottom: -20px;
-			padding: 0;
-		}
-
-		.tooltip-wrap:hover .tooltip-content {
-			display: block;
-			font-size: 12px;
-		}
-
-		.tooltip-content > span {
-			background-color: #e6e6e6;
-			padding: 2px;
+			display: flex;
 		}
 
 		.btn {
-			margin-right: 15px;
-			height: 30px;
+			align-self: center;
+			border-radius: 8px;
+			border: 0;
+			font-family: Arial;
+			color: #ffffff;
+			font-size: 15px;
+			padding: 10px 15px;
+			text-decoration: none;
+			margin: 5px 5px;
 		}
 
-		.dropdown-toggle {
-			background-color: #E6E6E6;
+		.btn:hover {
+			background-color: #3cb0fd;
+			text-decoration: none;
+		}
+
+		.btn.red:hover{
+			background: #e70a00;
 		}
 	</style>
 </head>
 <body>
-<div style="width: 90%; margin-left: auto; margin-right: auto;">
-	<div class="row" id="buttons">
-		<ul class="nav navbar-nav">
-		<li>
-			<div class="tooltip-wrap">
-				<button type="button" class="btn btn-primary btn-sm" id="runButton"><span class="glyphicon glyphicon-play">&nbsp;</span>Run
-				</button>
-				<div class="tooltip-content">
-					<span>Ctrl + Enter</span>
-				</div>
-			</div>
-		</li>
-		<li>
-		<div class="tooltip-wrap">
-			<button type="button" class="btn btn-danger btn-sm" id="clearButton"><span
-						class="glyphicon glyphicon-trash">&nbsp;</span>Clear
-			</button>
-			<div class="tooltip-content">
-				<span>Ctrl + Delete</span>
-			</div>
-		</div>
-		</li>
+	<div id="buttons">
+			<button type="button" class="btn blue" id="runButton">Run</button>
+			<button type="button" class="btn red" id="clearButton">Clear</button>
 		<% if (examples.length > 0) { %>
-		<li class="dropdown">
-			<button class="btn btn-sm dropdown-toggle" type="button" id="examplesBtn" data-toggle="dropdown">
-				Examples <span class="caret"></span>
-			</button>
-			<ul class="dropdown-menu" role="menu" aria-labelledby="examplesBtn">
+		<div class="styled-select blue semi-square">
+			<select onchange="changeExample(this.value)">
+				<option>Examples</option>
 				<% examples.forEach(function(example) {
-				var link = url + "?viewer&example=" + example; %>
-				<li role="presentation"><a role="menuitem" tabindex="-1" href="<%- link %>"><%- example %></a></li>
-				<% }); %>
-			</ul>
-		</li>
-		<% } %>
+					var link = url + "?viewer&example=" + example; %>
+				<option value="<%- link %>"><%- example %></option>
+				<% });%>
+			</select>
+		</div>
+		<%}%>
 
 		<% if (snippets.length > 0) { %>
-		<li class="dropdown">
-			<button class="btn btn-sm dropdown-toggle" type="button" id="snippetsBtn" data-toggle="dropdown">
-				Snippets <span class="caret"></span>
-			</button>
-			<ul class="dropdown-menu" role="menu" aria-labelledby="snippetsBtn">
+		<div class="styled-select blue semi-square">
+			<select onchange="changeExample(this.value)">
+				<option>Snippets</option>
 				<% snippets.forEach(function(snippet) {
-				var link = url + "?viewer&snippet=" + snippet; %>
-				<li role="presentation"><a role="menuitem" tabindex="-1" href="<%- link %>"><%- snippet %></a></li>
+					var link = url + "?viewer&snippet=" + snippet; %>
+					<option value="<%- link %>"><%- snippet %></option>
 				<% }); %>
-			</ul>
-		</li>
-		<% } %>
-		</ul>
+			</select>
+		</div>
+		<%}%>
 	</div>
 
-	<div class="row">
-		<div class="col-xs-6">
-			<label for="codeTextArea">Code</label><textarea id="codeTextArea"><% if (code) { %>
+	<div class="editors">
+		<div>
+			<textarea id="codeTextArea"><% if (code) { %>
 <%- code %>  <% } %>
 			</textarea>
 		</div>
-		<div class="col-xs-6">
-			<label for="outputTextArea">Output</label><textarea id="outputTextArea"></textarea>
+		<div>
+			<textarea id="outputTextArea"></textarea>
 		</div>
 	</div>
+
+	<div></div>
 </div>
 
 <script type="text/javascript">
+	function changeExample(value) {
+		window.location = value;
+	}
+
 	(function () {
 		'use strict';
 
 		var outputString = '';
-		var editor = CodeMirror.fromTextArea(codeTextArea, {
-			mode: "javascript",
-			lineNumbers: true,
-			lineWrapping: true,
-			indentUnit: 4,
-			matchBrackets: true
+		ace.require("ace/ext/language_tools");
+		var editor = ace.edit("codeTextArea");
+		var height = document.querySelector('.editors').clientHeight;
+		var linesCount = height / editor.renderer.lineHeight;
+		var output = ace.edit("outputTextArea");
+		var aceOptions = {
+			minLines: linesCount,
+			maxLines: linesCount,
+			mode: 'ace/mode/javascript'
+		}
+		editor.setOptions(aceOptions);
+		editor.setOptions({
+			enableBasicAutocompletion: true,
+			enableSnippets: true,
+			enableLiveAutocompletion: true
 		});
-
-		var output = CodeMirror.fromTextArea(outputTextArea, {
-			mode: "javascript",
-			readOnly: true,
-			lineWrapping: true,
-			indentUnit: 4
-		});
+		editor.$blockScrolling = Infinity
+		output.setOptions(aceOptions);
+		output.setReadOnly(true);
+		output.getSession().setUseWorker(false);
+		output.renderer.$cursorLayer.element.style.display = "none";
+		output.renderer.setShowGutter(false);
 
 		function getFirstLine() {
 			if (!window.location.origin) {
@@ -167,14 +194,15 @@
 		}
 
 		function initEditor() {
+			editor.focus();
+			editor.setValue(getFirstLine(), 1);
 			outputString = '';
 			output.setValue(outputString);
-			editor.setValue(getFirstLine());
 		}
 		initEditor();
 
 		<% if (code) { %>
-			editor.setValue(getFirstLine() + $('#codeTextArea').text());
+			editor.setValue(getFirstLine() + <%- '"' + code.replace(new RegExp('"', 'g'), '\\"').replace(new RegExp('\\r?\\n', 'g'), '\\n')  + '"' %>, 1);
 		<% } %>
 
 		function run() {
@@ -196,6 +224,7 @@
 					output.setValue(outputString);
 				}
 			});
+			editor.focus();
 		}
 
 		function clear() {
@@ -212,8 +241,10 @@
 		}
 
 		document.onkeydown = KeyDown;
-		$("#runButton").click(run);
-		$("#clearButton").click(clear);
+		var runButton = document.querySelector('#runButton');
+		runButton.addEventListener("click", run);
+		var clearButton = document.querySelector('#clearButton');
+		clearButton.addEventListener("click", clear);
 	})();
 </script>
 </body>
