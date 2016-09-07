@@ -23,6 +23,13 @@
 			flex-direction: column;
 		}
 
+		.vertical_line {
+			background-color: #3b8ec2;
+			width: 2px;
+			flex-grow: 0;
+			cursor: col-resize;
+		}
+
 		.ace_editor {
 			margin: 0px;
 		}
@@ -30,17 +37,23 @@
 		.editors {
 			display: flex;
 			flex-grow: 10;
-			justify-content: space-around;
+			justify-content: center;
 			align-self: stretch;
 			align-content: stretch;
 		}
 
-		.editors > div {
+		.input {
 			border: 1px solid #3b8ec2;
-			min-width: 49%;
+			flex-basis: inherit;
+			min-width: 10%;
+			max-width: 90%;
+		 }
+
+		.output {
+			border: 1px solid #3b8ec2;
+			flex-grow: 1;
 			flex-basis: inherit;
 		}
-
 		.editors + div {
 			flex-grow: 1;
 			height: 0.5em;
@@ -50,29 +63,23 @@
 			display: flex;
 			align-self: center;
 			overflow: hidden;
-			margin: 0 5px;
 		}
 
 		.styled-select:hover {
 			background-color: #3cb0fd;
-			text-decoration: none;
+			color: white;
 		}
 
 		.styled-select select {
 			background: transparent;
 			border: 0px;
 			font-size: 15px;
-			padding: 10px 5px;
+			padding: 4px 5px;
+			max-width: 90px;
 		}
 
 		option {
 			color: black;
-		}
-
-		.semi-square {
-			-webkit-border-radius: 5px;
-			-moz-border-radius: 5px;
-			border-radius: 8px;
 		}
 
 		/* -------------------- Colors: Background */
@@ -80,24 +87,24 @@
 		.red     { background-color: #c10a00; }
 
 		/* -------------------- Colors: Text */
-		.blue select    { color: #fff; }
-		.blue select:hover    { color: #000; }
+		.blue select    { color: white; }
+		.blue select:hover    { color: white; }
 
 
 		#buttons {
 			display: flex;
+			justify-content: flex-end;
 		}
 
 		.btn {
 			align-self: center;
-			border-radius: 8px;
 			border: 0;
 			font-family: Arial;
 			color: #ffffff;
 			font-size: 15px;
-			padding: 10px 15px;
+			padding: 5px 10px;
 			text-decoration: none;
-			margin: 5px 5px;
+			/*margin: 5px 0px;*/
 		}
 
 		.btn:hover {
@@ -111,47 +118,49 @@
 	</style>
 </head>
 <body>
-	<div id="buttons">
-			<button type="button" class="btn blue" id="runButton">Run</button>
-			<button type="button" class="btn red" id="clearButton">Clear</button>
-		<% if (examples.length > 0) { %>
-		<div class="styled-select blue semi-square">
-			<select onchange="changeExample(this.value)">
-				<option>Examples</option>
-				<% examples.forEach(function(example) {
-					var link = url + "?viewer&example=" + example; %>
-				<option value="<%- link %>"><%- example %></option>
-				<% });%>
-			</select>
-		</div>
-		<%}%>
-
-		<% if (snippets.length > 0) { %>
-		<div class="styled-select blue semi-square">
-			<select onchange="changeExample(this.value)">
-				<option>Snippets</option>
-				<% snippets.forEach(function(snippet) {
-					var link = url + "?viewer&snippet=" + snippet; %>
-					<option value="<%- link %>"><%- snippet %></option>
-				<% }); %>
-			</select>
-		</div>
-		<%}%>
-	</div>
-
 	<div class="editors">
-		<div>
+		<div class="input">
+			<div id="buttons">
+				<button type="button" class="btn blue" id="runButton">Run</button>
+				<button type="button" class="btn red" id="clearButton">Clear</button>
+				<% if (examples.length > 0) { %>
+				<div class="styled-select blue">
+					<select onchange="changeExample(this.value)">
+						<option>Examples</option>
+						<% examples.forEach(function(example) {
+							var link = url + "?viewer&example=" + example; %>
+						<option value="<%- link %>"><%- example %></option>
+						<% });%>
+					</select>
+				</div>
+				<%}%>
+
+				<% if (snippets.length > 0) { %>
+				<div class="styled-select blue">
+					<select onchange="changeExample(this.value)">
+						<option>Snippets</option>
+						<% snippets.forEach(function(snippet) {
+							var link = url + "?viewer&snippet=" + snippet; %>
+						<option value="<%- link %>"><%- snippet %></option>
+						<% }); %>
+					</select>
+				</div>
+				<%}%>
+			</div>
+			<div>
 			<textarea id="codeTextArea"><% if (code) { %>
-<%- code %>  <% } %>
+				<%- code %>  <% } %>
 			</textarea>
+			</div>
 		</div>
-		<div>
+		<div class="vertical_line">
+		</div>
+		<div class="output">
 			<textarea id="outputTextArea"></textarea>
 		</div>
 	</div>
 
-	<div></div>
-</div>
+	<div class="footer"></div>
 
 <script type="text/javascript">
 	function changeExample(value) {
@@ -160,26 +169,32 @@
 
 	(function () {
 		'use strict';
-
 		var outputString = '';
 		ace.require("ace/ext/language_tools");
 		var editor = ace.edit("codeTextArea");
-		var height = document.querySelector('.editors').clientHeight;
-		var linesCount = height / editor.renderer.lineHeight;
+		var editors = document.querySelector('.editors');
 		var output = ace.edit("outputTextArea");
 		var aceOptions = {
-			minLines: linesCount,
-			maxLines: linesCount,
-			mode: 'ace/mode/javascript'
+			mode: 'ace/mode/javascript',
+			fontSize: "12pt"
 		}
 		editor.setOptions(aceOptions);
+		var input = document.querySelector('.input');
+		var buttonsHeight = document.querySelector('#buttons').clientHeight;
+		var footerHeight = document.querySelector('.footer').clientHeight;
+		input.setAttribute("style", 'width:' + window.innerWidth/2 + 'px');
+		var height = window.innerHeight - buttonsHeight - 30;
+		var linesCount = height / editor.renderer.lineHeight;
 		editor.setOptions({
+			minLines: linesCount,
+			maxLines: linesCount,
 			enableBasicAutocompletion: true,
 			enableSnippets: true,
 			enableLiveAutocompletion: true
 		});
-		editor.$blockScrolling = Infinity
-		output.setOptions(aceOptions);
+		editor.$blockScrolling = Infinity;
+		output.$blockScrolling = Infinity;
+		output.setOptions(Object.assign({minLines: linesCount, maxLines: linesCount}, aceOptions));
 		output.setReadOnly(true);
 		output.getSession().setUseWorker(false);
 		output.renderer.$cursorLayer.element.style.display = "none";
@@ -197,7 +212,7 @@
 			editor.focus();
 			editor.setValue(getFirstLine(), 1);
 			outputString = '';
-			output.setValue(outputString);
+			output.setValue(outputString, 1);
 		}
 		initEditor();
 
@@ -216,12 +231,12 @@
 						console.log(arguments[i]);
 					}
 					outputString += text + '\n';
-					output.setValue(outputString);
+					output.setValue(outputString, 1);
 				},
 				clear: function() {
 					console.clear();
 					outputString = '';
-					output.setValue(outputString);
+					output.setValue(outputString, 1);
 				}
 			});
 			editor.focus();
@@ -240,11 +255,29 @@
 			}
 		}
 
+		function onMouseMove(e) {
+			var input = document.querySelector('.input');
+			document.querySelector('.input').setAttribute("style", "width:" + e.x + 'px');
+			editor.resize();
+			document.querySelector(".vertical_line").style.left = e.x + 3 + "px";
+		}
+		function onMouseDown(e) {
+			e.preventDefault();
+			window.addEventListener('mousemove', onMouseMove);
+		}
+
+		function onMouseUp(e) {
+			window.removeEventListener('mousemove', onMouseMove);
+		}
+
 		document.onkeydown = KeyDown;
 		var runButton = document.querySelector('#runButton');
 		runButton.addEventListener("click", run);
 		var clearButton = document.querySelector('#clearButton');
 		clearButton.addEventListener("click", clear);
+		var verticalLine = document.querySelector('.vertical_line');
+		verticalLine.addEventListener("mousedown", onMouseDown);
+		window.addEventListener("mouseup", onMouseUp);
 	})();
 </script>
 </body>
