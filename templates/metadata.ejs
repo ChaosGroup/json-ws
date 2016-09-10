@@ -66,21 +66,20 @@ function renderExamples(exampleMap, name, type) {     // types: 'example', 'snip
 		}
 	}
 
-	function renderLanguagesNav() { %>
-		<ul class="nav nav-tabs">
-	<%	languages.forEach(function(language) { %>
-		<li class="<%- language %>">
-			<a class="<%- language %>" href="#<%- name %>-<%- language %>" data-toggle="tab">
-				<%- getLanguageName(language) %></a></li>
-		<% }); %>
-		</ul>
+	function renderLanguagesTabs() { %>
+		<div class="tab-panel">
+	<%	languages.forEach(function(language, index) { %>
+			<button id="<%- language %>" class=" <% if (index === 0) {%> active<%}%> tab-btn <%- language %>" onclick="onTabClick(this)"  aria-hidden="true"><%-getLanguageName(language)%></button>
+			<% }); %>
+		</div>
+		<% renderCodeTabs() %>
 <% }
 
 	function renderCodeTabs() {
 	%>
 	<div class="tab-content">
-		<% languages.forEach(function(language) { %>
-		<div class="tab-pane <%- language %>" id="<%- name %>-<%- language %>">
+		<% languages.forEach(function(language, index) { %>
+		<div class=" <% if (index === 0) {%> active<%}%> tab-pane <%- language %>" id="<%- name %>-<%- language %>">
 		<% var text = exampleMap[language];
 		if (language === 'Node' && text === undefined) {
 			text = exampleMap['JavaScript'];
@@ -106,8 +105,7 @@ function renderExamples(exampleMap, name, type) {     // types: 'example', 'snip
 		<div><a class="anchor" id="<%-name%>">
 			<strong><%= name %></strong></a></div>
 <% }
-	renderLanguagesNav();
-	renderCodeTabs();
+	renderLanguagesTabs();
 }
 
 function renderType(typeInfo) {
@@ -211,24 +209,88 @@ function renderMethod(methodInfo) {
 	<title><%= locals.metadata.name %> <%= locals.metadata.version %></title>
 
 	<meta name="viewport" content="width=device-width, initial-scale=1.0">
-	<!--<link href="//netdna.bootstrapcdn.com/bootstrap/3.0.0/css/bootstrap.min.css" rel="stylesheet">-->
 	<link rel="stylesheet" type="text/css" href="./static/prettify.css" />
 	<style>
-		code {
-			color: #c7254e;
-			background-color: #f9f2f4;
-			border-radius: 4px;
+		.tab-panel {
+			display: flex;
+			flex-direction: row;
+			margin-top: 10px;
 		}
+
+		.tab-btn.active {
+			color: black;
+			border-left: 2px solid #e7e7e7;
+			border-top: 2px solid #e7e7e7;
+			border-right: 2px solid #e7e7e7;
+			cursor: default;
+		}
+
+		.tab-btn {
+			background-color: white;
+			color: #0081c2;
+			border: none;
+			padding: 5px 8px;
+			border-radius: 3px;
+			cursor: pointer;
+			outline: none;
+		}
+
+		.tab-btn:not(.active):hover {
+			background-color: #e6e6e6;
+		}
+
+		.tab-pane.active {
+			display: block;
+		}
+
+		.tab-pane {
+			display: none;
+		}
+
+		.proxies-btn {
+			background-color: inherit;
+			font-size: 15px;
+			color: #777;
+			border: none;
+			cursor: pointer;
+			outline: none;
+		}
+
+		.proxies-btn:hover {
+			color: #5e5e5e;
+			text-decoration: none;
+		}
+
+		.dropdown-content {
+			display: none;
+			position: absolute;
+			background-color: #f9f9f9;
+			overflow: auto;
+			box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.2);
+		}
+
+		.dropdown-content a {
+			color: black;
+			padding: 5px 5px;
+			font-size: 15px;
+			text-decoration: none;
+			display: block;
+		}
+
+		.dropdown-content a:hover {background-color: #f1f1f1}
+
 		.type-table tr:nth-child(even) {
 			background-color: #fafafa;
 		}
 
-		.type-table th, .type-table td {
+		.type-table th,
+		.type-table td {
 			border: 1px solid #ddd;
 		}
 
 		.type-table {
 			border-collapse: collapse;
+			margin-bottom: 20px;
 		}
 
 		td, th {
@@ -240,24 +302,22 @@ function renderMethod(methodInfo) {
 			padding: 10px;
 		}
 
-		body {
-			position: relative;
-			top: 70px;
-			background-color: #F8F8F8;
-
-		}
-
 		tbody {
 			vertical-align: top;
 		}
 
-		.contain {
+		body {
+			position: relative;
+			top: 70px;
+			font-family: "Helvetica Neue",Helvetica,Arial,sans-serif;
+			margin: 0px;
+		}
+
+		.container {
 			display: flex;
 			flex-direction:row;
 			font-size: 14px;
 			align-content: center;
-			/*background-color: #F8F8F8;*/
-
 		}
 
 		aside {
@@ -269,18 +329,8 @@ function renderMethod(methodInfo) {
 			align-self: flex-start;
 			margin: 10px;
 			padding-bottom: 10px;
-			overflow-y: scroll;
-			top: 60px;
-			bottom: 0;
-		}
-
-		header {
-			width: 100%;
-			height: 60px;
-			position: fixed;
-			top: 0;
-			z-index: 1;
-			background: #F8F8F8;
+			background-color: #F8F8F8;
+			height: 100%;
 		}
 
 		#main {
@@ -293,17 +343,38 @@ function renderMethod(methodInfo) {
 		}
 
 		#search-results {
+			position: fixed;
 			display: flex;
 			flex-direction: column;
+			overflow-y: scroll;
+			top: 110px;
+			bottom: 0;
 		}
 
 		#search {
+			position: fixed;
+			top: 70px;
+			font-size: 14px;
+			vertical-align: middle;
 			margin-bottom: 10px;
+			padding: 6px 12px;
+			border: 1px solid #ccc;
+			border-radius: 4px;
+		}
+
+		header {
+			width: 100%;
+			height: 60px;
+			position: fixed;
+			top: 0;
+			z-index: 1;
+			background: #F8F8F8;
+			border-bottom: 1px solid #e7e7e7;
 		}
 
 		header ul {
-			padding: 10px;
-			margin: 0 auto;
+			float: left;
+			margin-left: 10%;
 			list-style: none;
 			text-align: center;
 		}
@@ -313,19 +384,14 @@ function renderMethod(methodInfo) {
 		}
 		header ul li a {
 			padding: 10px 0;
-			color: #3b8ec2;
-			font-size: 20px;
+			color: #777;
+			font-size: 15px;
 			text-decoration: none;
-			font-weight: bold;
 			transition: all 0.2s ease;
 		}
 		header ul li a:hover {
-			color: #34495E;
+			color: #5e5e5e;
 			text-decoration: none;
-		}
-
-		pre {
-			border-radius: 0;
 		}
 
 		span.badge {
@@ -334,13 +400,15 @@ function renderMethod(methodInfo) {
 		}
 
 		code {
-			display: block;
 			margin-top: 10px;
 			margin-bottom: 10px;
 			font-size: 13px;
 			word-break: break-all;
 			word-wrap: break-word;
 			white-space: normal;
+			color: #c7254e;
+			background-color: #f9f2f4;
+			border-radius: 4px;
 		}
 
 		.codeline {
@@ -348,6 +416,7 @@ function renderMethod(methodInfo) {
 		}
 
 		pre {
+			border-radius: 0px;
 			padding: 0;
 			margin: 0;
 			color: inherit;
@@ -375,8 +444,10 @@ function renderMethod(methodInfo) {
 			border: 1px solid #ddd;
 		}
 
-		.group-description {
-			padding: 10px 0 0 10px;
+		thead.group-description {
+			font-weight: normal;
+			float: left;
+			vertical-align: middle;
 		}
 
 		.group-text {
@@ -390,6 +461,14 @@ function renderMethod(methodInfo) {
 			transition: height 200ms;
 		}
 
+		.group-content {
+			display: none;
+		}
+
+		.group-content.opened {
+			display: block;
+		}
+
 		.entry {
 			padding: 5px;
 		}
@@ -398,25 +477,8 @@ function renderMethod(methodInfo) {
 			background-color: #fafafa;
 		}
 
-		h5 {
-			margin-top: 20px;
-		}
-
 		.table-bordered>thead>tr>th, .table-bordered>thead>tr>td {
 			border-bottom-width: 1px;
-		}
-
-		.sidebar {
-			background: #f8f8f8;
-			position: fixed;
-			top: 52px;
-			bottom: 0;
-			left: 0;
-			width: 240px;
-		}
-
-		.sidebar .container {
-			padding: 15px;
 		}
 
 		.member:hover {
@@ -467,9 +529,8 @@ function renderMethod(methodInfo) {
 
 		.playgroundLink {
 			position: absolute;
-			right: 0px;
-			margin-right: 1em;
-			margin-top: 2px;
+			right: 7%;
+			margin-top: 1em;
 		}
 
 		.playgroundLink:hover {
@@ -477,8 +538,6 @@ function renderMethod(methodInfo) {
 		}
 
 	</style>
-	<!--<script src="//code.jquery.com/jquery-2.0.3.min.js"></script>-->
-	<!--<script src="//netdna.bootstrapcdn.com/bootstrap/3.0.0/js/bootstrap.min.js"></script>-->
 	<script src="./static/prettify.js"></script>
 </head>
 
@@ -486,13 +545,13 @@ function renderMethod(methodInfo) {
 	<header>
 		<nav>
 			<ul>
-				<li><a href="#"><%= locals.metadata.name %> <%= locals.metadata.version %></a></li>
-				<li><a href="#">Proxies</a>
-					<!--<ul>-->
-					<!--<% locals.proxies.forEach(function(proxy) { %>-->
-					<!--<li><a href="?proxy=<%= proxy %>"><%= proxy %></a></li>-->
-					<!--<% }); %>-->
-					<!--</ul>-->
+				<li><a style="font-size: 20px" href="#"><%= locals.metadata.name %> <%= locals.metadata.version %></a></li>
+				<li><button class="proxies-btn" onclick="onProxiesClick()">Proxies</button>
+					<div class="dropdown-content">
+						<% locals.proxies.forEach(function(proxy) { %>
+							<a href="?proxy=<%= proxy %>"><%= proxy %></a>
+						<% }); %>
+					</div>
 				</li>
 				<li><a href="?viewer" target="_blank">Playground</a></li>
 			</ul>
@@ -533,7 +592,7 @@ if (snippets.length > 0) {
 %>
 
 
-<div class="contain">
+<div class="container">
 	<aside id="searchDiv">
 		<input type="text" id="search" placeholder="Search" class="form-control"/>
 
@@ -547,11 +606,11 @@ if (snippets.length > 0) {
 
 				<%
 				group.items.forEach(function(groupItemInfo) {
-				var imgUrl = './static/' + groupItemInfo.type + '.png';
+				var imgBase64 = locals.images[groupItemInfo.type];
 				%>
 				<div class="member">
 					<a href="#<%= groupItemInfo.item %>" class="linkMember"
-						 style="background-image: url('<%= imgUrl %>')">
+						 style="background-image: url(data:image/png;base64,<%= imgBase64 %>)">
 						<%= groupItemInfo.item%></a>
 				</div>
 
@@ -563,15 +622,15 @@ if (snippets.length > 0) {
 	</aside>
 
 	<div id="main">
-
 		<% groupsMap.forEach(function(group, i) { %>
-		<div class="group-text opened"><a class="anchor" id="<%= group.name %>"> <%= group.name %> </a><span class="badge"><%-group.items.length%></span>
+		<div class="group-text"><a class="anchor" id="<%= group.name %>"> <%= group.name %> </a><span class="badge"><%-group.items.length%></span>
 		</div>
-		<div id="group-<%-i%>" style="border: 1px solid #ddd; margin: -1px 0px 10px">
-			<% if (group.description) { %>
-			<div class="group-description"><%- group.description %></div>
-			<% } %>
+		<div id="group-<%-i%>" class="group-content opened" style="border: 1px solid #ddd; margin: -1px 0px 10px">
 			<table>
+				<% if (group.description) { %>
+				<thead class="group-description">
+					<tr><th><%- group.description %></th></tr></thead>
+				<% } %>
 				<%
 				group.items.forEach(function(groupItemInfo, idx) {
 				if (idx % 2 == 0) { %><tr><% } %>
@@ -597,30 +656,65 @@ if (snippets.length > 0) {
 </div>
 
 <script>
-	var animTimeout = 0;
-	var lastClickedLink = document.querySelector('.groupSearch');
+	function onTabClick(tab) {
+		tab.classList.add('active');
+		var tabId = tab.id;
+		var tabPanel = tab.parentNode;
+		[].map.call(tabPanel.children, function (child) {
+			if (child.id !== tabId) {
+				child.classList.remove('active');
+			}
+			return child;
+		});
+
+		var entry = closestByClass(tab, 'entry');
+		var tabContent = entry.querySelector('.tab-content');
+		[].map.call(tabContent.children, function(child) {
+			if (child.id.indexOf(tabId) !== -1) {
+				child.classList.add('active');
+			} else {
+				child.classList.remove('active');
+			}
+			return child;
+		});
+	}
+
+	function onWindowClick(e) {
+		if (!e.target.matches('.proxies-btn')) {
+			var dropdown = document.querySelector(".dropdown-content");
+			if (hasClass(dropdown, 'opened')) {
+				dropdown.classList.remove('opened');
+				dropdown.style.display = 'none';
+			}
+		}
+	}
+
+	function onProxiesClick() {
+		var dropdown = document.querySelector(".dropdown-content");
+		dropdown.classList.toggle("opened");
+		if (hasClass(dropdown, 'opened')) {
+			dropdown.style.display = "block";
+			window.addEventListener('click', onWindowClick);
+		} else {
+			dropdown.style.display = "none";
+		}
+	}
 
 	function hasClass(element, cls) {
 		return (' ' + element.className + ' ').indexOf(' ' + cls + ' ') > -1;
 	}
 
 	function closestByClass(el, clazz) {
-		// Traverse the DOM up with a while loop
 		while (el.className != clazz) {
-			// Increment the loop to the parent node
 			el = el.parentNode;
 			if (!el) {
 				return null;
 			}
 		}
-		// At this point, the while loop has stopped and `el` represents the element that has
-		// the class you specified in the second parameter of the function `clazz`
-
-		// Then return the matched element
 		return el;
 	}
 
-	function onClick() {
+	function onTypeClick() {
 		lastClickedLink.style.background = hasClass(lastClickedLink, 'groupTitle') ? '#eeeeee' : 'transparent';
 		lastClickedLink = this.parentNode;
 		lastClickedLink.style.background = "#ccc";
@@ -653,12 +747,14 @@ if (snippets.length > 0) {
 		}
 	}
 
+	var animTimeout = 0;
+	var lastClickedLink = document.querySelector('.groupSearch');
 	var linkMembers = document.getElementsByClassName('linkMember');
 	[].forEach.call(linkMembers, function (linkMember) {
-		linkMember.addEventListener("click", onClick);
+		linkMember.addEventListener("click", onTypeClick);
 	});
 
-	document.addEventListener("keyup", onKeyUp);
+	document.addEventListener('keyup', onKeyUp);
 
 	function onKeyUp(e) {
 		var pattern = document.querySelector('#search').value.toLowerCase();
@@ -680,58 +776,15 @@ if (snippets.length > 0) {
 		});
 	}
 
-	// change the displayed language to the specified one
-	function activateLanguage(lang) {
-		// activate tab content
-		document.querySelector('div.tab-pane').className = 'active';
-		document.querySelector('div.' + lang).className = 'active';
-
-		// activate tab headers
-//		$('.nav-tabs, .nav-pills').children().removeClass('active');
-//		$('li.' + lang).addClass('active');
-	}
-
-	function changeLanguageHandler(event) {
-		var target = $(event.target);
-		var relativeOffset = getRelativeOffset(target);
-		var lang = target.attr('class').split(' ')[0];
-		activateLanguage(lang);
-		window.localStorage.lang = lang;
-		// return the relative scroll position
-		$('body').scrollTop(target.offset().top - relativeOffset);
-	}
-
-	function getRelativeOffset(element) {
-		return element.offset().top - $('body').scrollTop();
-	}
-
-//	$('a[data-toggle="tab"]').click(changeLanguageHandler);
-
-	(function getLocalStorageLanguage() {
-		var store = window.localStorage || {};
-		store.lang = store.lang || 'JavaScript';
-		activateLanguage(store.lang);
-	}) ();
-
 	(function collapseGroup() {
 		var groupTexts = document.getElementsByClassName('group-text');
 		[].forEach.call(groupTexts, function (groupText) {
 			groupText.addEventListener('click', function () {
-				if (hasClass(groupText, 'opened')) {
-					groupText.classList.remove('opened');
-					var group = groupText.nextSibling;
-					while(group && group.nodeType !== 1) {
-						group = group.nextSibling
-					}
-					group.style.display = 'none';
-				} else {
-					groupText.classList.add('opened');
-					var group = groupText.nextSibling;
-					while(group && group.nodeType !== 1) {
-						group = group.nextSibling
-					}
-					group.style.display = '';
+				var group = groupText.nextSibling;
+				while(group && group.nodeType !== 1) {
+					group = group.nextSibling
 				}
+				group.classList.toggle('opened');
 			});
 		})
 	}) ();
