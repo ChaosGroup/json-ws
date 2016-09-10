@@ -6,7 +6,8 @@
 	var snippets = locals.snippets;
 	var code = locals.code;
 	var client = locals.client;
-%><html>
+%><!DOCTYPE html>
+<html>
 <head>
 	<meta charset="utf-8">
 	<title><%= title %> - Playground</title>
@@ -172,8 +173,8 @@
 		var outputString = '';
 		ace.require("ace/ext/language_tools");
 		var editor = ace.edit("codeTextArea");
-		var editors = document.querySelector('.editors');
 		var output = ace.edit("outputTextArea");
+		var editors = document.querySelector('.editors');
 		var aceOptions = {
 			mode: 'ace/mode/javascript',
 			fontSize: "12pt"
@@ -181,7 +182,6 @@
 		editor.setOptions(aceOptions);
 		var input = document.querySelector('.input');
 		var buttonsHeight = document.querySelector('#buttons').clientHeight;
-		var footerHeight = document.querySelector('.footer').clientHeight;
 		input.setAttribute("style", 'width:' + window.innerWidth/2 + 'px');
 		var height = window.innerHeight - buttonsHeight - 30;
 		var linesCount = height / editor.renderer.lineHeight;
@@ -189,8 +189,8 @@
 			minLines: linesCount,
 			maxLines: linesCount,
 			enableBasicAutocompletion: true,
-			enableSnippets: true,
-			enableLiveAutocompletion: true
+			enableLiveAutocompletion: true,
+			enableSnippets: true
 		});
 		editor.$blockScrolling = Infinity;
 		output.$blockScrolling = Infinity;
@@ -261,12 +261,13 @@
 			editor.resize();
 			document.querySelector(".vertical_line").style.left = e.x + 3 + "px";
 		}
+
 		function onMouseDown(e) {
 			e.preventDefault();
 			window.addEventListener('mousemove', onMouseMove);
 		}
 
-		function onMouseUp(e) {
+		function onMouseUp() {
 			window.removeEventListener('mousemove', onMouseMove);
 		}
 

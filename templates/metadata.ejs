@@ -115,7 +115,7 @@ function renderType(typeInfo) {
 	<% if (typeInfo.enum) { %><pre><%- prettify(typeInfo.struct) %></pre><% } %>
 	</code>
 	<% if (!typeInfo.enum) { %>
-	<table class="table table-striped table-condensed table-bordered">
+	<table class="type-table" width="100%">
 		<thead>
 		<tr>
 			<th style="width: 25%">Property</th>
@@ -162,7 +162,7 @@ function renderMethod(methodInfo) {
 		}).join(", ") %>): <% anchorType(methodInfo.returns || 'void') %><%= methodInfo.returnsArray ? '[]' : '' %>
 	</code>
 	<% if (methodInfo.params.length > 0) { %>
-	<table class="table table-striped table-condensed table-bordered">
+	<table class="type-table">
 		<thead>
 		<tr>
 			<th style="width: 25%">Argument</th>
@@ -211,13 +211,117 @@ function renderMethod(methodInfo) {
 	<title><%= locals.metadata.name %> <%= locals.metadata.version %></title>
 
 	<meta name="viewport" content="width=device-width, initial-scale=1.0">
-	<link href="//netdna.bootstrapcdn.com/bootstrap/3.0.0/css/bootstrap.min.css" rel="stylesheet">
+	<!--<link href="//netdna.bootstrapcdn.com/bootstrap/3.0.0/css/bootstrap.min.css" rel="stylesheet">-->
 	<link rel="stylesheet" type="text/css" href="./static/prettify.css" />
 	<style>
+		code {
+			color: #c7254e;
+			background-color: #f9f2f4;
+			border-radius: 4px;
+		}
+		.type-table tr:nth-child(even) {
+			background-color: #fafafa;
+		}
+
+		.type-table th, .type-table td {
+			border: 1px solid #ddd;
+		}
+
+		.type-table {
+			border-collapse: collapse;
+		}
+
+		td, th {
+			padding: 7px;
+		}
+
+		table {
+			width: 100%;
+			padding: 10px;
+		}
+
 		body {
 			position: relative;
 			top: 70px;
-			font-size: 12px;
+			background-color: #F8F8F8;
+
+		}
+
+		tbody {
+			vertical-align: top;
+		}
+
+		.contain {
+			display: flex;
+			flex-direction:row;
+			font-size: 14px;
+			align-content: center;
+			/*background-color: #F8F8F8;*/
+
+		}
+
+		aside {
+			position: fixed;
+			width: 15%;
+			float: right;
+			display: flex;
+			flex-direction:column;
+			align-self: flex-start;
+			margin: 10px;
+			padding-bottom: 10px;
+			overflow-y: scroll;
+			top: 60px;
+			bottom: 0;
+		}
+
+		header {
+			width: 100%;
+			height: 60px;
+			position: fixed;
+			top: 0;
+			z-index: 1;
+			background: #F8F8F8;
+		}
+
+		#main {
+			display: flex;
+			flex-direction:column;
+			background-color: #ffffff;
+			margin-left: 20%;
+			margin-right: 5%;
+			flex-grow: 1;
+		}
+
+		#search-results {
+			display: flex;
+			flex-direction: column;
+		}
+
+		#search {
+			margin-bottom: 10px;
+		}
+
+		header ul {
+			padding: 10px;
+			margin: 0 auto;
+			list-style: none;
+			text-align: center;
+		}
+		header ul li {
+			display: inline-block;
+			margin: 0 10px;
+		}
+		header ul li a {
+			padding: 10px 0;
+			color: #3b8ec2;
+			font-size: 20px;
+			text-decoration: none;
+			font-weight: bold;
+			transition: all 0.2s ease;
+		}
+		header ul li a:hover {
+			color: #34495E;
+			text-decoration: none;
 		}
 
 		pre {
@@ -272,8 +376,7 @@ function renderMethod(methodInfo) {
 		}
 
 		.group-description {
-			padding: 10px 0 0 0;
-			margin-left: -8px;
+			padding: 10px 0 0 10px;
 		}
 
 		.group-text {
@@ -284,6 +387,7 @@ function renderMethod(methodInfo) {
 			border: 1px solid #ddd;
 			color: #5F6163;
 			cursor: pointer;
+			transition: height 200ms;
 		}
 
 		.entry {
@@ -302,35 +406,6 @@ function renderMethod(methodInfo) {
 			border-bottom-width: 1px;
 		}
 
-		.navbar {
-			font-size: 14px;
-		}
-
-		.navbar-header {
-			float: left;
-		}
-
-		.navbar-brand {
-			margin-left: -15px;
-		}
-
-		.navbar-nav {
-			float: left;
-			margin: 0;
-		}
-
-		.navbar-nav > li {
-			float: left;
-		}
-
-		.navbar-nav > li > a {
-			padding: 15px;
-		}
-
-		.navbar-nav.navbar-right {
-			float: right;
-		}
-
 		.sidebar {
 			background: #f8f8f8;
 			position: fixed;
@@ -342,22 +417,6 @@ function renderMethod(methodInfo) {
 
 		.sidebar .container {
 			padding: 15px;
-		}
-
-		#main {
-			position: relative;
-			left: 120px;
-			background-color: #ffffff;
-		}
-
-		#search-results {
-			position: absolute;
-			top: 60px;
-			bottom: 0px;
-			left: 14px;
-			right: 14px;
-			overflow-x: hidden;
-			overflow-y: auto;
 		}
 
 		.member:hover {
@@ -417,41 +476,29 @@ function renderMethod(methodInfo) {
 			text-decoration: none;
 		}
 
-		.nav-tabs {
-			margin-top: 10px;
-		}
-
-		.nav-tabs>li>a {
-			padding: 5px;
-		}
 	</style>
-	<script src="//code.jquery.com/jquery-2.0.3.min.js"></script>
-	<script src="//netdna.bootstrapcdn.com/bootstrap/3.0.0/js/bootstrap.min.js"></script>
+	<!--<script src="//code.jquery.com/jquery-2.0.3.min.js"></script>-->
+	<!--<script src="//netdna.bootstrapcdn.com/bootstrap/3.0.0/js/bootstrap.min.js"></script>-->
 	<script src="./static/prettify.js"></script>
 </head>
 
 <body onload="prettyPrint()">
+	<header>
+		<nav>
+			<ul>
+				<li><a href="#"><%= locals.metadata.name %> <%= locals.metadata.version %></a></li>
+				<li><a href="#">Proxies</a>
+					<!--<ul>-->
+					<!--<% locals.proxies.forEach(function(proxy) { %>-->
+					<!--<li><a href="?proxy=<%= proxy %>"><%= proxy %></a></li>-->
+					<!--<% }); %>-->
+					<!--</ul>-->
+				</li>
+				<li><a href="?viewer" target="_blank">Playground</a></li>
+			</ul>
+		</nav>
+	</header>
 
-<div class="navbar navbar-default navbar-fixed-top">
-	<div class="container">
-		<div class="navbar-header">
-			<a class="navbar-brand" href="#"><%= locals.metadata.name %> <%= locals.metadata.version %></a>
-		</div>
-		<ul class="nav navbar-nav">
-			<li class="dropdown">
-				<a href="#" class="dropdown-toggle" data-toggle="dropdown">Proxies</a>
-				<ul class="dropdown-menu">
-					<% locals.proxies.forEach(function(proxy) { %>
-					<li><a href="?proxy=<%= proxy %>"><%= proxy %></a></li>
-					<% }); %>
-				</ul>
-			</li>
-			<li class="dropdown">
-			   <a class="dropdown-toggle" href="?viewer" target="_blank">Playground</a>
-           </li>
-		</ul>
-	</div>
-</div>
 
 <%
 var groups = Object.keys(locals.metadata.groups);
@@ -485,8 +532,9 @@ if (snippets.length > 0) {
 }
 %>
 
-<div id="searchDiv" class="navbar-left sidebar">
-	<div class="container">
+
+<div class="contain">
+	<aside id="searchDiv">
 		<input type="text" id="search" placeholder="Search" class="form-control"/>
 
 		<div id="search-results">
@@ -512,98 +560,136 @@ if (snippets.length > 0) {
 			</div>
 			<% }); %>  <!-- forEach(group) -->
 		</div>
-	</div>
-</div>
+	</aside>
 
-<div class="container" id="main">
+	<div id="main">
 
-    <% groupsMap.forEach(function(group, i) { %>
-	<div class="group-text" data-toggle="collapse" data-target="#group-<%-i%>"><a class="anchor" id="<%= group.name %>"> <%= group.name %> </a><span class="badge"><%-group.items.length%></span></div>
-	<div class="group collapse in" id="group-<%-i%>">
-		<% if (group.description) { %>
-		<div class="group-description col-md-12"><%- group.description %></div>
-		<% } %>
-		<%
-			group.items.forEach(function(groupItemInfo, idx) {
-			if (idx % 2 == 0) { %><div class="row"><% } %>
-			<div class="entry<% if (group.name !== 'Snippets') { %> col-md-6<% } %>">
-		<%  var item = groupItemInfo.item;
-			switch (groupItemInfo.type) {
-				case 'type': renderType(locals.metadata.typeMap[item]); break;
-				case 'event': renderEvent(locals.metadata.eventMap[item]); break;
-				case 'method': renderMethod(locals.metadata.methodMap[item]); break;
-				case 'snippet': renderExamples(locals.metadata.snippetMap[item], item, 'snippet'); break;
-			}
-		%>
+		<% groupsMap.forEach(function(group, i) { %>
+		<div class="group-text opened"><a class="anchor" id="<%= group.name %>"> <%= group.name %> </a><span class="badge"><%-group.items.length%></span>
 		</div>
-		<% if (idx % 2 == 1 || idx == group.items.length - 1) { %></div><% } %>
-		<% }) %> <!-- forEach(methodInfo) -->
+		<div id="group-<%-i%>" style="border: 1px solid #ddd; margin: -1px 0px 10px">
+			<% if (group.description) { %>
+			<div class="group-description"><%- group.description %></div>
+			<% } %>
+			<table>
+				<%
+				group.items.forEach(function(groupItemInfo, idx) {
+				if (idx % 2 == 0) { %><tr><% } %>
+					<td class="entry">
+						<%  var item = groupItemInfo.item;
+							switch (groupItemInfo.type) {
+								case 'type': renderType(locals.metadata.typeMap[item]); break;
+								case 'event': renderEvent(locals.metadata.eventMap[item]); break;
+								case 'method': renderMethod(locals.metadata.methodMap[item]); break;
+								case 'snippet': renderExamples(locals.metadata.snippetMap[item], item, 'snippet'); break;
+							}
+						%>
+					</td>
+					<% if (idx % 2 == 1 || idx == group.items.length - 1) { %></tr><% } %>
+				<% }) %> <!-- forEach(methodInfo) -->
+			</table>
+		</div>
 
+		<% }); %>  <!-- forEach(group) -->
+
+		<p>&nbsp;</p>
 	</div>
-
-	<% }); %>  <!-- forEach(group) -->
-
-	<p>&nbsp;</p>
 </div>
+
 <script>
 	var animTimeout = 0;
-	var lastClickedLink = $('.member:first').parent();
-	$(".linkMember").click(function () {
-		lastClickedLink.css("background",
-				lastClickedLink.hasClass('groupTitle') ? '#eeeeee' : 'transparent');
-		lastClickedLink = $(this).parent();
-		lastClickedLink.css("background", "#ccc");
+	var lastClickedLink = document.querySelector('.groupSearch');
+
+	function hasClass(element, cls) {
+		return (' ' + element.className + ' ').indexOf(' ' + cls + ' ') > -1;
+	}
+
+	function closestByClass(el, clazz) {
+		// Traverse the DOM up with a while loop
+		while (el.className != clazz) {
+			// Increment the loop to the parent node
+			el = el.parentNode;
+			if (!el) {
+				return null;
+			}
+		}
+		// At this point, the while loop has stopped and `el` represents the element that has
+		// the class you specified in the second parameter of the function `clazz`
+
+		// Then return the matched element
+		return el;
+	}
+
+	function onClick() {
+		lastClickedLink.style.background = hasClass(lastClickedLink, 'groupTitle') ? '#eeeeee' : 'transparent';
+		lastClickedLink = this.parentNode;
+		lastClickedLink.style.background = "#ccc";
 		// blink background
 		if (animTimeout) {
 			clearTimeout(animTimeout);
-			$('.entry').css('background-color', '#fff');
+			var entries = document.getElementsByClassName('entry');
+			[].map.call(entries, function (entry) {
+				entry.style['background-color'] = '#fff';
+				return entry;
+			});
 		}
-		if ($(this).parent().hasClass('groupTitle')) {
+		if (hasClass(this.parentNode, 'groupTitle')) {
 			return;
 		}
-		var id = $(this).attr('href').replace('#', '');
-		var anchor = $('a[id="' + id + '"');
-		var entry = anchor.closest('.entry');
-		if (entry.length > 0) {
+		var id = this.getAttribute('href').replace('#', '');
+		var anchor = document.querySelector('a[id="' + id + '"');
+		var entry = closestByClass(anchor, 'entry');
+		if (entry) {
 			var color = '#edd0cc';
 			var iter = 6;
 			var setBackgroundColor = function() {
-				if (iter == 0) return;
-				entry.css('background-color', color);
+				if (iter == 0)
+					return;
+				entry.style['background-color'] = color;
 				color = --iter % 2 == 0 ? '#edd0cc' : '#fff';
 				animTimeout = setTimeout(setBackgroundColor, 500);
 			}
 			setBackgroundColor();
 		}
+	}
+
+	var linkMembers = document.getElementsByClassName('linkMember');
+	[].forEach.call(linkMembers, function (linkMember) {
+		linkMember.addEventListener("click", onClick);
 	});
 
-	$("#search").on("keyup", function () {
-		var pattern = $("#search").val().toLowerCase();
-		$(".groupSearch").each(function () {
-			var groupText = $(this).find('.linkMember').first().text().toLowerCase();
-			if (groupText.indexOf(pattern) !== -1) {   // all subitems must be visible
-				$(this).find('.linkMember').each(function () {
-					$(this).show();
-				});
-			} else { // only matching subitems must be visible
-				$(this).find('.linkMember').each(function () {
-					var itemText = $(this).text().toLowerCase();
-					$(this)[ itemText.indexOf(pattern) !== -1 ? 'show' : 'hide' ]();
+	document.addEventListener("keyup", onKeyUp);
+
+	function onKeyUp(e) {
+		var pattern = document.querySelector('#search').value.toLowerCase();
+		var groupSearchDivs = document.getElementsByClassName('groupSearch');
+		[].forEach.call(groupSearchDivs, function (groupSearchDiv) {
+			var linkMembers = groupSearchDiv.getElementsByClassName('linkMember');
+			var groupText = linkMembers[0].innerText.toLowerCase();
+			if (groupText.indexOf(pattern) !== -1) {
+				[].map.call(linkMembers, function (linkMember) {
+					linkMember.style.display = 'block';
+					return linkMember;
+				})
+			} else {
+				[].map.call(linkMembers, function (linkMember) {
+					linkMember.style.display = linkMember.innerText.toLowerCase().indexOf(pattern) !== -1 ? 'block' : 'none';
+					return linkMember;
 				});
 			}
 		});
-	});
+	}
 
 	// change the displayed language to the specified one
 	function activateLanguage(lang) {
 		// activate tab content
-		$('div.tab-pane').removeClass('active');
-		$('div.' + lang).addClass('active');
+		document.querySelector('div.tab-pane').className = 'active';
+		document.querySelector('div.' + lang).className = 'active';
 
 		// activate tab headers
-		$('.nav-tabs, .nav-pills').children().removeClass('active');
-		$('li.' + lang).addClass('active');
-	};
+//		$('.nav-tabs, .nav-pills').children().removeClass('active');
+//		$('li.' + lang).addClass('active');
+	}
 
 	function changeLanguageHandler(event) {
 		var target = $(event.target);
@@ -619,12 +705,35 @@ if (snippets.length > 0) {
 		return element.offset().top - $('body').scrollTop();
 	}
 
-	$('a[data-toggle="tab"]').click(changeLanguageHandler);
+//	$('a[data-toggle="tab"]').click(changeLanguageHandler);
 
 	(function getLocalStorageLanguage() {
 		var store = window.localStorage || {};
 		store.lang = store.lang || 'JavaScript';
 		activateLanguage(store.lang);
+	}) ();
+
+	(function collapseGroup() {
+		var groupTexts = document.getElementsByClassName('group-text');
+		[].forEach.call(groupTexts, function (groupText) {
+			groupText.addEventListener('click', function () {
+				if (hasClass(groupText, 'opened')) {
+					groupText.classList.remove('opened');
+					var group = groupText.nextSibling;
+					while(group && group.nodeType !== 1) {
+						group = group.nextSibling
+					}
+					group.style.display = 'none';
+				} else {
+					groupText.classList.add('opened');
+					var group = groupText.nextSibling;
+					while(group && group.nodeType !== 1) {
+						group = group.nextSibling
+					}
+					group.style.display = '';
+				}
+			});
+		})
 	}) ();
 </script>
 </body>
