@@ -6,6 +6,7 @@
 	var snippets = locals.snippets;
 	var code = locals.code;
 	var client = locals.client;
+	var metadata = locals.metadata;
 %><!DOCTYPE html>
 <html>
 <head>
@@ -46,6 +47,7 @@
 		.input {
 			border: 1px solid #3b8ec2;
 			flex-basis: inherit;
+			width: 75%;
 			min-width: 10%;
 			max-width: 90%;
 		 }
@@ -53,6 +55,7 @@
 		.output {
 			border: 1px solid #3b8ec2;
 			flex-grow: 1;
+			width: 25%;
 			flex-basis: inherit;
 		}
 		.editors + div {
@@ -171,7 +174,7 @@
 	(function () {
 		'use strict';
 		var outputString = '';
-		ace.require("ace/ext/language_tools");
+		var langTools = ace.require("ace/ext/language_tools");
 		var editor = ace.edit("codeTextArea");
 		var output = ace.edit("outputTextArea");
 		var editors = document.querySelector('.editors');
@@ -199,6 +202,34 @@
 		output.getSession().setUseWorker(false);
 		output.renderer.$cursorLayer.element.style.display = "none";
 		output.renderer.setShowGutter(false);
+
+		<%
+ 			var groups = Object.keys(metadata.groups);
+			var groupsItems = groups.map(function(group) { return  metadata.groups[group].items; }) ;
+			var items = [].concat.apply([], groupsItems);
+			var wordList = items.map(function(item) {
+				var itemParts = item.split(':');
+				var name = itemParts[1];
+				var type = itemParts[0];
+				return {
+					caption: name,
+					value: name,
+					score: 10000,
+					meta: type,
+					toString() {
+						return `{ caption: '${this.caption}', value: '${this.value}', score: '${this.score}', meta: '${this.meta}' }`;
+					}
+				}
+			});
+ 		%>
+
+		var proxyCompleter = {
+			getCompletions: function(editor, session, pos, prefix, callback) {
+				callback(null, [<%-wordList%>]);
+			}
+		}
+
+		langTools.addCompleter(proxyCompleter);
 
 		function getFirstLine() {
 			if (!window.location.origin) {
