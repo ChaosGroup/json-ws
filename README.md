@@ -113,7 +113,7 @@ To create a service, use the *jsonws.api* method which creates an API builder:
  * @param {String} version The API version tag.
  * @param {String} friendlyName A string which identifies the API.
  */
-var api = jsonws.api('version', 'friendlyName');
+var api = jsonws.service('version', 'friendlyName');
 ```
 
 This method creates a service API builder using the following parameters:
