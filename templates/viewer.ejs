@@ -19,17 +19,42 @@
 	<script src="./static/ace.js"></script>
 	<script src="./static/ext-language_tools.js"></script>
 	<style>
+		#listButton {
+
+		}
+
+		.listDropdown {
+			z-index: 1;
+			display: flex;
+			flex-direction: column;
+			display: none;
+			background-color: #3b8ec2;
+			vertical-align: middle;
+		}
+
+		.listDropdown.opened {
+			display: flex;
+		}
+
+		.listDropdown a {
+			align-self: stretch;
+			background-color: #3b8ec2;
+			font-size: 14px;
+		}
+
+		.listDropdown div {
+			color: #d6d6d6;
+		}
+
+		html {
+			height: 100%;
+		}
+
 		body {
 			display: flex;
 			margin: 0;
+			height: 100%;
 			flex-direction: column;
-		}
-
-		.vertical_line {
-			background-color: #3b8ec2;
-			width: 2px;
-			flex-grow: 0;
-			cursor: col-resize;
 		}
 
 		.ace_editor {
@@ -42,73 +67,48 @@
 			justify-content: center;
 			align-self: stretch;
 			align-content: stretch;
+			height: 100%;
 		}
 
 		.input {
-			border: 1px solid #3b8ec2;
 			flex-basis: inherit;
-			width: 75%;
-			min-width: 10%;
-			max-width: 90%;
+			width: 70%;
 		 }
 
 		.output {
-			border: 1px solid #3b8ec2;
 			flex-grow: 1;
-			width: 25%;
 			flex-basis: inherit;
 		}
-		.editors + div {
-			flex-grow: 1;
-			height: 0.5em;
-		}
 
-		.styled-select {
-			display: flex;
-			align-self: center;
-			overflow: hidden;
-		}
-
-		.styled-select:hover {
-			background-color: #3cb0fd;
-			color: white;
-		}
-
-		.styled-select select {
-			background: transparent;
-			border: 0px;
-			font-size: 15px;
-			padding: 4px 5px;
-			max-width: 90px;
-		}
-
-		option {
-			color: black;
-		}
-
-		/* -------------------- Colors: Background */
 		.blue    { background-color: #3b8ec2; }
-		.red     { background-color: #c10a00; }
-
-		/* -------------------- Colors: Text */
-		.blue select    { color: white; }
-		.blue select:hover    { color: white; }
-
+		.red     { background-color: #cb0a00; }
 
 		#buttons {
 			display: flex;
-			justify-content: flex-end;
+			flex-direction: column;
+			max-width: 38px;
+		}
+
+		#resizeButton {
+			flex-grow: 1;
+			align-self: stretch;
+			cursor: col-resize;
+		}
+
+		#resizeButton:hover {
+			background-color: #3b8ec2;
 		}
 
 		.btn {
-			align-self: center;
+			align-self: flex-end;
 			border: 0;
 			font-family: Arial;
 			color: #ffffff;
 			font-size: 15px;
 			padding: 5px 10px;
 			text-decoration: none;
-			/*margin: 5px 0px;*/
+			outline: none;
+			height: 32px;
 		}
 
 		.btn:hover {
@@ -119,55 +119,56 @@
 		.btn.red:hover{
 			background: #e70a00;
 		}
+
+		#examples {
+			display: flex;
+			flex-direction: row;
+			max-height: 32px;
+		}
 	</style>
 </head>
 <body>
 	<div class="editors">
 		<div class="input">
-			<div id="buttons">
-				<button type="button" class="btn blue" id="runButton">Run</button>
-				<button type="button" class="btn red" id="clearButton">Clear</button>
-				<% if (examples.length > 0) { %>
-				<div class="styled-select blue">
-					<select onchange="changeExample(this.value)">
-						<option>Examples</option>
-						<% examples.forEach(function(example) {
-							var link = url + "?viewer&example=" + example; %>
-						<option value="<%- link %>"><%- example %></option>
-						<% });%>
-					</select>
-				</div>
-				<%}%>
-
-				<% if (snippets.length > 0) { %>
-				<div class="styled-select blue">
-					<select onchange="changeExample(this.value)">
-						<option>Snippets</option>
-						<% snippets.forEach(function(snippet) {
-							var link = url + "?viewer&snippet=" + snippet; %>
-						<option value="<%- link %>"><%- snippet %></option>
-						<% }); %>
-					</select>
-				</div>
-				<%}%>
-			</div>
-			<div>
 			<textarea id="codeTextArea"><% if (code) { %>
 				<%- code %>  <% } %>
 			</textarea>
-			</div>
 		</div>
-		<div class="vertical_line">
+		<div id="buttons">
+			<button type="button" class="btn blue" id="runButton"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg></button>
+			<button type="button" class="btn red" id="clearButton"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg></button>
+
+			<% if(examples.length + snippets.length > 0) {%>
+			<div id="examples">
+				<button type="button" class="btn blue" id="listButton"><svg id="listSvg" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24"><path d="M19 9H2v2h17V9zm0-4H2v2h17V5zM2 15h13v-2H2v2zm15-2v6l5-3-5-3z"/></svg></button>
+				<% if(examples.length > 0) {%>
+				<div class="listDropdown blue">
+					<div class="blue">--- Examples ---</div>
+					<% examples.forEach(function(example) {
+						var link = url + "?viewer&example=" + example; %>
+					<a class="blue btn" href="<%-link%>"><%-example%></a>
+					<%})%>
+					<%}%>
+
+					<% if(snippets.length > 0) {%>
+					<div class="blue">--- Snippets ---</div>
+					<% snippets.forEach(function(snippet) {
+						var link = url + "?viewer&snippet=" + snippet; %>
+					<a class="blue btn" href="<%-link%>"><%-snippet%></a>
+					<%})%>
+					<%}%>
+				</div>
+			</div>
+			<%}%>
+			<button type="button" class="btn blue" id="resizeButton"></button>
 		</div>
 		<div class="output">
 			<textarea id="outputTextArea"></textarea>
 		</div>
 	</div>
 
-	<div class="footer"></div>
-
 <script type="text/javascript">
-	function changeExample(value) {
+	function onChangeExample(value) {
 		window.location = value;
 	}
 
@@ -183,11 +184,7 @@
 			fontSize: "12pt"
 		}
 		editor.setOptions(aceOptions);
-		var input = document.querySelector('.input');
-		var buttonsHeight = document.querySelector('#buttons').clientHeight;
-		input.setAttribute("style", 'width:' + window.innerWidth/2 + 'px');
-		var height = window.innerHeight - buttonsHeight - 30;
-		var linesCount = height / editor.renderer.lineHeight;
+		var linesCount = window.innerHeight / editor.renderer.lineHeight - 1;
 		editor.setOptions({
 			minLines: linesCount,
 			maxLines: linesCount,
@@ -230,6 +227,42 @@
 		}
 
 		langTools.addCompleter(proxyCompleter);
+
+		var snippetManager = ace.require("ace/snippets").snippetManager;
+
+		<%
+		var methods = Object.keys(metadata.methodMap);
+		var snippets = methods.map(function (method) {
+			var methodInfo = metadata.methodMap[method];
+			var params = methodInfo.params;
+			params = params.map(function(param, index) {
+				return '${' + `${index + 1}: ${param.name}:${param.type}}`;
+			});
+			var paramsSnippet = params.join(', ');
+			return {
+				name: methodInfo.name,
+				tabTrigger: methodInfo.description,
+				content: methodInfo.name + `(${paramsSnippet}${params.length ? ', ' : ''}(err, res) => {\\n\\t\${0}\\n});`,
+				toString() {
+					return `{name: '${this.name}', content: '${this.content}'}`;
+				}
+			}
+		});
+		%>
+
+		ace.config.loadModule("ace/snippets/javascript", function(m) {
+			if (m) {
+				snippetManager.files.xml = m;
+				m.snippets = snippetManager.parseSnippetFile(m.snippetText);
+
+				[<%-snippets%>].forEach(function (s) {
+					m.snippets.push(s);
+				});
+				snippetManager.register(m.snippets, m.scope);
+			}
+		});
+
+
 
 		function getFirstLine() {
 			if (!window.location.origin) {
@@ -290,7 +323,7 @@
 			var input = document.querySelector('.input');
 			document.querySelector('.input').setAttribute("style", "width:" + e.x + 'px');
 			editor.resize();
-			document.querySelector(".vertical_line").style.left = e.x + 3 + "px";
+			document.querySelector("#resizeButton").style.left = e.x + "px";
 		}
 
 		function onMouseDown(e) {
@@ -302,13 +335,48 @@
 			window.removeEventListener('mousemove', onMouseMove);
 		}
 
+		function hasClass(element, cls) {
+			return (' ' + element.className + ' ').indexOf(' ' + cls + ' ') > -1;
+		}
+
+		function isDescendant(child, parent) {
+			var node = child;
+			while (node != null) {
+				if (node == parent) {
+					return true;
+				}
+				node = node.parentNode;
+			}
+			return false;
+		}
+
+		function onWindowClick(e) {
+			var listButton = document.querySelector('#listButton');
+			if (!isDescendant(e.target, listButton) && !hasClass(e.target, 'listDropdown')) {
+				var listDropdown = document.querySelector('.listDropdown');
+				if (hasClass(listDropdown, 'opened')) {
+					listDropdown.classList.remove('opened');
+				}
+			}
+		}
+
+		function onListButtonClick() {
+			var listDropdown = document.querySelector(".listDropdown");
+			listDropdown.classList.toggle("opened");
+			if (hasClass(listDropdown, 'opened')) {
+				window.addEventListener('click', onWindowClick);
+			}
+		}
+
 		document.onkeydown = KeyDown;
 		var runButton = document.querySelector('#runButton');
 		runButton.addEventListener("click", run);
 		var clearButton = document.querySelector('#clearButton');
 		clearButton.addEventListener("click", clear);
-		var verticalLine = document.querySelector('.vertical_line');
-		verticalLine.addEventListener("mousedown", onMouseDown);
+		var listButton = document.querySelector('#listButton');
+		listButton.addEventListener('click', onListButtonClick);
+		var resizeButton = document.querySelector('#resizeButton');
+		resizeButton.addEventListener("mousedown", onMouseDown);
 		window.addEventListener("mouseup", onMouseUp);
 	})();
 </script>
