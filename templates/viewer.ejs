@@ -19,17 +19,13 @@
 	<script src="./static/ace.js"></script>
 	<script src="./static/ext-language_tools.js"></script>
 	<style>
-		#listButton {
-
-		}
-
 		.listDropdown {
 			z-index: 1;
 			display: flex;
 			flex-direction: column;
 			display: none;
 			background-color: #3b8ec2;
-			vertical-align: middle;
+			text-align: center;
 		}
 
 		.listDropdown.opened {
@@ -44,6 +40,8 @@
 
 		.listDropdown div {
 			color: #d6d6d6;
+			cursor: default;
+			width: 115px;
 		}
 
 		html {
@@ -168,10 +166,6 @@
 	</div>
 
 <script type="text/javascript">
-	function onChangeExample(value) {
-		window.location = value;
-	}
-
 	(function () {
 		'use strict';
 		var outputString = '';
@@ -193,6 +187,7 @@
 			enableSnippets: true
 		});
 		editor.$blockScrolling = Infinity;
+
 		output.$blockScrolling = Infinity;
 		output.setOptions(Object.assign({minLines: linesCount, maxLines: linesCount}, aceOptions));
 		output.setReadOnly(true);
@@ -208,13 +203,14 @@
 				var itemParts = item.split(':');
 				var name = itemParts[1];
 				var type = itemParts[0];
+
 				return {
 					caption: name,
 					value: name,
 					score: 10000,
 					meta: type,
 					toString() {
-						return `{ caption: '${this.caption}', value: '${this.value}', score: '${this.score}', meta: '${this.meta}' }`;
+						return `{ caption: '${this.caption}', value: '${this.value}', score: '${this.score}', meta: '${this.meta}'}`;
 					}
 				}
 			});
@@ -228,53 +224,66 @@
 
 		langTools.addCompleter(proxyCompleter);
 
-		var snippetManager = ace.require("ace/snippets").snippetManager;
-
 		<%
 		var methods = Object.keys(metadata.methodMap);
-		var snippets = methods.map(function (method) {
+		var editorSnippets = methods.map(function (method) {
 			var methodInfo = metadata.methodMap[method];
 			var params = methodInfo.params;
 			params = params.map(function(param, index) {
-				return '${' + `${index + 1}: ${param.name}:${param.type}}`;
+				var type = param.type;
+				var name = param.name;
+				if (param.isArray) {
+					type = `[${param.type}]`;
+				}
+				return '${' + `${index + 1}: ${name}:${type}}`;
 			});
 			var paramsSnippet = params.join(', ');
 			return {
-				name: methodInfo.name,
-				tabTrigger: methodInfo.description,
-				content: methodInfo.name + `(${paramsSnippet}${params.length ? ', ' : ''}(err, res) => {\\n\\t\${0}\\n});`,
+				caption: methodInfo.name,
+				snippet: methodInfo.name + `(${paramsSnippet}${params.length ? ', ' : ''}function(err, res) {\\n\\t\${0}\\n});`,
+				description: methodInfo.description,
 				toString() {
-					return `{name: '${this.name}', content: '${this.content}'}`;
+					return `{caption: '${this.caption}', snippet: '${this.snippet}', description: '${this.description}', score: 10010, meta: 'snippet', type: 'snippet'}`;
 				}
 			}
 		});
 		%>
 
-		ace.config.loadModule("ace/snippets/javascript", function(m) {
-			if (m) {
-				snippetManager.files.xml = m;
-				m.snippets = snippetManager.parseSnippetFile(m.snippetText);
-
-				[<%-snippets%>].forEach(function (s) {
-					m.snippets.push(s);
-				});
-				snippetManager.register(m.snippets, m.scope);
+		var lang = ace.require('ace/lib/lang');
+		var snippetCompleter = {
+			getCompletions: function(editor, session, pos, prefix, callback) {
+				callback(null, [<%-editorSnippets%>]);
+			},
+			getDocTooltip: function(item) {
+				if (item.type === 'snippet') {
+					item.docHTML = [
+						"<strong>", lang.escapeHTML(item.caption), "</strong>", item.description ? " - " + lang.escapeHTML(item.description) : '', "<hr />",
+						lang.escapeHTML(item.snippet)
+					].join("");
+				}
 			}
-		});
+		}
 
+		langTools.addCompleter(snippetCompleter);
 
+		var baseUrl = getWindowLocationOrigin() + window.location.pathname + '?viewer';
 
-		function getFirstLine() {
+		function getWindowLocationOrigin() {
 			if (!window.location.origin) {
 				window.location.origin = window.location.protocol + '//' + window.location.hostname +
 						(window.location.port ? ':' + window.location.port: '');
 			}
-			return 'var proxy = new Proxy("' + window.location.origin + window.location.pathname + '");\n\n';
+			return window.location.origin;
+		}
+
+		function getFirstLine() {
+			return 'var proxy = new Proxy("' + getWindowLocationOrigin() + window.location.pathname + '");\n\n';
 		}
 
 		function initEditor() {
 			editor.focus();
-			editor.setValue(getFirstLine(), 1);
+			var initialContent = window.localStorage.getItem(window.location) || getFirstLine();
+			editor.setValue(initialContent, 1);
 			outputString = '';
 			output.setValue(outputString, 1);
 		}
@@ -307,6 +316,7 @@
 		}
 
 		function clear() {
+			window.localStorage.removeItem(baseUrl);
 			initEditor();
 		}
 
@@ -378,6 +388,10 @@
 		var resizeButton = document.querySelector('#resizeButton');
 		resizeButton.addEventListener("mousedown", onMouseDown);
 		window.addEventListener("mouseup", onMouseUp);
+
+		setInterval(function () {
+			window.localStorage.setItem(baseUrl, editor.getValue());
+		}, 5000);
 	})();
 </script>
 </body>
