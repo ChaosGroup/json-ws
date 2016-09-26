@@ -211,9 +211,25 @@ function renderMethod(methodInfo) {
 	<meta name="viewport" content="width=device-width, initial-scale=1.0">
 	<!--<link rel="stylesheet" type="text/css" href="./static/prettify.css" />-->
 	<style>
-		<%locals.css.forEach(function (css) { %>
-		<%-css%>
+		<%Object.keys(locals.css).forEach(function (cssFile) { %>
+		<%-locals.css[cssFile]%>
 	   <%}) %>
+
+		.type-img {
+			background-image: url(data:image/png;base64,<%- locals.images.type %>)
+		}
+
+		.event-img {
+			background-image: url(data:image/png;base64,<%- locals.images.event %>)
+		}
+
+		.method-img {
+			background-image: url(data:image/png;base64,<%- locals.images.method %>)
+		}
+
+		.snippet-img {
+			background-image: url(data:image/png;base64,<%- locals.images.snippet %>)
+		}
 
 		.tab-panel {
 			display: flex;
@@ -271,12 +287,14 @@ function renderMethod(methodInfo) {
 			background-color: #f9f9f9;
 			overflow: auto;
 			box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.2);
+			border-radius: 6px;
+			padding: 1em;
 		}
 
 		.dropdown-content a {
 			color: black;
-			padding: 5px 5px;
-			font-size: 15px;
+			padding: 5px 8px;
+			font-size: 1em;
 			text-decoration: none;
 			display: block;
 		}
@@ -546,8 +564,8 @@ function renderMethod(methodInfo) {
 		}
 
 	</style>
-	<%locals.js.forEach(function (jsScript) { %>
-	<script><%-jsScript%></script>
+	<%Object.keys(locals.js).forEach(function (jsScript) { %>
+	<script><%-locals.js[jsScript]%></script>
 	<%}) %>
 </head>
 
@@ -616,12 +634,9 @@ if (snippets.length > 0) {
 
 				<%
 				group.items.forEach(function(groupItemInfo) {
-				var imgBase64 = locals.images[groupItemInfo.type];
 				%>
 				<div class="member">
-					<a href="#<%= groupItemInfo.item %>" class="linkMember"
-						 style="background-image: url(data:image/png;base64,<%= imgBase64 %>)">
-						<%= groupItemInfo.item%></a>
+					<a href="#<%= groupItemInfo.item %>" class="linkMember <%-groupItemInfo.type%>-img"><%= groupItemInfo.item%></a>
 				</div>
 
 				<% }) %> <!-- forEach(itemInfo) -->
