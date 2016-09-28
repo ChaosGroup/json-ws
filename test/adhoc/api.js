@@ -236,6 +236,7 @@ module.exports = function() {
 	.setNamespace('ns2.sub1.sub2')
 	.define('method1')
 	.examples(path.join(__dirname, 'examples', 'examples.js'))
+	.examples(path.join(__dirname, 'examples', 'examples.py'))
 	.examples(path.join(__dirname, 'examples', 'snippets.js'));
 	//	.examples(path.resolve('test.examples.js'))
 	//	.examples(path.resolve('test.examples.node.js'))

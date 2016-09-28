@@ -71,21 +71,20 @@ function renderExamples(exampleMap, name, type) {     // types: 'example', 'snip
 		}
 	}
 
-	function renderLanguagesNav() { %>
-		<ul class="nav nav-tabs">
-	<%	languages.forEach(function(language) { %>
-		<li class="<%- language %>">
-			<a class="<%- language %>" href="#<%- name %>-<%- language %>" data-toggle="tab">
-				<%- getLanguageName(language) %></a></li>
-		<% }); %>
-		</ul>
+	function renderLanguagesTabs() { %>
+		<div class="tab-panel">
+	<%	languages.forEach(function(language, index) { %>
+			<button id="<%- language %>" class=" <% if (index === 0) {%> active<%}%> tab-btn <%- language %>" onclick="onTabClick(this)"  aria-hidden="true"><%-getLanguageName(language)%></button>
+			<% }); %>
+		</div>
+		<% renderCodeTabs() %>
 <% }
 
 	function renderCodeTabs() {
 	%>
 	<div class="tab-content">
-		<% languages.forEach(function(language) { %>
-		<div class="tab-pane <%- language %>" id="<%- name %>-<%- language %>">
+		<% languages.forEach(function(language, index) { %>
+		<div class=" <% if (index === 0) {%> active<%}%> tab-pane <%- language %>" id="<%- name %>-<%- language %>">
 		<% var text = exampleMap[language];
 		if (language === 'Node' && text === undefined) {
 			text = exampleMap['JavaScript'];
@@ -111,8 +110,7 @@ function renderExamples(exampleMap, name, type) {     // types: 'example', 'snip
 		<div><a class="anchor" id="<%-name%>">
 			<strong><%= name %></strong></a></div>
 <% }
-	renderLanguagesNav();
-	renderCodeTabs();
+	renderLanguagesTabs();
 }
 
 function renderType(typeInfo) {
@@ -120,7 +118,7 @@ function renderType(typeInfo) {
 	<% if (typeInfo.enum) { %><pre><%- prettify(typeInfo.struct) %></pre><% } %>
 	</code>
 	<% if (!typeInfo.enum) { %>
-	<table class="table table-striped table-condensed table-bordered">
+	<table class="type-table" width="100%">
 		<thead>
 		<tr>
 			<th style="width: 25%">Property</th>
@@ -167,7 +165,7 @@ function renderMethod(methodInfo) {
 		}).join(", ") %>): <% anchorType(methodInfo.returns || 'void') %><%= methodInfo.returnsArray ? '[]' : '' %>
 	</code>
 	<% if (methodInfo.params.length > 0) { %>
-	<table class="table table-striped table-condensed table-bordered">
+	<table class="type-table">
 		<thead>
 		<tr>
 			<th style="width: 25%">Argument</th>
@@ -216,17 +214,209 @@ function renderMethod(methodInfo) {
 	<title><%= locals.metadata.name %> <%= locals.metadata.version %></title>
 
 	<meta name="viewport" content="width=device-width, initial-scale=1.0">
-	<link href="//netdna.bootstrapcdn.com/bootstrap/3.0.0/css/bootstrap.min.css" rel="stylesheet">
-	<link rel="stylesheet" type="text/css" href="./static/prettify.css" />
+	<!--<link rel="stylesheet" type="text/css" href="./static/prettify.css" />-->
 	<style>
+		<%Object.keys(locals.css).forEach(function (cssFile) { %>
+		<%-locals.css[cssFile]%>
+	   <%}) %>
+
+		.type-img {
+			background-image: url(data:image/png;base64,<%- locals.images.type %>)
+		}
+
+		.event-img {
+			background-image: url(data:image/png;base64,<%- locals.images.event %>)
+		}
+
+		.method-img {
+			background-image: url(data:image/png;base64,<%- locals.images.method %>)
+		}
+
+		.snippet-img {
+			background-image: url(data:image/png;base64,<%- locals.images.snippet %>)
+		}
+
+		.tab-panel {
+			display: flex;
+			flex-direction: row;
+			margin-top: 10px;
+		}
+
+		.tab-btn.active {
+			color: black;
+			border-left: 2px solid #e7e7e7;
+			border-top: 2px solid #e7e7e7;
+			border-right: 2px solid #e7e7e7;
+			cursor: default;
+		}
+
+		.tab-btn {
+			background-color: white;
+			color: #0081c2;
+			border: none;
+			padding: 5px 8px;
+			border-radius: 3px;
+			cursor: pointer;
+			outline: none;
+		}
+
+		.tab-btn:not(.active):hover {
+			background-color: #e6e6e6;
+		}
+
+		.tab-pane.active {
+			display: block;
+		}
+
+		.tab-pane {
+			display: none;
+		}
+
+		.proxies-btn {
+			background-color: #F8F8F8;
+			font-size: 15px;
+			color: #777;
+			border: none;
+			cursor: pointer;
+			outline: none;
+		}
+
+		.proxies-btn:hover {
+			color: #5e5e5e;
+			text-decoration: none;
+		}
+
+		.dropdown-content {
+			display: none;
+			position: absolute;
+			background-color: #f9f9f9;
+			overflow: auto;
+			box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.2);
+			border-radius: 6px;
+			padding: 1em;
+		}
+
+		.dropdown-content a {
+			color: black;
+			padding: 5px 8px;
+			font-size: 1em;
+			text-decoration: none;
+			display: block;
+		}
+
+		.dropdown-content a:hover {background-color: #f1f1f1}
+
+		.type-table tr:nth-child(even) {
+			background-color: #fafafa;
+		}
+
+		.type-table th,
+		.type-table td {
+			border: 1px solid #ddd;
+		}
+
+		.type-table {
+			border-collapse: collapse;
+			margin-bottom: 20px;
+		}
+
+		td, th {
+			padding: 7px;
+		}
+
+		table {
+			width: 100%;
+			padding: 10px;
+		}
+
+		tbody {
+			vertical-align: top;
+		}
+
 		body {
 			position: relative;
 			top: 70px;
+			font-family: "Helvetica Neue",Helvetica,Arial,sans-serif;
 			font-size: 12px;
+			margin: 0px;
 		}
 
-		pre {
-			border-radius: 0;
+		.container {
+			display: flex;
+			flex-direction:row;
+			align-content: center;
+		}
+
+		aside {
+			position: fixed;
+			width: 18em;
+			top: 48px;
+			bottom: 0;
+			display: flex;
+			flex-direction:column;
+			align-self: flex-start;
+			padding: 10px;
+			background-color: #F8F8F8;
+			box-sizing: border-box;
+		}
+
+		#main {
+			position: fixed;
+			top: 48px;
+			bottom: 0;
+			right: 0;
+			left: 18em;
+			overflow-y: auto;
+			display: flex;
+			flex-direction:column;
+			background-color: #ffffff;
+			flex-grow: 1;
+		}
+
+		#search-results {
+			display: flex;
+			flex-direction: column;
+			overflow-y: auto;
+			margin-top: 10px;
+		}
+
+		#search {
+			font-size: 14px;
+			padding: 6px 12px;
+			border: 1px solid #ccc;
+			border-radius: 4px;
+		}
+
+		header {
+			width: 100%;
+			height: 48px;
+			position: fixed;
+			top: 0;
+			z-index: 1;
+			background: #F8F8F8;
+			border-bottom: 1px solid #e7e7e7;
+		}
+
+		header ul {
+			float: left;
+			margin-left: 10%;
+			list-style: none;
+			text-align: center;
+		}
+		header ul li {
+			display: inline-block;
+			margin: 0 10px;
+		}
+		header ul li a {
+			padding: 10px 0;
+			color: #777;
+			font-size: 15px;
+			text-decoration: none;
+			transition: all 0.2s ease;
+		}
+		header ul li a:hover {
+			color: #5e5e5e;
+			text-decoration: none;
 		}
 
 		span.badge {
@@ -238,10 +428,15 @@ function renderMethod(methodInfo) {
 			display: block;
 			margin-top: 10px;
 			margin-bottom: 10px;
+			padding: 2px 4px;
 			font-size: 13px;
 			word-break: break-all;
 			word-wrap: break-word;
 			white-space: normal;
+			color: #c7254e;
+			background-color: #f9f2f4;
+			border-radius: 4px;
+			font-family: Monaco,Menlo,Consolas,"Courier New",monospace;
 		}
 
 		.codeline {
@@ -249,6 +444,7 @@ function renderMethod(methodInfo) {
 		}
 
 		pre {
+			border-radius: 0px;
 			padding: 0;
 			margin: 0;
 			color: inherit;
@@ -276,9 +472,13 @@ function renderMethod(methodInfo) {
 			border: 1px solid #ddd;
 		}
 
-		.group-description {
-			padding: 10px 0 0 0;
-			margin-left: -8px;
+		thead.group-description {
+			float: left;
+			vertical-align: middle;
+		}
+
+		.group-description th {
+			font-weight: normal;
 		}
 
 		.group-text {
@@ -289,6 +489,15 @@ function renderMethod(methodInfo) {
 			border: 1px solid #ddd;
 			color: #5F6163;
 			cursor: pointer;
+			transition: height 200ms;
+		}
+
+		.group-content {
+			display: none;
+		}
+
+		.group-content.opened {
+			display: block;
 		}
 
 		.entry {
@@ -299,70 +508,8 @@ function renderMethod(methodInfo) {
 			background-color: #fafafa;
 		}
 
-		h5 {
-			margin-top: 20px;
-		}
-
 		.table-bordered>thead>tr>th, .table-bordered>thead>tr>td {
 			border-bottom-width: 1px;
-		}
-
-		.navbar {
-			font-size: 14px;
-		}
-
-		.navbar-header {
-			float: left;
-		}
-
-		.navbar-brand {
-			margin-left: -15px;
-		}
-
-		.navbar-nav {
-			float: left;
-			margin: 0;
-		}
-
-		.navbar-nav > li {
-			float: left;
-		}
-
-		.navbar-nav > li > a {
-			padding: 15px;
-		}
-
-		.navbar-nav.navbar-right {
-			float: right;
-		}
-
-		.sidebar {
-			background: #f8f8f8;
-			position: fixed;
-			top: 52px;
-			bottom: 0;
-			left: 0;
-			width: 240px;
-		}
-
-		.sidebar .container {
-			padding: 15px;
-		}
-
-		#main {
-			position: relative;
-			left: 120px;
-			background-color: #ffffff;
-		}
-
-		#search-results {
-			position: absolute;
-			top: 60px;
-			bottom: 0px;
-			left: 14px;
-			right: 14px;
-			overflow-x: hidden;
-			overflow-y: auto;
 		}
 
 		.member:hover {
@@ -413,50 +560,37 @@ function renderMethod(methodInfo) {
 
 		.playgroundLink {
 			position: absolute;
-			right: 0px;
-			margin-right: 1em;
-			margin-top: 2px;
+			right: 7%;
+			margin-top: 1em;
 		}
 
 		.playgroundLink:hover {
 			text-decoration: none;
 		}
 
-		.nav-tabs {
-			margin-top: 10px;
-		}
-
-		.nav-tabs>li>a {
-			padding: 5px;
-		}
 	</style>
-	<script src="//code.jquery.com/jquery-2.0.3.min.js"></script>
-	<script src="//netdna.bootstrapcdn.com/bootstrap/3.0.0/js/bootstrap.min.js"></script>
-	<script src="./static/prettify.js"></script>
+	<%Object.keys(locals.js).forEach(function (jsScript) { %>
+	<script><%-locals.js[jsScript]%></script>
+	<%}) %>
 </head>
 
 <body onload="prettyPrint()">
+	<header>
+		<nav>
+			<ul>
+				<li><a style="font-size: 20px" href="#"><%= locals.metadata.name %> <%= locals.metadata.version %></a></li>
+			 <% if(!locals.isStatic) {%>
+				<li><button class="proxies-btn" onclick="onProxiesClick()">Proxies</button>
+					<div class="dropdown-content">
+						<% locals.proxies.forEach(function(proxy) { %>
+							<a href="?proxy=<%= proxy %>"><%= proxy %></a>
+						<% }); %>
+					</div></li>
+				<li><a href="?viewer" target="_blank">Playground</a></li> <%}%>
+			</ul>
+		</nav>
+	</header>
 
-<div class="navbar navbar-default navbar-fixed-top">
-	<div class="container">
-		<div class="navbar-header">
-			<a class="navbar-brand" href="#"><%= locals.metadata.name %> <%= locals.metadata.version %></a>
-		</div>
-		<ul class="nav navbar-nav">
-			<li class="dropdown">
-				<a href="#" class="dropdown-toggle" data-toggle="dropdown">Proxies</a>
-				<ul class="dropdown-menu">
-					<% locals.proxies.forEach(function(proxy) { %>
-					<li><a href="?proxy=<%= proxy %>"><%= proxy %></a></li>
-					<% }); %>
-				</ul>
-			</li>
-			<li class="dropdown">
-			   <a class="dropdown-toggle" href="?viewer" target="_blank">Playground</a>
-           </li>
-		</ul>
-	</div>
-</div>
 
 <%
 var groups = Object.keys(locals.metadata.groups);
@@ -490,8 +624,9 @@ if (snippets.length > 0) {
 }
 %>
 
-<div id="searchDiv" class="navbar-left sidebar">
-	<div class="container">
+
+<div class="container">
+	<aside id="searchDiv">
 		<input type="text" id="search" placeholder="Search" class="form-control"/>
 
 		<div id="search-results">
@@ -504,12 +639,9 @@ if (snippets.length > 0) {
 
 				<%
 				group.items.forEach(function(groupItemInfo) {
-				var imgUrl = './static/' + groupItemInfo.type + '.png';
 				%>
 				<div class="member">
-					<a href="#<%= groupItemInfo.item %>" class="linkMember"
-						 style="background-image: url('<%= imgUrl %>')">
-						<%= groupItemInfo.item%></a>
+					<a href="#<%= groupItemInfo.item %>" class="linkMember <%-groupItemInfo.type%>-img"><%= groupItemInfo.item%></a>
 				</div>
 
 				<% }) %> <!-- forEach(itemInfo) -->
@@ -517,119 +649,174 @@ if (snippets.length > 0) {
 			</div>
 			<% }); %>  <!-- forEach(group) -->
 		</div>
-	</div>
-</div>
+	</aside>
 
-<div class="container" id="main">
-
-    <% groupsMap.forEach(function(group, i) { %>
-	<div class="group-text" data-toggle="collapse" data-target="#group-<%-i%>"><a class="anchor" id="<%= group.name %>"> <%= group.name %> </a><span class="badge"><%-group.items.length%></span></div>
-	<div class="group collapse in" id="group-<%-i%>">
-		<% if (group.description) { %>
-		<div class="group-description col-md-12"><%- group.description %></div>
-		<% } %>
-		<%
-			group.items.forEach(function(groupItemInfo, idx) {
-			if (idx % 2 == 0) { %><div class="row"><% } %>
-			<div class="entry<% if (group.name !== 'Snippets') { %> col-md-6<% } %>">
-		<%  var item = groupItemInfo.item;
-			switch (groupItemInfo.type) {
-				case 'type': renderType(locals.metadata.typeMap[item]); break;
-				case 'event': renderEvent(locals.metadata.eventMap[item]); break;
-				case 'method': renderMethod(locals.metadata.methodMap[item]); break;
-				case 'snippet': renderExamples(locals.metadata.snippetMap[item], item, 'snippet'); break;
-			}
-		%>
+	<div id="main">
+		<% groupsMap.forEach(function(group, i) { %>
+		<div class="group-text"><a class="anchor" id="<%= group.name %>"> <%= group.name %> </a><span class="badge"><%-group.items.length%></span>
 		</div>
-		<% if (idx % 2 == 1 || idx == group.items.length - 1) { %></div><% } %>
-		<% }) %> <!-- forEach(methodInfo) -->
+		<div id="group-<%-i%>" class="group-content opened" style="border: 1px solid #ddd; margin: -1px 0px 10px">
+			<table>
+				<% if (group.description) { %>
+				<thead class="group-description">
+					<tr><th><%- group.description %></th></tr></thead>
+				<% } %>
+				<%
+				group.items.forEach(function(groupItemInfo, idx) {
+				if (idx % 2 == 0) { %><tr><% } %>
+					<td class="entry">
+						<%  var item = groupItemInfo.item;
+							switch (groupItemInfo.type) {
+								case 'type': renderType(locals.metadata.typeMap[item]); break;
+								case 'event': renderEvent(locals.metadata.eventMap[item]); break;
+								case 'method': renderMethod(locals.metadata.methodMap[item]); break;
+								case 'snippet': renderExamples(locals.metadata.snippetMap[item], item, 'snippet'); break;
+							}
+						%>
+					</td>
+					<% if (idx % 2 == 1 || idx == group.items.length - 1) { %></tr><% } %>
+				<% }) %> <!-- forEach(methodInfo) -->
+			</table>
+		</div>
 
+		<% }); %>  <!-- forEach(group) -->
+
+		<p>&nbsp;</p>
 	</div>
-
-	<% }); %>  <!-- forEach(group) -->
-
-	<p>&nbsp;</p>
 </div>
+
 <script>
-	var animTimeout = 0;
-	var lastClickedLink = $('.member:first').parent();
-	$(".linkMember").click(function () {
-		lastClickedLink.css("background",
-				lastClickedLink.hasClass('groupTitle') ? '#eeeeee' : 'transparent');
-		lastClickedLink = $(this).parent();
-		lastClickedLink.css("background", "#ccc");
+	function onTabClick(tab) {
+		tab.classList.add('active');
+		var tabId = tab.id;
+		var tabPanel = tab.parentNode;
+		[].map.call(tabPanel.children, function (child) {
+			if (child.id !== tabId) {
+				child.classList.remove('active');
+			}
+			return child;
+		});
+
+		var entry = closestByClass(tab, 'entry');
+		var tabContent = entry.querySelector('.tab-content');
+		[].map.call(tabContent.children, function(child) {
+			if (child.id.indexOf(tabId) !== -1) {
+				child.classList.add('active');
+			} else {
+				child.classList.remove('active');
+			}
+			return child;
+		});
+	}
+
+	function onWindowClick(e) {
+		if (!hasClass(e.target, 'proxies-btn')) {
+			var dropdown = document.querySelector(".dropdown-content");
+			if (hasClass(dropdown, 'opened')) {
+				dropdown.classList.remove('opened');
+				dropdown.style.display = 'none';
+			}
+		}
+	}
+
+	function onProxiesClick() {
+		var dropdown = document.querySelector(".dropdown-content");
+		dropdown.classList.toggle("opened");
+		if (hasClass(dropdown, 'opened')) {
+			dropdown.style.display = "block";
+			window.addEventListener('click', onWindowClick);
+		} else {
+			dropdown.style.display = "none";
+		}
+	}
+
+	function hasClass(element, cls) {
+		return (' ' + element.className + ' ').indexOf(' ' + cls + ' ') > -1;
+	}
+
+	function closestByClass(el, clazz) {
+		while (el.className != clazz) {
+			el = el.parentNode;
+			if (!el) {
+				return null;
+			}
+		}
+		return el;
+	}
+
+	function onTypeClick() {
+		lastClickedLink.style.background = hasClass(lastClickedLink, 'groupTitle') ? '#eeeeee' : 'transparent';
+		lastClickedLink = this.parentNode;
+		lastClickedLink.style.background = "#ccc";
 		// blink background
 		if (animTimeout) {
 			clearTimeout(animTimeout);
-			$('.entry').css('background-color', '#fff');
+			var entries = document.getElementsByClassName('entry');
+			[].map.call(entries, function (entry) {
+				entry.style['background-color'] = '#fff';
+				return entry;
+			});
 		}
-		if ($(this).parent().hasClass('groupTitle')) {
+		if (hasClass(this.parentNode, 'groupTitle')) {
 			return;
 		}
-		var id = $(this).attr('href').replace('#', '');
-		var anchor = $('a[id="' + id + '"');
-		var entry = anchor.closest('.entry');
-		if (entry.length > 0) {
+		var id = this.getAttribute('href').replace('#', '');
+		var anchor = document.querySelector('a[id="' + id + '"');
+		var entry = closestByClass(anchor, 'entry');
+		if (entry) {
 			var color = '#edd0cc';
 			var iter = 6;
 			var setBackgroundColor = function() {
-				if (iter == 0) return;
-				entry.css('background-color', color);
+				if (iter == 0)
+					return;
+				entry.style['background-color'] = color;
 				color = --iter % 2 == 0 ? '#edd0cc' : '#fff';
 				animTimeout = setTimeout(setBackgroundColor, 500);
 			}
 			setBackgroundColor();
 		}
+	}
+
+	var animTimeout = 0;
+	var lastClickedLink = document.querySelector('.groupSearch');
+	var linkMembers = document.getElementsByClassName('linkMember');
+	[].forEach.call(linkMembers, function (linkMember) {
+		linkMember.addEventListener("click", onTypeClick);
 	});
 
-	$("#search").on("keyup", function () {
-		var pattern = $("#search").val().toLowerCase();
-		$(".groupSearch").each(function () {
-			var groupText = $(this).find('.linkMember').first().text().toLowerCase();
-			if (groupText.indexOf(pattern) !== -1) {   // all subitems must be visible
-				$(this).find('.linkMember').each(function () {
-					$(this).show();
-				});
-			} else { // only matching subitems must be visible
-				$(this).find('.linkMember').each(function () {
-					var itemText = $(this).text().toLowerCase();
-					$(this)[ itemText.indexOf(pattern) !== -1 ? 'show' : 'hide' ]();
+	document.addEventListener('keyup', onKeyUp);
+
+	function onKeyUp(e) {
+		var pattern = document.querySelector('#search').value.toLowerCase();
+		var groupSearchDivs = document.getElementsByClassName('groupSearch');
+		[].forEach.call(groupSearchDivs, function (groupSearchDiv) {
+			var linkMembers = groupSearchDiv.getElementsByClassName('linkMember');
+			var groupText = linkMembers[0].innerText.toLowerCase();
+			if (groupText.indexOf(pattern) !== -1) {
+				[].map.call(linkMembers, function (linkMember) {
+					linkMember.style.display = 'block';
+					return linkMember;
+				})
+			} else {
+				[].map.call(linkMembers, function (linkMember) {
+					linkMember.style.display = linkMember.innerText.toLowerCase().indexOf(pattern) !== -1 ? 'block' : 'none';
+					return linkMember;
 				});
 			}
 		});
-	});
-
-	// change the displayed language to the specified one
-	function activateLanguage(lang) {
-		// activate tab content
-		$('div.tab-pane').removeClass('active');
-		$('div.' + lang).addClass('active');
-
-		// activate tab headers
-		$('.nav-tabs, .nav-pills').children().removeClass('active');
-		$('li.' + lang).addClass('active');
-	};
-
-	function changeLanguageHandler(event) {
-		var target = $(event.target);
-		var relativeOffset = getRelativeOffset(target);
-		var lang = target.attr('class').split(' ')[0];
-		activateLanguage(lang);
-		window.localStorage.lang = lang;
-		// return the relative scroll position
-		$('body').scrollTop(target.offset().top - relativeOffset);
 	}
 
-	function getRelativeOffset(element) {
-		return element.offset().top - $('body').scrollTop();
-	}
-
-	$('a[data-toggle="tab"]').click(changeLanguageHandler);
-
-	(function getLocalStorageLanguage() {
-		var store = window.localStorage || {};
-		store.lang = store.lang || 'JavaScript';
-		activateLanguage(store.lang);
+	(function collapseGroup() {
+		var groupTexts = document.getElementsByClassName('group-text');
+		[].forEach.call(groupTexts, function (groupText) {
+			groupText.addEventListener('click', function () {
+				var group = groupText.nextSibling;
+				while(group && group.nodeType !== 1) {
+					group = group.nextSibling
+				}
+				group.classList.toggle('opened');
+			});
+		})
 	}) ();
 </script>
 </body>

@@ -6,7 +6,9 @@
 	var snippets = locals.snippets;
 	var code = locals.code;
 	var client = locals.client;
-%><html>
+	var metadata = locals.metadata;
+%><!DOCTYPE html>
+<html>
 <head>
 	<meta charset="utf-8">
 	<title><%= title %> - Playground</title>
@@ -17,9 +19,44 @@
 	<script src="./static/ace.js"></script>
 	<script src="./static/ext-language_tools.js"></script>
 	<style>
+		.listDropdown {
+			z-index: 1;
+			flex-direction: column;
+			display: none;
+			font-size: 10pt;
+			font-family: Arial;
+			max-height: 32px;
+		}
+
+		.listDropdown.opened {
+			display: flex;
+		}
+
+		.listDropdown .entry {
+			color: #ffffff;
+			text-decoration: none;
+			white-space: nowrap;
+			padding: 2px 10px 2px 5px;
+		}
+
+		.listDropdown .entry:hover {
+			background-color: #3cb0fd;
+		}
+
+		.listDropdown .entry svg {
+			vertical-align: middle;
+			fill: white;
+			padding: 4px;
+		}
+
+		html {
+			height: 100%;
+		}
+
 		body {
 			display: flex;
 			margin: 0;
+			height: 100%;
 			flex-direction: column;
 		}
 
@@ -29,176 +66,272 @@
 
 		.editors {
 			display: flex;
-			flex-grow: 10;
-			justify-content: space-around;
-			align-self: stretch;
-			align-content: stretch;
+			height: 100%;
 		}
 
-		.editors > div {
-			border: 1px solid #3b8ec2;
-			min-width: 49%;
-			flex-basis: inherit;
-		}
+		.input {
+			width: 60%;
+		 }
 
-		.editors + div {
+		.output {
 			flex-grow: 1;
-			height: 0.5em;
 		}
 
-		.styled-select {
-			display: flex;
-			align-self: center;
-			overflow: hidden;
-			margin: 0 5px;
-		}
-
-		.styled-select:hover {
-			background-color: #3cb0fd;
-			text-decoration: none;
-		}
-
-		.styled-select select {
-			background: transparent;
-			border: 0px;
-			font-size: 15px;
-			padding: 10px 5px;
-		}
-
-		option {
-			color: black;
-		}
-
-		.semi-square {
-			-webkit-border-radius: 5px;
-			-moz-border-radius: 5px;
-			border-radius: 8px;
-		}
-
-		/* -------------------- Colors: Background */
 		.blue    { background-color: #3b8ec2; }
-		.red     { background-color: #c10a00; }
-
-		/* -------------------- Colors: Text */
-		.blue select    { color: #fff; }
-		.blue select:hover    { color: #000; }
-
+		.red     { background-color: #cb0a00; }
 
 		#buttons {
 			display: flex;
+			flex-direction: column;
+			max-width: 38px;
+		}
+
+		#resizeButton {
+			flex-grow: 1;
+			align-self: stretch;
+			cursor: col-resize;
+		}
+
+		#resizeButton:hover {
+			background-color: #3b8ec2;
 		}
 
 		.btn {
-			align-self: center;
-			border-radius: 8px;
 			border: 0;
-			font-family: Arial;
-			color: #ffffff;
-			font-size: 15px;
-			padding: 10px 15px;
-			text-decoration: none;
-			margin: 5px 5px;
+			padding: 5px 10px;
+			outline: none;
+			height: 32px;
+			width: 38px;
 		}
 
-		.btn:hover {
+		/*Disable inner outline on mozilla*/
+		.btn::-moz-focus-inner {
+			border: 0;
+		}
+
+		.btn.blue:hover {
 			background-color: #3cb0fd;
-			text-decoration: none;
 		}
 
 		.btn.red:hover{
 			background: #e70a00;
 		}
+
+		#examples {
+			display: flex;
+			flex-direction: row;
+			max-height: 32px;
+		}
 	</style>
 </head>
 <body>
-	<div id="buttons">
-			<button type="button" class="btn blue" id="runButton">Run</button>
-			<button type="button" class="btn red" id="clearButton">Clear</button>
-		<% if (examples.length > 0) { %>
-		<div class="styled-select blue semi-square">
-			<select onchange="changeExample(this.value)">
-				<option>Examples</option>
-				<% examples.forEach(function(example) {
-					var link = url + "?viewer&example=" + example; %>
-				<option value="<%- link %>"><%- example %></option>
-				<% });%>
-			</select>
-		</div>
-		<%}%>
-
-		<% if (snippets.length > 0) { %>
-		<div class="styled-select blue semi-square">
-			<select onchange="changeExample(this.value)">
-				<option>Snippets</option>
-				<% snippets.forEach(function(snippet) {
-					var link = url + "?viewer&snippet=" + snippet; %>
-					<option value="<%- link %>"><%- snippet %></option>
-				<% }); %>
-			</select>
-		</div>
-		<%}%>
-	</div>
-
 	<div class="editors">
-		<div>
+		<div class="input">
 			<textarea id="codeTextArea"><% if (code) { %>
-<%- code %>  <% } %>
+				<%- code %>  <% } %>
 			</textarea>
 		</div>
-		<div>
+		<div id="buttons">
+			<button title="Run (Ctrl+Enter)" type="button" class="btn blue" id="runButton"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg></button>
+			<button title="Clear (Ctrl+Del)" type="button" class="btn red" id="clearButton"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg></button>
+
+			<% if(snippets.length > 0) {%>
+			<div id="examples">
+				<button title="Examples" type="button" class="btn blue" id="listButton"><svg id="listSvg" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24"><path d="M19 9H2v2h17V9zm0-4H2v2h17V5zM2 15h13v-2H2v2zm15-2v6l5-3-5-3z"/></svg></button>
+				<div class="listDropdown blue">
+					<% snippets.forEach(function(snippet) {
+						var link = url + "?viewer&snippet=" + snippet; %>
+					<a class="blue entry" href="<%-link%>"><svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24">
+							<path d="M0 0h24v24H0z" fill="none"/>
+							<path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/>
+						</svg><%-snippet%></a>
+					<%})%>
+				</div>
+			</div>
+			<%}%>
+			<button title="Back to metadata page" type="button" class="btn blue" id="backButton">
+				<svg xmlns="http://www.w3.org/2000/svg" fill="#000000" height="18" viewBox="0 0 24 24" width="18">
+					<path d="M0 0h24v24H0z" fill="none"/>
+					<path d="M10.09 15.59L11.5 17l5-5-5-5-1.41 1.41L12.67 11H3v2h9.67l-2.58 2.59zM19 3H5c-1.11 0-2 .9-2 2v4h2V5h14v14H5v-4H3v4c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2z"/>
+				</svg></button>
+			<button type="button" class="btn blue" id="resizeButton"></button>
+		</div>
+		<div class="output">
 			<textarea id="outputTextArea"></textarea>
 		</div>
 	</div>
 
-	<div></div>
-</div>
-
 <script type="text/javascript">
-	function changeExample(value) {
-		window.location = value;
-	}
-
 	(function () {
 		'use strict';
-
 		var outputString = '';
-		ace.require("ace/ext/language_tools");
+		var langTools = ace.require("ace/ext/language_tools");
 		var editor = ace.edit("codeTextArea");
-		var height = document.querySelector('.editors').clientHeight;
-		var linesCount = height / editor.renderer.lineHeight;
 		var output = ace.edit("outputTextArea");
-		var aceOptions = {
+		var editors = document.querySelector('.editors');
+		var baseAceOptions = {
+			mode: 'ace/mode/javascript',
+			fontSize: "10pt"
+		}
+		editor.setOptions(baseAceOptions);
+		var linesCount = window.innerHeight / editor.renderer.lineHeight - 1;
+		editor.setOptions({
 			minLines: linesCount,
 			maxLines: linesCount,
-			mode: 'ace/mode/javascript'
-		}
-		editor.setOptions(aceOptions);
-		editor.setOptions({
 			enableBasicAutocompletion: true,
-			enableSnippets: true,
-			enableLiveAutocompletion: true
+			enableLiveAutocompletion: true,
+			enableSnippets: true
 		});
-		editor.$blockScrolling = Infinity
-		output.setOptions(aceOptions);
+		editor.$blockScrolling = Infinity;
+
+		output.$blockScrolling = Infinity;
+		output.setOptions({minLines: linesCount, maxLines: linesCount, mode: 'ace/mode/javascript', fontSize: "10pt"});
 		output.setReadOnly(true);
 		output.getSession().setUseWorker(false);
 		output.renderer.$cursorLayer.element.style.display = "none";
 		output.renderer.setShowGutter(false);
+		output.setShowPrintMargin(false);
 
-		function getFirstLine() {
+		<%
+
+			function getItemList(items, meta) {
+				return items.map(function(item) {
+					return {
+						caption: item,
+						value: item,
+						score: 10000,
+						toString() {
+							return `{ caption: '${this.caption}', value: '${this.value}', score: '${this.score}', meta: '${meta}'}`;
+						}
+					}
+				});
+			}
+			var methods = Object.keys(metadata.methodMap);
+			var events = Object.keys(metadata.eventMap);
+
+			var eventList = getItemList(events, 'event');
+			var methodsList = getItemList(methods, 'method');
+			var wordList = eventList.concat(methodsList);
+		%>
+
+		var proxyCompleter = {
+			getCompletions: function(editor, session, pos, prefix, callback) {
+				callback(null, [<%-wordList%>]);
+			}
+		}
+
+		langTools.addCompleter(proxyCompleter);
+
+		<%
+		function mapJavaScriptType(jsType, isArray) {
+			var returnType = '';
+			switch (jsType) {
+				case '*':
+				case 'any':
+				case 'object':
+				case 'json':
+					returnType = 'object';
+					break;
+
+				case 'int':
+				case 'integer':
+				case 'number':
+				case 'float':
+				case 'double':
+					returnType = 'number';
+					break;
+
+				case 'date':
+				case 'time':
+					returnType = 'Date';
+					break;
+
+				case 'bool':
+				case 'boolean':
+					returnType = 'boolean';
+					break;
+
+
+				case 'string':
+				case 'url':
+					returnType = 'string';
+					break;
+
+				case 'buffer':
+				case 'binary':
+					returnType = 'Uint8Array';
+					break;
+
+				case undefined:
+					returnType = '';
+					break;
+
+				default:
+					returnType = jsType;
+			}
+			return isArray ? `${returnType}[]` : returnType;
+		}
+
+		var editorSnippets = methods.map(function (method) {
+			var methodInfo = metadata.methodMap[method];
+			var params = methodInfo.params;
+			params = params.map(function(param, index) {
+				var type = param.type;
+				var name = param.name;
+
+				return '${' + `${index + 1}: ${name} /*${mapJavaScriptType(type, param.isArray)}*/}`;
+			});
+			var paramsSnippet = params.join(', ');
+			return {
+				caption: methodInfo.name,
+				snippet: methodInfo.name + `(${paramsSnippet}${params.length ? ', ' : ''}function(err, res) {\\n\\t\${0}\\n});`,
+				description: methodInfo.description,
+				toString() {
+					return `{caption: '${this.caption}', snippet: '${this.snippet}', description: '${this.description}', score: 10010, meta: 'snippet', type: 'snippet'}`;
+				}
+			}
+		});
+		%>
+
+		var lang = ace.require('ace/lib/lang');
+		var snippetCompleter = {
+			getCompletions: function(editor, session, pos, prefix, callback) {
+				callback(null, [<%-editorSnippets%>]);
+			},
+			getDocTooltip: function(item) {
+				if (item.type === 'snippet') {
+					item.docHTML = [
+						"<strong>", lang.escapeHTML(item.caption), "</strong>", item.description ? " - " + lang.escapeHTML(item.description) : '', "<hr />",
+						lang.escapeHTML(item.snippet)
+					].join("");
+				}
+			}
+		}
+
+		langTools.addCompleter(snippetCompleter);
+
+		var baseUrl = getWindowLocationOrigin() + window.location.pathname + '?viewer';
+
+		function getWindowLocationOrigin() {
 			if (!window.location.origin) {
 				window.location.origin = window.location.protocol + '//' + window.location.hostname +
 						(window.location.port ? ':' + window.location.port: '');
 			}
-			return 'var proxy = new Proxy("' + window.location.origin + window.location.pathname + '");\n\n';
+			return window.location.origin;
+		}
+
+		function getFirstLine() {
+			return 'var proxy = new Proxy("' + getWindowLocationOrigin() + window.location.pathname + '");\n\n';
 		}
 
 		function initEditor() {
 			editor.focus();
-			editor.setValue(getFirstLine(), 1);
+			var initialContent = window.localStorage.getItem(window.location) || getFirstLine();
+			editor.setValue(initialContent, 1);
 			outputString = '';
-			output.setValue(outputString);
+			output.setValue(outputString, 1);
 		}
+
 		initEditor();
 
 		<% if (code) { %>
@@ -216,18 +349,19 @@
 						console.log(arguments[i]);
 					}
 					outputString += text + '\n';
-					output.setValue(outputString);
+					output.setValue(outputString, 1);
 				},
 				clear: function() {
 					console.clear();
 					outputString = '';
-					output.setValue(outputString);
+					output.setValue(outputString, 1);
 				}
 			});
 			editor.focus();
 		}
 
 		function clear() {
+			window.localStorage.removeItem(baseUrl);
 			initEditor();
 		}
 
@@ -240,11 +374,76 @@
 			}
 		}
 
-		document.onkeydown = KeyDown;
+		function onMouseMove(e) {
+			var input = document.querySelector('.input');
+			var resizeButton = document.querySelector("#resizeButton");
+			input.setAttribute("style", "width:" + (e.clientX - resizeButton.offsetWidth/2) + 'px');
+			editor.resize();
+		}
+
+		function onMouseDown(e) {
+			e.preventDefault();
+			window.addEventListener('mousemove', onMouseMove);
+		}
+
+		function onMouseUp() {
+			window.removeEventListener('mousemove', onMouseMove);
+		}
+
+		function hasClass(element, cls) {
+			return (' ' + element.className + ' ').indexOf(' ' + cls + ' ') > -1;
+		}
+
+		function isDescendant(child, parent) {
+			var node = child;
+			while (node != null) {
+				if (node == parent) {
+					return true;
+				}
+				node = node.parentNode;
+			}
+			return false;
+		}
+
+		function onWindowClick(e) {
+			var listButton = document.querySelector('#listButton');
+			if (!isDescendant(e.target, listButton) && !hasClass(e.target, 'listDropdown')) {
+				var listDropdown = document.querySelector('.listDropdown');
+				if (hasClass(listDropdown, 'opened')) {
+					listDropdown.classList.remove('opened');
+				}
+			}
+		}
+
+		function onListButtonClick() {
+			var listDropdown = document.querySelector(".listDropdown");
+			listDropdown.classList.toggle("opened");
+			if (hasClass(listDropdown, 'opened')) {
+				window.addEventListener('click', onWindowClick);
+			}
+		}
+
+		function onBackButtonClick() {
+			window.location =  getWindowLocationOrigin() + window.location.pathname;
+		}
+
 		var runButton = document.querySelector('#runButton');
 		runButton.addEventListener("click", run);
 		var clearButton = document.querySelector('#clearButton');
 		clearButton.addEventListener("click", clear);
+		var listButton = document.querySelector('#listButton');
+		listButton.addEventListener('click', onListButtonClick);
+		var resizeButton = document.querySelector('#resizeButton');
+		resizeButton.addEventListener("mousedown", onMouseDown);
+		window.addEventListener("mouseup", onMouseUp);
+		var backButton = document.querySelector('#backButton');
+		backButton.addEventListener('click', onBackButtonClick);
+
+		editor.container.addEventListener("keydown", KeyDown, true);
+
+		setInterval(function () {
+			window.localStorage.setItem(baseUrl, editor.getValue());
+		}, 5000);
 	})();
 </script>
 </body>
