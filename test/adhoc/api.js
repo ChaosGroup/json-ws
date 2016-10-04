@@ -103,13 +103,16 @@ module.exports = function() {
 	.enum('RenderMode', {
 		Production: -1,
 		RtCpu: 0,
-		RtGpuCuda: 5
+		RtGpuCuda: 5,
 	})
 	.type('RenderOptions', {
-		width: 'int',
+		width: {
+			type: 'int',
+			description: 'The desired width for rendering'
+		},
 		height: 'int',
-		renderMode: 'RenderMode'
-	})
+		renderMode: 'RenderMode',
+	}, 'RenderOptions description')
 	.type('DefaultArray', {
 		property: {
 			type: ['string'],
