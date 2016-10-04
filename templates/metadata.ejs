@@ -1,6 +1,5 @@
 <!DOCTYPE html><%
 
-	console.log(locals.images);
 function prettify(r) {
 	if (!r) return "void";
 	if (typeof r === 'string') return r;
@@ -209,7 +208,6 @@ function renderMethod(methodInfo) {
 			border: 1px solid #545454;
 			border-bottom: none;
 			cursor: default;
-			/*background-color: #3cb0fd;*/
 		}
 
 		.tab-btn {
@@ -490,11 +488,10 @@ function renderMethod(methodInfo) {
 		}
 
 		pre.prettyprint {
-			background-color: #EEE;
+			background-color: #eee;
 			padding: 5px;
 			overflow: auto;
 			border: none;
-			/*tab-size: 3;*/
 		}
 
 		.playgroundLink {
