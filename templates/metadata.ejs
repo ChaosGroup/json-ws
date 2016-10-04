@@ -15,10 +15,9 @@ function prettify(r) {
 function anchorType(typeName) {
 	var typeInfo = locals.metadata.typeMap[typeName];
 	if (typeInfo && typeInfo.struct) {
-	%><a class="linkMember" href="#<%- typeName %>"><%= typeName %></a><%
-	} else {
-	%><%= typeName %><%
+	  	return `<a class="linkMember" href="#${typeName}">${typeName}</a>`;
 	}
+	return typeName;
 }
 
 function renderExamples(exampleMap, name, type) {     // types: 'example', 'snippet'
@@ -74,7 +73,7 @@ function renderExamples(exampleMap, name, type) {     // types: 'example', 'snip
 	function renderLanguagesTabs() { %>
 		<div class="tab-panel">
 	<%	languages.forEach(function(language, index) { %>
-			<button id="<%- language %>" class=" <% if (index === 0) {%> active<%}%> tab-btn <%- language %>" onclick="onTabClick(this)"  aria-hidden="true"><%-getLanguageName(language)%></button>
+			<button id="<%- language %>" class=" <% if (index === 0) {%> active<%}%> tab-btn <%- language %>" onclick="onTabClick(this)" aria-hidden="true"><%-getLanguageName(language)%></button>
 			<% }); %>
 		</div>
 		<% renderCodeTabs() %>
@@ -107,105 +106,63 @@ function renderExamples(exampleMap, name, type) {     // types: 'example', 'snip
 	}
 
 	if (type === 'snippet') { %>
-		<div><a class="anchor" id="<%-name%>">
-			<strong><%= name %></strong></a></div>
+		<div class="x">
+			<a class="anchor" id="<%-name%>">
+				<strong><%= name %></strong>
+			</a>
+		</div>
 <% }
 	renderLanguagesTabs();
 }
 
-function renderType(typeInfo) {
-	%><code><%-typeInfo.enum ? 'enum' : 'struct'%> <a class="anchor" id="<%-typeInfo.name%>" name="<%-typeInfo.name%>"><strong><%= typeInfo.name %></strong></a>
-	<% if (typeInfo.enum) { %><pre><%- prettify(typeInfo.struct) %></pre><% } %>
-	</code>
-	<% if (!typeInfo.enum) { %>
-	<table class="type-table" width="100%">
-		<thead>
-		<tr>
-			<th style="width: 25%">Property</th>
-			<th style="width: 25%">Type</th>
-			<th style="width: 50%">Description</th>
-		</tr>
-		</thead>
-		<tbody>
-		<% Object.keys(typeInfo.struct).forEach(function(propertyKey) {
-			var property = typeInfo.struct[propertyKey]; %>
-		<tr>
-			<% if (property.default) { %>
-				<td>
-					<%- property.name %> =
-					<small>
-						<%- JSON.stringify(property.default) %>
-					</small>
-				</td>
-			<% } else { %>
-				<td><%- property.name %></td>
-			<% } %>
-			<td class="codeline"><% anchorType(property.type) %><%= property.isArray ? '[]' : '' %></td>
-			<td><%- property.description || '' %></td>
-		</tr>
-		<% }); %>
-		</tbody>
-	</table>
-	<% } %>
-	<div><!--<span class="label label-primary">Description</span> --><%-typeInfo.description%></div>
-	<%
+function renderProperty(property) {
+	var description = property.description ? `\n&nbsp;&nbsp;&nbsp;&nbsp;// ${property.description}`: '';
+	var propertyLine = `\n&nbsp;&nbsp;&nbsp;&nbsp;${property.name}: ${anchorType(property.type)}${property.isArray ? '[]' : ''}${property.default !== undefined? ` = ${JSON.stringify(property.default)}` : ''}`;
+	return description + propertyLine;
 }
 
+function renderEnum(property, value) {
+	return `\n&nbsp;&nbsp;&nbsp;&nbsp;${property}: ${value}`;
+}
+
+function renderType(typeInfo) {
+	%><code><pre class="prettyprint"><%if (typeInfo.description) {%>// <%-typeInfo.description%><%}%>
+<%-typeInfo.enum ? 'enum' : 'struct'%> <a class="anchor" id="<%-typeInfo.name%>" name="<%-typeInfo.name%>"><strong><%= typeInfo.name %></strong></a> { <%
+		var renderedProperties = Object.keys(typeInfo.struct).map(function(propertyKey) {
+		var propertyValue = typeInfo.struct[propertyKey];
+		if (typeInfo.enum) {
+			return renderEnum(propertyKey, propertyValue);
+		}
+		return renderProperty(propertyValue);
+	});
+	%><%-renderedProperties.join(',')%>
+}</pre></code>
+<%}
+
 function renderEvent(eventInfo) {
-	%><code>event <a class="anchor" id="<%-eventInfo.name%>"><strong><%= eventInfo.name %></strong></a>: <% anchorType(eventInfo.type || 'void') %><%= eventInfo.isArray ? '[]' : '' %></code>
-	<div><%-eventInfo.description%></div>
+	%><code><pre class="prettyprint"><%if (eventInfo.description) {%>// <%-eventInfo.description%><%}%>
+<%- anchorType(eventInfo.type || 'void') %><%= eventInfo.isArray ? '[]' : '' %> event <a class="anchor" id="<%-eventInfo.name%>"><strong><%= eventInfo.name %></strong></a></pre></code>
 	<%
 }
 
 function renderMethod(methodInfo) {
-	%><code>function <a class="anchor" id="<%-methodInfo.name%>"><strong><%= methodInfo.name %></strong></a>(<%= Object.keys(methodInfo.params).map(function (p) {
-			// + ": " + methodInfo.params[p].type;
+	%><code><pre class="prettyprint"><%if (methodInfo.description) {%>// <%-methodInfo.description%><%}%>
+<%- anchorType(methodInfo.returns || 'void') %><%= methodInfo.returnsArray ? '[]' : '' %> <a
+				class="anchor" id="<%-methodInfo.name%>"><strong><%= methodInfo.name %></strong></a>(<%- Object.keys(methodInfo.params).map(function (p) {
 			var param = methodInfo.params[p];
-			return param.default !== undefined ? ('[' + param.name + ']') : param.name;
-		}).join(", ") %>): <% anchorType(methodInfo.returns || 'void') %><%= methodInfo.returnsArray ? '[]' : '' %>
-	</code>
-	<% if (methodInfo.params.length > 0) { %>
-	<table class="type-table">
-		<thead>
-		<tr>
-			<th style="width: 25%">Argument</th>
-			<th style="width: 25%">Type</th>
-			<th style="width: 50%">Description</th>
-		</tr>
-		</thead>
-		<tbody>
-		<% for (var p = 0; p < methodInfo.params.length; p++) {
-			var param = methodInfo.params[p]; %>
-		<tr>
-			<% if (param.default !== undefined) { %>
-			<td>
-				<%- param.name %> =
-				<small>
-					<%- JSON.stringify(param.default) %>
-				</small>
-			</td>
-			<% } else { %>
-			<td><%- param.name %></td>
-			<% } %>
-			<td class="codeline"><% anchorType(param.type) %><%= param.isArray ? '[]' : '' %></td>
-			<td><%- param.description || '' %></td>
-		</tr>
-		<% } %>
-		</tbody>
-	</table>
-	<% } %>
-	<div><%-methodInfo.description%></div>
-	<%
-		// Object.keys.length would be better but it's not fully supported
-		var examples = 0;
-		for (var e in methodInfo.examples) {
-			if (methodInfo.examples.hasOwnProperty(e)) {
-				++examples;
-			}
+			return renderProperty(param);
+		}).join(','); %><%-methodInfo.params.length > 0 ? '\n)' : ')'%></pre></code>
+<%
+	// Object.keys.length would be better but it's not fully supported
+	var examples = 0;
+	for (var e in methodInfo.examples) {
+		if (methodInfo.examples.hasOwnProperty(e)) {
+			++examples;
 		}
-		if (examples > 0) {
-			renderExamples(methodInfo.examples, methodInfo.name, 'example');
-		}
+	}
+	if (examples > 0) {
+		renderExamples(methodInfo.examples, methodInfo.name, 'example');
+	}
 }
 
 %><html lang="en">
@@ -220,20 +177,29 @@ function renderMethod(methodInfo) {
 		<%-locals.css[cssFile]%>
 	   <%}) %>
 
+		html, body {
+			width: 100%;
+			height: 100%;
+		}
+
 		.type-img {
-			background-image: url(data:image/png;base64,<%- locals.images.type %>)
+			background: url(data:image/svg+xml;base64,<%- locals.images.type %>);
+			background-repeat: no-repeat;
 		}
 
 		.event-img {
-			background-image: url(data:image/png;base64,<%- locals.images.event %>)
+			background: url(data:image/svg+xml;base64,<%- locals.images.event %>);
+			fill: white;
 		}
 
 		.method-img {
-			background-image: url(data:image/png;base64,<%- locals.images.method %>)
+			background: url(data:image/svg+xml;base64,<%- locals.images.method %>);
+			background-repeat: no-repeat;
 		}
 
 		.snippet-img {
-			background-image: url(data:image/png;base64,<%- locals.images.snippet %>)
+			background: url(data:image/svg+xml;base64,<%- locals.images.snippet %>);
+			background-repeat: no-repeat;
 		}
 
 		.tab-panel {
@@ -244,24 +210,28 @@ function renderMethod(methodInfo) {
 
 		.tab-btn.active {
 			color: black;
-			border-left: 2px solid #e7e7e7;
-			border-top: 2px solid #e7e7e7;
-			border-right: 2px solid #e7e7e7;
+			border: 1px solid #545454;
+			border-bottom: none;
 			cursor: default;
 		}
 
 		.tab-btn {
-			background-color: white;
+			background-color: #EEE;
+			font-size: 11px;
 			color: #0081c2;
 			border: none;
 			padding: 5px 8px;
-			border-radius: 3px;
+			margin: 0px 3px;
 			cursor: pointer;
 			outline: none;
 		}
 
+		.tab-btn::-moz-focus-inner {
+			border: 0;
+		}
+
 		.tab-btn:not(.active):hover {
-			background-color: #e6e6e6;
+			background-color: #d0d0d0;
 		}
 
 		.tab-pane.active {
@@ -273,169 +243,132 @@ function renderMethod(methodInfo) {
 		}
 
 		.proxies-btn {
-			background-color: #F8F8F8;
 			font-size: 15px;
-			color: #777;
+			background-color: #3b8ec2;
+			color: white;
 			border: none;
 			cursor: pointer;
 			outline: none;
+			padding: 10px 5px;
+		}
+
+		.proxies-btn::-moz-focus-inner {
+			border: 0;
 		}
 
 		.proxies-btn:hover {
-			color: #5e5e5e;
+			background-color: #3cb0fd;
 			text-decoration: none;
 		}
 
 		.dropdown-content {
+			z-index: 1;
 			display: none;
 			position: absolute;
-			background-color: #f9f9f9;
+			top: 37px;
+			background-color: #3b8ec2;
 			overflow: auto;
 			box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.2);
-			border-radius: 6px;
-			padding: 1em;
 		}
 
 		.dropdown-content a {
-			color: black;
+			color: white;
 			padding: 5px 8px;
-			font-size: 1em;
+			font-size: 13px;
 			text-decoration: none;
 			display: block;
 		}
 
-		.dropdown-content a:hover {background-color: #f1f1f1}
-
-		.type-table tr:nth-child(even) {
-			background-color: #fafafa;
-		}
-
-		.type-table th,
-		.type-table td {
-			border: 1px solid #ddd;
-		}
-
-		.type-table {
-			border-collapse: collapse;
-			margin-bottom: 20px;
-		}
-
-		td, th {
-			padding: 7px;
-		}
-
-		table {
-			width: 100%;
-			padding: 10px;
-		}
-
-		tbody {
-			vertical-align: top;
-		}
+		.dropdown-content a:hover {background-color: #3cb0fd}
 
 		body {
-			position: relative;
-			top: 70px;
+			display: flex;
 			font-family: "Helvetica Neue",Helvetica,Arial,sans-serif;
 			font-size: 12px;
 			margin: 0px;
+			overflow: hidden;
 		}
 
 		.container {
 			display: flex;
-			flex-direction:row;
-			align-content: center;
+			flex-direction: column;
+			flex: 1 1 90%;
+			background-color: #eee;
 		}
 
 		aside {
-			position: fixed;
-			width: 18em;
-			top: 48px;
-			bottom: 0;
+			flex: 1 1 10%;
 			display: flex;
-			flex-direction:column;
+			overflow: auto;
+			flex-direction: column;
 			align-self: flex-start;
-			padding: 10px;
-			background-color: #F8F8F8;
-			box-sizing: border-box;
+			background-color: #3b8ec2;
+			min-width: 16em;
+			height: 100%;
 		}
 
 		#main {
-			position: fixed;
-			top: 48px;
-			bottom: 0;
-			right: 0;
-			left: 18em;
 			overflow-y: auto;
-			display: flex;
-			flex-direction:column;
-			background-color: #ffffff;
-			flex-grow: 1;
 		}
 
 		#search-results {
-			display: flex;
-			flex-direction: column;
 			overflow-y: auto;
-			margin-top: 10px;
+			color: white;
 		}
 
 		#search {
-			font-size: 14px;
-			padding: 6px 12px;
-			border: 1px solid #ccc;
-			border-radius: 4px;
+			min-height: 38px;
+			border: 0;
+			padding: 0px;
+			padding-left: 4px;
+			background-color: #eee;
 		}
 
 		header {
+			display: flex;
+			flex-direction: row;
 			width: 100%;
-			height: 48px;
-			position: fixed;
+			min-height: 38px;
 			top: 0;
 			z-index: 1;
-			background: #F8F8F8;
-			border-bottom: 1px solid #e7e7e7;
+			background: #3b8ec2;
 		}
 
-		header ul {
-			float: left;
-			margin-left: 10%;
-			list-style: none;
-			text-align: center;
+		#proxy-name {
+			padding: 7px;
 		}
-		header ul li {
-			display: inline-block;
-			margin: 0 10px;
+
+		nav {
+			height: 38px;
+			display: flex;
+			width: 100%;
+			justify-content: space-between;
 		}
-		header ul li a {
-			padding: 10px 0;
-			color: #777;
+
+		header nav a {
+			padding: 10px 5px;
+			color: white;
 			font-size: 15px;
 			text-decoration: none;
-			transition: all 0.2s ease;
-		}
-		header ul li a:hover {
-			color: #5e5e5e;
-			text-decoration: none;
 		}
 
-		span.badge {
-			font-size: 90%;
-			float: right;
+		#header-buttons {
+			font-size: 15px;
+			align-self: flex-end;
+		}
+
+		.btn:hover {
+			background-color: #3cb0fd;
+			text-decoration: none;
 		}
 
 		code {
 			display: block;
-			margin-top: 10px;
-			margin-bottom: 10px;
-			padding: 2px 4px;
+			margin: 10px 0px;
 			font-size: 13px;
 			word-break: break-all;
 			word-wrap: break-word;
 			white-space: normal;
-			color: #c7254e;
-			background-color: #f9f2f4;
-			border-radius: 4px;
 			font-family: Monaco,Menlo,Consolas,"Courier New",monospace;
 		}
 
@@ -444,12 +377,7 @@ function renderMethod(methodInfo) {
 		}
 
 		pre {
-			border-radius: 0px;
-			padding: 0;
 			margin: 0;
-			color: inherit;
-			background: inherit;
-			border: inherit;
 		}
 
 		a {
@@ -458,38 +386,55 @@ function renderMethod(methodInfo) {
 		}
 
 		a.anchor {
-			text-decoration: none;
-			color: inherit;
-			padding-top: 70px;
 			pointer-events: none;
 		}
 
 		.group {
-			position: relative;
 			margin: -1px 0 20px;
 			padding: 0 19px 14px;
 			background-color: #fff;
-			border: 1px solid #ddd;
 		}
 
-		thead.group-description {
-			float: left;
-			vertical-align: middle;
+		.group-description, .group-title {
+			margin: 7px;
 		}
 
-		.group-description th {
-			font-weight: normal;
-		}
-
-		.group-text {
-			margin-top:-1px;
-			padding: 6px 10px;
-			font-weight: bold;
-			background-color: #f5f5f5;
-			border: 1px solid #ddd;
-			color: #5F6163;
+		.group-expand {
 			cursor: pointer;
-			transition: height 200ms;
+			display: inline-flex;
+			align-items: center;
+		}
+
+		.group-expand.opened:before {
+			/*background svg original(using base64 for the support of IE and Edge) :
+			<svg fill="#000000" height="12" viewBox="0 0 24 24" width="12" xmlns="http://www.w3.org/2000/svg">
+				<path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/><path d="M0 0h24v24H0z" fill="none"/>
+			</svg>*/
+			background: url('data:image/svg+xml;base64,PHN2ZyBmaWxsPSIjMDAwMDAwIiBoZWlnaHQ9IjEyIiB2aWV3Qm94PSIwIDAgMjQgMjQiIHdpZHRoPSIxMiIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3Zn	Ij48cGF0aCBkPSJNMTkgMTNoLTZ2NmgtMnYtNkg1di0yaDZWNWgydjZoNnYyeiIvPjxwYXRoIGQ9Ik0wIDBoMjR2MjRIMHoiIGZpbGw9Im5vbmUiLz48L3N2Zz4K');
+			content: '';
+			height: 12px;
+			width: 12px;
+			border: 1px solid black;
+			margin: 0px 3px;
+		}
+
+		.group-expand:before {
+			/*background svg original(using base64 for the support of IE and Edge):
+			<svg xmlns="http://www.w3.org/2000/svg" fill="#000000" height="12" viewBox="0 0 24 24" width="12">
+				<path d="M19 13H5v-2h14v2z"/><path d="M0 0h24v24H0z" fill="none"/>
+			</svg>
+			*/
+			background: url('data:image/svg+xml;base64, PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIGZpbGw9IiMwMDAwMDAiIGhlaWdodD0iMTIiIHZpZXdCb3g9IjAgMCAyNCAyNCIgd2lkdGg9IjEyIj48cGF0aCBkPSJNMTkgMTNINXYtMmgxNHYyeiIvPjxwYXRoIGQ9Ik0wIDBoMjR2MjRIMHoiIGZpbGw9Im5vbmUiLz48L3N2Zz4K');
+			content: '';
+			height: 12px;
+			width: 12px;
+			border: 1px solid black;
+			margin: 0px 3px;
+		}
+
+		.group-title {
+			display: flex;
+			padding: 5px 0px;
 		}
 
 		.group-content {
@@ -500,34 +445,34 @@ function renderMethod(methodInfo) {
 			display: block;
 		}
 
+		code .linkMember {
+			color: #3cb0fd;
+		}
+
 		.entry {
-			padding: 5px;
-		}
-
-		.entry:hover {
-			background-color: #fafafa;
-		}
-
-		.table-bordered>thead>tr>th, .table-bordered>thead>tr>td {
-			border-bottom-width: 1px;
+			background-color: #EEE;
+			margin: 7px;
+			position: relative;
 		}
 
 		.member:hover {
-			background: #ccc;
+			background: #3cb0fd;
 		}
 
 		.linkMember {
-			display: inline-block;
 			text-align: left;
 			text-decoration: none;
 			white-space: nowrap;
+			color: white;
 		}
 
-		.member > .linkMember {
+		.member > .linkMember,
+		.entry > .linkMember {
 			display: block;
 			line-height: 2em;
 			padding-left: 32px;
-			background-position: 12px 4px;
+			padding-right: 8px;
+			background-position: 6px 3px;
 			background-repeat: no-repeat;
 		}
 
@@ -536,13 +481,11 @@ function renderMethod(methodInfo) {
 		}
 
 		.groupTitle {
-			background: #eeeeee;
-			border: 1px solid #ddd;
-			border-radius: 4px;
+			background: #3cb0fd;
 		}
 
 		.groupTitle:hover {
-			background: #ccc;
+			background: #3CB2C8;
 		}
 
 		.groupTitle .linkMember {
@@ -550,18 +493,16 @@ function renderMethod(methodInfo) {
 		}
 
 		pre.prettyprint {
-			background-color: #EEE;
+			background-color: #eee;
 			padding: 5px;
 			overflow: auto;
-			max-height: 750px;
-			margin: 5px 0;
-			border-color: #CCC;
+			border: none;
 		}
 
 		.playgroundLink {
 			position: absolute;
-			right: 7%;
-			margin-top: 1em;
+			top: 10px;
+			right: 20px;
 		}
 
 		.playgroundLink:hover {
@@ -573,24 +514,6 @@ function renderMethod(methodInfo) {
 	<script><%-locals.js[jsScript]%></script>
 	<%}) %>
 </head>
-
-<body onload="prettyPrint()">
-	<header>
-		<nav>
-			<ul>
-				<li><a style="font-size: 20px" href="#"><%= locals.metadata.name %> <%= locals.metadata.version %></a></li>
-			 <% if(!locals.isStatic) {%>
-				<li><button class="proxies-btn" onclick="onProxiesClick()">Proxies</button>
-					<div class="dropdown-content">
-						<% locals.proxies.forEach(function(proxy) { %>
-							<a href="?proxy=<%= proxy %>"><%= proxy %></a>
-						<% }); %>
-					</div></li>
-				<li><a href="?viewer" target="_blank">Playground</a></li> <%}%>
-			</ul>
-		</nav>
-	</header>
-
 
 <%
 var groups = Object.keys(locals.metadata.groups);
@@ -624,66 +547,76 @@ if (snippets.length > 0) {
 }
 %>
 
+<body onload="prettyPrint()">
 
-<div class="container">
 	<aside id="searchDiv">
-		<input type="text" id="search" placeholder="Search" class="form-control"/>
+	<input type="text" id="search" placeholder="Search"/>
 
-		<div id="search-results">
+	<div id="search-results">
 
-			<% groupsMap.forEach(function(group) { %>
-			<div class="groupSearch">
-				<div class="member groupTitle">
-					<a href="#<%= group.name %>" class="linkMember"><%= group.name %></a>
-				</div>
-
-				<%
-				group.items.forEach(function(groupItemInfo) {
-				%>
-				<div class="member">
-					<a href="#<%= groupItemInfo.item %>" class="linkMember <%-groupItemInfo.type%>-img"><%= groupItemInfo.item%></a>
-				</div>
-
-				<% }) %> <!-- forEach(itemInfo) -->
-
+		<% groupsMap.forEach(function(group) { %>
+		<div class="groupSearch">
+			<div class="member groupTitle">
+				<a href="#<%= group.name %>" class="linkMember"><%= group.name %></a>
 			</div>
+
+			<%
+			group.items.forEach(function(groupItemInfo) {
+			%>
+			<div class="member">
+				<a href="#<%= groupItemInfo.item %>" class="linkMember <%-groupItemInfo.type%>-img"><%= groupItemInfo.item%></a>
+			</div>
+
+			<% }) %> <!-- forEach(itemInfo) -->
+
+		</div>
+		<% }); %>  <!-- forEach(group) -->
+	</div>
+</aside>
+	<div class="container">
+		<header>
+			<nav>
+				<a style="font-size: 20px" href="#top" id="proxy-name"><%= locals.metadata.name %> <%= locals.metadata.version %></a>
+				<% if(!locals.isStatic) {%>
+				<div id="header-buttons">
+					<button class="proxies-btn btn" onclick="onProxiesClick()">Proxies</button>
+					<div class="dropdown-content">
+						<% locals.proxies.forEach(function(proxy) { %>
+						<a href="?proxy=<%= proxy %>"><%= proxy %></a>
+						<% }); %>
+					</div>
+					<a href="?viewer" target="_blank" class="btn">Playground</a> <%}%>
+				</div>
+			</nav>
+		</header>
+
+		<div id="main">
+			<a name="top"></a>
+			<% groupsMap.forEach(function(group, i) { %>
+			<pre><div class="group-title"><span class="group-expand"><a class="anchor prettyprint" id="<%= group.name %>">// <%= group.name %> (<%-group.items.length%>)</a></span> </div></pre>
+			<div id="group-<%-i%>" class="group-content opened">
+					<% if (group.description) { %>
+					<div class="group-description">
+						<pre class="prettyprint">// <%- group.description %></pre></div>
+					<% } %>
+					<%	group.items.forEach(function(groupItemInfo) { %>
+						<div class="entry">
+							<%  var item = groupItemInfo.item;
+								switch (groupItemInfo.type) {
+									case 'type': renderType(locals.metadata.typeMap[item]); break;
+									case 'event': renderEvent(locals.metadata.eventMap[item]); break;
+									case 'method': renderMethod(locals.metadata.methodMap[item]); break;
+									case 'snippet': renderExamples(locals.metadata.snippetMap[item], item, 'snippet'); break;
+								}
+							%>
+						</div>
+					<% }) %> <!-- forEach(methodInfo) -->
+			</div>
+
 			<% }); %>  <!-- forEach(group) -->
 		</div>
-	</aside>
-
-	<div id="main">
-		<% groupsMap.forEach(function(group, i) { %>
-		<div class="group-text"><a class="anchor" id="<%= group.name %>"> <%= group.name %> </a><span class="badge"><%-group.items.length%></span>
-		</div>
-		<div id="group-<%-i%>" class="group-content opened" style="border: 1px solid #ddd; margin: -1px 0px 10px">
-			<table>
-				<% if (group.description) { %>
-				<thead class="group-description">
-					<tr><th><%- group.description %></th></tr></thead>
-				<% } %>
-				<%
-				group.items.forEach(function(groupItemInfo, idx) {
-				if (idx % 2 == 0) { %><tr><% } %>
-					<td class="entry">
-						<%  var item = groupItemInfo.item;
-							switch (groupItemInfo.type) {
-								case 'type': renderType(locals.metadata.typeMap[item]); break;
-								case 'event': renderEvent(locals.metadata.eventMap[item]); break;
-								case 'method': renderMethod(locals.metadata.methodMap[item]); break;
-								case 'snippet': renderExamples(locals.metadata.snippetMap[item], item, 'snippet'); break;
-							}
-						%>
-					</td>
-					<% if (idx % 2 == 1 || idx == group.items.length - 1) { %></tr><% } %>
-				<% }) %> <!-- forEach(methodInfo) -->
-			</table>
-		</div>
-
-		<% }); %>  <!-- forEach(group) -->
-
-		<p>&nbsp;</p>
 	</div>
-</div>
+
 
 <script>
 	function onTabClick(tab) {
@@ -744,46 +677,6 @@ if (snippets.length > 0) {
 		return el;
 	}
 
-	function onTypeClick() {
-		lastClickedLink.style.background = hasClass(lastClickedLink, 'groupTitle') ? '#eeeeee' : 'transparent';
-		lastClickedLink = this.parentNode;
-		lastClickedLink.style.background = "#ccc";
-		// blink background
-		if (animTimeout) {
-			clearTimeout(animTimeout);
-			var entries = document.getElementsByClassName('entry');
-			[].map.call(entries, function (entry) {
-				entry.style['background-color'] = '#fff';
-				return entry;
-			});
-		}
-		if (hasClass(this.parentNode, 'groupTitle')) {
-			return;
-		}
-		var id = this.getAttribute('href').replace('#', '');
-		var anchor = document.querySelector('a[id="' + id + '"');
-		var entry = closestByClass(anchor, 'entry');
-		if (entry) {
-			var color = '#edd0cc';
-			var iter = 6;
-			var setBackgroundColor = function() {
-				if (iter == 0)
-					return;
-				entry.style['background-color'] = color;
-				color = --iter % 2 == 0 ? '#edd0cc' : '#fff';
-				animTimeout = setTimeout(setBackgroundColor, 500);
-			}
-			setBackgroundColor();
-		}
-	}
-
-	var animTimeout = 0;
-	var lastClickedLink = document.querySelector('.groupSearch');
-	var linkMembers = document.getElementsByClassName('linkMember');
-	[].forEach.call(linkMembers, function (linkMember) {
-		linkMember.addEventListener("click", onTypeClick);
-	});
-
 	document.addEventListener('keyup', onKeyUp);
 
 	function onKeyUp(e) {
@@ -806,15 +699,38 @@ if (snippets.length > 0) {
 		});
 	}
 
+	function onEscape(e) {
+		var isEscape = false;
+		if ("key" in e) {
+			isEscape = (e.key == "Escape" || e.key == "Esc");
+		} else {
+			isEscape = (e.keyCode == 27);
+		}
+		if (isEscape) {
+			var self = this;
+			setTimeout(function() {
+				self.value = "";
+			}, 0); // Using setTimeout because of Mozilla problem
+		}
+	}
+
+	document.querySelector('#search').addEventListener('keydown', onEscape);
+	document.querySelector('#proxy-name').addEventListener('click', onProxyNameClick);
+
+	function onProxyNameClick() {
+		window.reload
+	}
+
 	(function collapseGroup() {
-		var groupTexts = document.getElementsByClassName('group-text');
-		[].forEach.call(groupTexts, function (groupText) {
-			groupText.addEventListener('click', function () {
-				var group = groupText.nextSibling;
+		var groupExpands = document.getElementsByClassName('group-expand');
+		[].forEach.call(groupExpands, function (groupExpand) {
+			groupExpand.addEventListener('click', function () {
+				var group = groupExpand.parentNode.parentNode.nextSibling;
 				while(group && group.nodeType !== 1) {
 					group = group.nextSibling
 				}
 				group.classList.toggle('opened');
+				groupExpand.classList.toggle('opened');
 			});
 		})
 	}) ();
