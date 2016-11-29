@@ -52,6 +52,7 @@ function mapPhpType(param) {
 
         case 'buffer':
         case 'binary':
+        case 'stream':
             returnType = 'string';
             break;
 
@@ -148,6 +149,7 @@ function getMethodArguments(params, asArguments) {
                     break;
                 case 'buffer':
                 case 'binary':
+                case 'stream':
                     result = 'base64_encode(' + result + ')';
                     break;
                 default:

@@ -10,6 +10,7 @@
 // -32000: internal server error
 // -32700: parse error
 
+const fs = require('fs');
 const Bluebird = require('bluebird');
 const chai = require('chai');
 const expect = chai.expect;
@@ -29,6 +30,10 @@ function buildTestService() {
 	class TestAPI extends EventEmitter {
 		sum(a, b) {
 			return a + b;
+		}
+
+		getStream() {
+			return fs.createReadStream(__filename);
 		}
 
 		asyncSum(a, b, callback) {
@@ -62,6 +67,10 @@ function buildTestService() {
 		returns: 'string'
 	}, function(a, b, c) {
 		return [a, b, c].join('');
+	});
+	service.define({
+		name: 'getStream',
+		returns: 'stream'
 	});
 	service.define({
 		name: 'throwError',
@@ -606,7 +615,7 @@ describe('node.js proxy', function() {
 
 			const t = new proxy.Tester(serverUrl);
 			t.useWS();
-			const expected = [-32000, -32602, -32602, 3, -32602, 'world'];
+			const expected = [-32000, -32602, -32602, 3, -32000, -32602, 'world'];
 			const actual = [];
 
 			return Bluebird.settle([
@@ -614,6 +623,7 @@ describe('node.js proxy', function() {
 				t.sum(1),
 				t.sum(),
 				t.sum(1, 2, 3),
+				t.getStream(),
 				t.optionalArgs(),
 				t.hello('fake', 'argument') // JavaScript proxies filter out unneeded arguments, so this won't throw
 			]).then(function(results) {

@@ -1,5 +1,6 @@
 'use strict';
 
+const fs = require('fs');
 const path = require('path');
 
 const Service = require('../../index.js').service;
@@ -68,6 +69,10 @@ const testObj = {
 
 	testMe4(callback) {
 		callback(null, 'Some async method test 4');
+	},
+
+	getStream() {
+		return fs.createReadStream(path.join(__dirname, '../../README.md'));
 	}
 };
 
@@ -149,6 +154,7 @@ module.exports = function() {
 		return [renderOptions, renderOptions, renderOptions];
 	})
 	.define({name: 'echoObject', params: ['a'], returns: 'json'})
+	.define({name: 'getStream', returns: 'stream'})
 	.setGroup('Other methods')
 	.define({name: 'echoStringAsBuffer', params: [{ name: 'theString', type: 'string' }], returns: 'binary'}, function(theString) {
 		return new Buffer(theString);

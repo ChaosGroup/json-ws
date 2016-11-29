@@ -45,6 +45,7 @@ function mapCSharpType(jsType, isArray) {
 
 		case 'buffer':
 		case 'binary':
+		case 'stream':
 			returnType = 'byte[]';
 			break;
 
@@ -276,7 +277,7 @@ function getMethodArguments(methodInfo, includeTypes, length) {
 	length = typeof length === 'number' ? length : methodInfo.params.length;
 	return methodInfo.params.slice(0, length).map(function(param) {
 		var paramName = param.name;
-		if (param.type === 'buffer' || param.type === 'binary') {
+		if (param.type === 'buffer' || param.type === 'binary' || param.type === 'stream') {
 			paramName = 'Convert.ToBase64String(' + paramName + ')';
 		}
 		return includeTypes ? mapCSharpType(param.type, param.isArray) + ' ' + param.name : paramName;

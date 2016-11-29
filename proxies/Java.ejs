@@ -46,6 +46,7 @@ function mapJavaType(jsType, isArray) {
 
 		case 'buffer':
 		case 'binary':
+		case 'stream':
 			returnType = 'byte[]';
 			break;
 
@@ -212,7 +213,7 @@ function getMethodArguments(methodInfo, includeTypes, length) {
 	length = typeof length === 'number' ? length : methodInfo.params.length;
 	return methodInfo.params.slice(0, length).map(function(param) {
 		var paramName = param.name;
-		if (param.type === 'binary' || param.type === 'buffer') {
+		if (param.type === 'binary' || param.type === 'buffer' || param.type === 'stream') {
 			paramName = 'javax.xml.bind.DatatypeConverter.printBase64Binary(' + paramName + ')';
 		}
 		return includeTypes ? mapJavaType(param.type, param.isArray) + ' ' + param.name : paramName;

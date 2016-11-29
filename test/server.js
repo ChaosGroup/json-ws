@@ -6,6 +6,7 @@
 'use strict';
 
 const path = require('path');
+const stream = require('stream');
 const expect = require('chai').expect;
 const jsonws = require('../index.js');
 const Service = jsonws.service;
@@ -277,6 +278,22 @@ describe('Types - api.type()', function() {
 		});
 	});
 
+	it('creates internal types - stream', function() {
+		const testType = api.type('stream');
+		const readableStream = new stream.Readable();
+		const writeableStream = new stream.Writable();
+		const transformStream = new stream.Transform();
+		const duplexStream = new stream.Duplex();
+		expect(testType).to.be.ok;
+		expect(testType.type).to.eq('stream');
+		expect(testType.convert).to.be.a('function');
+		expect(testType.convert(readableStream, true)).to.eq(readableStream);
+		expect(() => testType.convert(writeableStream, true)).to.throw(/Readable stream expected/);
+		expect(testType.convert(transformStream, true)).to.eq(transformStream);
+		expect(testType.convert(duplexStream, true)).to.eq(duplexStream);
+		expect(() => testType.convert(readableStream, false)).to.throw(/Input streams are not supported/);
+	});
+
 	it('creates internal types - error', function() {
 		const testType = api.type('error');
 
@@ -309,7 +326,7 @@ describe('Types - api.type()', function() {
 	it('throws when type() is called to override internal types', function() {
 		['*', 'any', 'int', 'integer', 'number', 'float', 'double',
 		 'date', 'time', 'bool', 'boolean', 'object', 'json',
-		 'string', 'url', 'buffer', 'binary'].forEach(function(internalType) {
+		 'string', 'url', 'buffer', 'binary', 'stream', 'error'].forEach(function(internalType) {
 			expect(api.type.bind(api, internalType, {})).to.throw(/Internal types cannot be overriden/);
 		});
 	});
@@ -325,6 +342,12 @@ describe('Types - api.type()', function() {
 		expect(api.type.bind(api, 'Test', {test: {type: []}})).to.throw(/Missing type for field/);
 		expect(api.type.bind(api, 'Test', {test: {type: [1234]}})).to.throw(/Invalid type field definition/);
 		expect(api.type.bind(api, 'Test', {test: {type: [{}]}})).to.throw(/Invalid type field definition/);
+	});
+
+	it('throws when a type definition contains the stream type', function() {
+		expect(() => api.type('Test', {
+			field: 'stream'
+		})).to.throw(/Input streams are not supported/);
 	});
 
 	it('allows simple type definition (only internal types, no arrays or enums)', function() {
@@ -627,6 +650,7 @@ describe('Methods', function() {
 
 		expect(api.define.bind(api, {name: 'test', params: [{name: 'test', type: { name: 'invalid' }}]})).to.throw(/Inline type definitions are not supported/);
 		expect(api.define.bind(api, {name: 'test', params: [{name: 'test', type: 'invalid'}]})).to.throw(/Undefined type/);
+		expect(api.define.bind(api, {name: 'test', params: [{name: 'test', type: 'stream'}]})).to.throw(/Input streams are not supported/);
 	});
 
 	it('supports complex definitions - parameters and context this', function() {
