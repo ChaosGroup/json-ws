@@ -726,8 +726,6 @@ describe('Methods', function() {
 		api.define('test.namespace.math.sum', function(a, b) { return a + b; });
 		expect(api.fn.test.namespace.math.sum(2, 3)).to.eq(5);
 	});
-
-	it.skip('supports definitions from objects'); // TODO
 });
 
 describe('Groups', function() {
@@ -811,6 +809,32 @@ describe('External definitions', function() {
 
 	it('external definitions using JSON, import clause is at the bottom', function() {
 		expect(() => { api.import(path.resolve(__dirname, 'resources', 'server-def-json-include-bottom.js')); }).to.not.throw();
+	});
+
+	it('external definitions using object and allow recursive definition', function() {
+		expect(() => api.import({
+			types: {
+				AssetDescription: {
+					struct: {
+						name: {
+							type: 'string',
+							description: 'The name of the asset'
+						},
+						hash: {
+							type: 'string',
+							description: 'The hash of the asset if it is a file.',
+							required: false
+						},
+						contents: {
+							type: ['AssetDescription'],
+							description: 'The description of the contents (if directory)',
+							required: false
+						}
+					}
+				}
+			}
+		})).to.not.throw();
+		expect(api.type('AssetDescription')).to.be.ok;
 	});
 
 	function splitLines(text) {
