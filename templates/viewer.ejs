@@ -285,7 +285,7 @@
 			return {
 				caption: methodInfo.name,
 				snippet: methodInfo.name + `(${paramsSnippet}${params.length ? ', ' : ''}function(err, res) {\\n\\t\${0}\\n});`,
-				description: methodInfo.description,
+				description: JSON.stringify(methodInfo.description),
 				toString() {
 					return `{caption: '${this.caption}', snippet: '${this.snippet}', description: '${this.description}', score: 10010, meta: 'snippet', type: 'snippet'}`;
 				}
@@ -432,7 +432,9 @@
 		var clearButton = document.querySelector('#clearButton');
 		clearButton.addEventListener("click", clear);
 		var listButton = document.querySelector('#listButton');
-		listButton.addEventListener('click', onListButtonClick);
+		if (listButton) {
+			listButton.addEventListener('click', onListButtonClick);
+		}
 		var resizeButton = document.querySelector('#resizeButton');
 		resizeButton.addEventListener("mousedown", onMouseDown);
 		window.addEventListener("mouseup", onMouseUp);
