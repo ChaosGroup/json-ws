@@ -167,7 +167,7 @@ module.exports = function() {
 	.define({name: 'throwUnexpectedError', returns: ['object']})
 	.define({
 		'name': 'sum',
-		'description': 'Some test method example, does int sum',
+		'description': "Some test method example,' does int sum",
 		'params': [{ 'name' : 'a', 'type' : 'int'}, { 'name' : 'b', 'type' : 'int'}],
 		'returns': 'int'
 	});
