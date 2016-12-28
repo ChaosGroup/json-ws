@@ -23,6 +23,7 @@ const http = require('http');
 const express = require('express');
 const bodyParser = require('body-parser');
 const Service = jsonws.service;
+const ServiceRegistry = jsonws.registry.ServiceRegistry;
 
 function buildTestService() {
 	const service = new Service('1.0.0', 'test');
@@ -172,13 +173,15 @@ let serverWsUrl;
 let httpProxyUrl;
 let getContextUrl;
 
+let serveMetadata = false;
+
 function startServer(done) {
 	const PORT = 3000;
 	const rootPath = '/endpoint';
 	const expressApp = express();
 
 	httpServer = http.createServer(expressApp);
-	const registry = jsonws.registry({ rootPath, httpServer, expressApp });
+	const registry = new ServiceRegistry({ rootPath, httpServer, expressApp, serveMetadata });
 
 	expressApp.use(bodyParser.json());
 	expressApp.use(registry.getRouter());
@@ -186,8 +189,16 @@ function startServer(done) {
 	registry.addRoute('/ctx/:ctxId');
 
 	httpServer.listen(PORT, function () {
-		registry.addTransport(jsonws.transport.HTTP);
-		registry.addTransport(jsonws.transport.WebSocket);
+		try {
+			registry.addTransport(jsonws.transport.HTTP);
+		} catch (err) {
+			// transport has already been added
+		}
+		try {
+			registry.addTransport(jsonws.transport.WebSocket);
+		} catch (err) {
+			// transport has already been added
+		}
 		const servicePathPrefix = registry.addService(buildTestService());
 		const registryRootUrl = `http://localhost:${httpServer.address().port}${registry.rootPath}`;
 		serverUrl = `${registryRootUrl}${servicePathPrefix}`;
@@ -211,8 +222,53 @@ function setupServer(done) {
 	httpServer ? done() : startServer(done);
 }
 
-describe('Metadata', function() {
+function destroyServer(done) {
+	if (httpServer) {
+		httpServer.close(done);
+		httpServer = null;
+	} else {
+		done();
+	}
+}
+
+describe('Metadata Off', function() {
 	before(setupServer);
+	after(destroyServer);
+
+	it('/ returns 404 with the registry flag serveMetadata=false', () =>
+		request.getAsync(serverUrl, { json: true }).then(function(result) {
+			expect(result[0].statusCode).to.eq(404);
+			expect(result[1]).to.match(/Cannot GET/);
+		})
+	);
+
+	it('?json returns 404 with the registry flag serveMetadata=false', () =>
+		request.getAsync(serverUrl + '?json', { json: true }).then(function(result) {
+			expect(result[0].statusCode).to.eq(404);
+			expect(result[1]).to.match(/Cannot GET/);
+		})
+	);
+
+	it('?viewer returns 404 with the registry flag serveMetadata=false', () =>
+		request.getAsync(serverUrl + '?viewer', { json: true }).then(function(result) {
+			expect(result[0].statusCode).to.eq(404);
+			expect(result[1]).to.match(/Cannot GET/);
+		})
+	);
+
+	it('?proxy returns 404 with the registry flag serveMetadata=false', () =>
+		request.getAsync(serverUrl + '?proxy', { json: true }).then(function(result) {
+			expect(result[0].statusCode).to.eq(404);
+			expect(result[1]).to.match(/Cannot GET/);
+		})
+	);
+});
+
+describe('Metadata On', function() {
+	before(done => {
+		serveMetadata = true;
+		setupServer(done);
+	});
 
 	it('returns metadata in JSON format', function() {
 		return request.getAsync(serverUrl + '?json', { json: true }).then(function(result) {
