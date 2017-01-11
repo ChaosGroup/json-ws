@@ -542,6 +542,10 @@ describe('Events', function() {
 
 	beforeEach(function() {
 		api = new Service('1.0.0', 'Test API');
+		api.type('TestType', {
+			a: 'int',
+			b: 'string'
+		});
 	});
 
 	it('works with valid definition - no type or description', function() {
@@ -595,8 +599,16 @@ describe('Events', function() {
 		expect(api.event.bind(api, 'OnEvent', 1234)).to.throw(/Event options must be an object/);
 		expect(api.event.bind(api, 'OnEvent', {type:'Unkown Type'})).to.throw(/Undefined event type/);
 		api.event('OnEvent');
-		expect(api.event.bind(api, 'OnEvent')).to.throw(/Overriding events is not allowed/);
+		expect(api.event('OnEvent')).to.deep.eq(api.eventMap['OnEvent']);
+		expect(api.event.bind(api, 'OnEvent', { type: 'int' })).to.throw(/Overriding events is not allowed/);
 		expect(api.define.bind(api, { name: 'OnEvent', event: true })).to.throw(/Registering events using the define method is obsolete/);
+	});
+
+	it('returns the event info when invoked with the event name without event definition', function() {
+		const eventName = 'testEvent';
+		api.event(eventName, { type: 'TestType' });
+		expect(api.event(eventName)).to.deep.eq(api.eventMap[eventName]);
+		expect(api.type(api.event(eventName).type)).to.deep.eq(api.type('TestType'));
 	});
 });
 
