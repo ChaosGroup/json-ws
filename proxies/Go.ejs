@@ -1,0 +1,359 @@
+<%
+var metadata = locals.metadata;
+var localName = locals.localName;
+var _ = locals._;
+
+function pascalCase(str) {
+	return _.upperFirst(_.camelCase(str));
+}
+
+function mapGoType(param) {
+	var returnType = '';
+	var jsType = param.type;
+
+	switch (jsType) {
+		case '*':
+		case 'any':
+			returnType = 'interface{}';
+			break;
+
+		case 'int':
+		case 'integer':
+			returnType = 'int64';
+			break;
+
+		case 'date':
+		case 'time':
+			returnType = 'time.Time';
+			break;
+
+		case 'number':
+		case 'float':
+		case 'double':
+			returnType = 'float64';
+			break;
+
+		case 'bool':
+		case 'boolean':
+			returnType = 'bool';
+			break;
+
+		case 'object':
+		case 'json':
+			returnType = 'MapObject';
+			break;
+
+		case 'string':
+			returnType = 'string';
+			break;
+
+		case 'url':
+			returnType = 'url.URL';
+			break;
+
+		case 'buffer':
+		case 'binary':
+		case 'stream':
+			returnType = 'io.Reader';
+			break;
+
+		case undefined:
+			returnType = '';
+			break;
+
+		default:
+			if (metadata.types[jsType]) {
+				returnType = jsType;
+			} else {
+				returnType = 'MapObject';
+			}
+	}
+
+	if (param.isArray) {
+		returnType = '[]' + returnType;
+	}
+
+	return returnType;
+}
+
+// Generate namespace tree
+var namespaceRoot = {
+	name: '',
+	fullName: '',
+	methods: [],
+	children: {}
+};
+
+Object.keys(metadata.methods).forEach(function(methodName) {
+	var method = metadata.methods[methodName];
+	var $ = namespaceRoot;
+	var prefixes = method.name.split('.');
+	prefixes.pop();
+	prefixes.forEach(function(prefix, index, prefixes) {
+		if (!$.children.hasOwnProperty(prefix)) {
+			$.children[prefix] = {
+				prefix,
+				fullPrefix: prefixes.slice(0, index + 1).map(p => pascalCase(p)).join(''),
+				methods: [],
+				children: {}
+			};
+		}
+		$ = $.children[prefix];
+	});
+	$.methods.push(method.name);
+});
+
+function formatColumns(rows) {
+	if (rows.length === 0) {
+			return [];
+	}
+
+	const maxWidths = rows[0].map(() => 0);
+	const paddings = [];
+
+	for (const row of rows) {
+		for (let i = 0; i < row.length; i++) {
+			if (row[i].length > maxWidths[i]) {
+				maxWidths[i] = row[i].length;
+			}
+		}
+	}
+
+	for (const maxWidth of maxWidths) {
+		paddings.push([...Array(maxWidth)].join(' '));
+	}
+
+	return rows.map(row => {
+		return row.map((s, i) => {
+			if (i === row.length - 1) {
+				return s;
+			}
+
+			return s.concat(paddings[i]).slice(0, maxWidths[i]);
+		});
+	});
+}
+
+function getMethodArguments(params) {
+	const requiredParams = params.filter(param => typeof param.default === 'undefined');
+	const optionalParams = params.filter(param => typeof param.default !== 'undefined');
+	const result = requiredParams.map(param => param.name + ' ' + mapGoType(param));
+
+	if (optionalParams.length > 0) {
+		result.push('params ...interface{}');
+	}
+
+	return result.join(', ');
+}
+
+function getReturnType(methodInfo) {
+	const returnType = mapGoType({type: methodInfo.returns, isArray: methodInfo.returnsArray});
+
+	if (returnType !== '') {
+		return `(${returnType}, error)`;
+	} else {
+		return 'error';
+	}
+}
+
+function getMethodName(name) {
+    const splitted = name.split('.');
+    return splitted[splitted.length - 1];
+}
+
+function generateInterfaces(root) {
+	const namespaceName = root.fullPrefix ? root.fullPrefix : localName;
+
+	const children = root.children;
+	const nestedInterfaceNames = Object.keys(children);
+
+	const methods = root.methods.map(method => {
+		const methodName = pascalCase(getMethodName(method));
+		const methodArguments = getMethodArguments(metadata.methods[method].params);
+		const methodReturnType = getReturnType(metadata.methods[method]);
+
+		return [`${methodName}(${methodArguments})`, methodReturnType];
+	}).concat(nestedInterfaceNames.map(childName => {
+		const child = children[childName];
+		return [`${pascalCase(child.prefix)}()`, child.fullPrefix];
+	})).map(row => row.join(' ')).join('\n\t');
+
+	const result = `type ${pascalCase(namespaceName)} interface {\n\t${methods}\n}`;
+	const nestedInterfaces = nestedInterfaceNames.map(interface => generateInterfaces(root.children[interface])).join('\n\n');
+
+	if (nestedInterfaces !== '') {
+		return result + '\n\n' + nestedInterfaces;
+	} else {
+		return result;
+	}
+}
+
+function generateTypes() {
+	const types = Object.keys(metadata.types).map(function(key) { return metadata.types[key] });
+
+	let result = '';
+
+	for (const type of types) {
+		const typeName = pascalCase(type.name);
+
+		if (type.enum) {
+			const structFields = formatColumns(_.map(type.struct, (property, propertyName) => {
+				return [`${pascalCase(propertyName)}${typeName}`, typeName, `= ${property}`];
+			})).map(row => row.join(' ')).join('\n\t');
+
+			result += `\ntype ${typeName} int64\nconst (\n\t${structFields}\n)\n`;
+		} else {
+			const structFields = formatColumns(_.map(type.struct, (property, propertyName) => {
+				return [pascalCase(propertyName), mapGoType(property), `\`json:"${propertyName}"\``];
+			})).map(row => row.join(' ')).join('\n\t');
+			result += `\ntype ${typeName} struct {\n\t${structFields}\n}\n`;
+		}
+	}
+
+	return result;
+}
+
+function getMethodImplementation(methodName, selfName, returnType, {params}) {
+	const requiredParams = params.filter(param => typeof param.default === 'undefined');
+	const optionalParams = params.filter(param => typeof param.default !== 'undefined');
+	const requiredParamNames = requiredParams.map(param => param.name);
+
+	let methodParams = requiredParamNames.join(', ');
+
+	if (optionalParams.length === 0) {
+		if (methodParams !== '') {
+			methodParams = ', ' + methodParams;
+		}
+	} else {
+		if (requiredParamNames.length === 0) {
+			methodParams = ', params...';
+		} else {
+			methodParams = `, append([]interface{}{${methodParams}}, params...)...`;
+		}
+	}
+
+	if (returnType === 'error') {
+		return `\treturn ${selfName}.client.Call("${methodName}", nil${methodParams})`
+	} else {
+		const resultType = returnType.split(',')[0].slice(1);
+		return `\tvar result ${resultType}\n\terr := ${selfName}.client.Call("${methodName}", &result${methodParams})\n\treturn result, err`;
+	}
+}
+
+function generateMethods(root) {
+	const namespaceName = root.fullPrefix ? root.fullPrefix : localName;
+
+	const children = root.children;
+	const nestedInterfaceNames = Object.keys(children);
+
+	const proxyStructName = _.lowerFirst(namespaceName);
+	const selfName = '__self__';
+
+	const methods = root.methods.map(method => {
+		const methodName = pascalCase(getMethodName(method));
+		const methodArguments = getMethodArguments(metadata.methods[method].params);
+		const methodReturnType = getReturnType(metadata.methods[method]);
+
+		const methodImplementation = getMethodImplementation(method, selfName, methodReturnType, metadata.methods[method])
+
+		return `func (${selfName} *${proxyStructName}) ${methodName}(${methodArguments}) ${methodReturnType} {\n${methodImplementation}\n}`
+	}).concat(nestedInterfaceNames.map(childName => {
+		return `func (${selfName} *${proxyStructName}) ${pascalCase(childName)}() ${pascalCase(children[childName].fullPrefix)} {\n\treturn ${selfName}.${_.lowerFirst(childName)}\n}`;
+	})).join('\n\n');
+
+
+	const nestedMethods = nestedInterfaceNames.map(interface => generateMethods(root.children[interface])).join('\n\n');
+
+	if (methods !== '' && nestedMethods !== '') {
+		return `${methods}\n\n${nestedMethods}`;
+	} else if (methods !== '') {
+		return methods;
+	} else {
+		return nestedMethods
+	}
+}
+
+function generateStructs(root) {
+	const namespaceName = root.fullPrefix ? root.fullPrefix : localName;
+
+	const children = root.children;
+	const nestedInterfaceNames = Object.keys(children);
+
+	const fields = formatColumns([['client', 'Caller']].concat(nestedInterfaceNames.map(childName => {
+		const child = children[childName];
+
+		return [_.lowerFirst(child.prefix), child.fullPrefix];
+	}))).map(row => row.join(' ')).join('\n\t');
+
+	const result = `\ntype ${_.lowerFirst(namespaceName)} struct {\n\t${fields}\n}`;
+	const nestedInterfaces = nestedInterfaceNames.map(interfaceName => generateStructs(children[interfaceName])).join('\n');
+
+	if (nestedInterfaces !== '') {
+		return nestedInterfaces + '\n' + result;
+	} else {
+		return result;
+	}
+}
+
+function generateConstructors(root) {
+	const namespaceName = root.fullPrefix ? root.fullPrefix : localName;
+
+	const children = root.children;
+	const nestedInterfaceNames = Object.keys(children);
+
+	const fields = formatColumns([['client:', 'client']].concat(nestedInterfaceNames.map(childName => {
+		const child = children[childName];
+
+		return [`${_.lowerFirst(child.prefix)}:`, `New${child.fullPrefix}(client)`];
+	}))).map(row => row.join(' ')).join(',\n\t\t');
+
+	const result = `\nfunc New${pascalCase(namespaceName)}(client Caller) ${pascalCase(namespaceName)} {\n\treturn &${_.lowerFirst(namespaceName)}{\n\t\t${fields},\n\t}\n}`;
+	const nestedInterfaces = nestedInterfaceNames.map(interfaceName => generateConstructors(children[interfaceName])).join('\n');
+
+	if (nestedInterfaces !== '') {
+		return nestedInterfaces + '\n' + result;
+	} else {
+		return result;
+	}
+}
+
+function generateImports() {
+	const importPath = {
+		url: 'net/url',
+		time: 'time',
+		io: 'io'
+	};
+
+	const imports = _.flatMap(metadata.methods, m => m.params)
+		.map(mapGoType)
+		.filter(type => type.indexOf('.') !== -1)
+		.map(type => type.slice(0, type.indexOf('.')))
+		.map(importName => `"${importPath[importName]}"`);
+	imports.sort();
+
+	if (imports.length > 0) {
+		return `import (\n\t${imports.join('\n\t')}\n)`
+	} else {
+		return '';
+	}
+}
+
+%>// Package <%= metadata.name %> <%= metadata.version %>
+//
+// Copyright (c) 2017 ChaosGroup. All rights reserved.
+
+package <%= _.snakeCase(localName) %>
+
+<%- generateImports() %>
+
+type Caller interface {
+	Call(method string, result interface{}, params ...interface{}) error
+}
+
+type MapObject map[string]interface{}
+<%- generateTypes() %>
+<%- generateInterfaces(namespaceRoot) %>
+<%- generateStructs(namespaceRoot) %>
+
+<%- generateMethods(namespaceRoot) %>
+<%- generateConstructors(namespaceRoot) %>

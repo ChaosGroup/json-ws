@@ -110,6 +110,12 @@ module.exports = function() {
 		RtCpu: 0,
 		RtGpuCuda: 5,
 	})
+	.enum('JobState', [
+		'Created',
+		'Pending',
+		'Active',
+		'Done'
+	])
 	.type('RenderOptions', {
 		width: {
 			type: 'int',
