@@ -289,7 +289,7 @@
 			var paramsSnippet = params.join(', ');
 			return {
 				caption: methodInfo.name,
-				snippet: methodInfo.name + `(${paramsSnippet}${params.length ? ', ' : ''}function(err, res) {\\n\\t\${0}\\n});`,
+				snippet: methodInfo.name + `(${paramsSnippet}${params.length ? ', ' : ''}function(err, res) {\n\t\${0}\n});`,
 				description: methodInfo.description,
 				toString() {
 					return JSON.stringify({
