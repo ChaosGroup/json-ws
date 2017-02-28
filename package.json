@@ -1,7 +1,7 @@
 {
   "name": "json-ws",
   "version": "2.2.6",
-  "author": "ChaosGroup (c) 2013-2016",
+  "author": "ChaosGroup (c) 2013-2017",
   "description": "JSON-RPC based Web Services with automatic help and client side source creation for Java/JavaScript/.Net/Python/Node.js",
   "keywords": [
     "json",
