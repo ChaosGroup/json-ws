@@ -60,7 +60,7 @@ var localName = locals.localName;
 	};
 
 	<%=localName%>.prototype.useWS = function() {
-		this.defaultTransport = 'ws';
+		this.defaultTransport = 'socketio';
 		return this;
 	};
 
@@ -70,7 +70,7 @@ var localName = locals.localName;
 
 	<%=localName%>.prototype.on = <%=localName%>.prototype.addListener = function(type, listener) {
 		if (this.listeners(type).length == 0) {
-			this.rpc.call({ method: 'rpc.on', params: [type], transport: 'ws' });
+			this.rpc.call({ method: 'rpc.on', params: [type], transport: 'socketio' });
 		}
 		EventEmitter.prototype.addListener.call(this, type, listener);
 	};
@@ -78,13 +78,13 @@ var localName = locals.localName;
 	<%=localName%>.prototype.removeListener = function(type, listener) {
 		EventEmitter.prototype.removeListener.call(this, type, listener);
 		if (this.listeners(type).length == 0) {
-			this.rpc.call({ method: 'rpc.off', params: [type], transport: 'ws' });
+			this.rpc.call({ method: 'rpc.off', params: [type], transport: 'socketio' });
 		}
 	};
 
 	<%=localName%>.prototype.removeAllListeners = function(type) {
 		EventEmitter.prototype.removeAllListeners.call(this, type);
-		this.rpc.call({ method: 'rpc.off', params: [type], transport: 'ws' });
+		this.rpc.call({ method: 'rpc.off', params: [type], transport: 'socketio' });
 	};
 <%
 
