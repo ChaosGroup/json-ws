@@ -41,7 +41,7 @@ function mapGoType(param) {
 
 		case 'object':
 		case 'json':
-			returnType = 'MapObject';
+			returnType = 'map[string]interface{}';
 			break;
 
 		case 'string':
@@ -66,7 +66,7 @@ function mapGoType(param) {
 			if (metadata.types[jsType]) {
 				returnType = pascalCase(jsType);
 			} else {
-				returnType = 'MapObject';
+				returnType = 'map[string]interface{}';
 			}
 	}
 
@@ -81,6 +81,7 @@ function mapGoType(param) {
 var namespaceRoot = {
 	name: localName,
 	Name: pascalCase(localName),
+	fullPrefix: localName,
 	FullPrefix: pascalCase(localName),
 	methods: [],
 	children: {}
@@ -101,6 +102,7 @@ Object.keys(metadata.methods).forEach(function(methodName) {
 			$.children[prefix] = {
 				name: prefix,
 				Name: pascalCase(prefix),
+				fullPrefix: prefixes.slice(0, index + 1).map((p, key) => key == 0 ? p : pascalCase(p)).join(''),
 				FullPrefix: prefixes.slice(0, index + 1).map(p => pascalCase(p)).join(''),
 				methods: [],
 				children: {}
@@ -113,7 +115,7 @@ Object.keys(metadata.methods).forEach(function(methodName) {
 
 function formatColumns(rows, joinString = '') {
 	if (rows.length === 0) {
-			return [];
+		return [];
 	}
 
 	const maxWidths = rows[0].map(() => 0);
@@ -212,60 +214,101 @@ function getMethod(method, selfName, rootName) {
 	let implementation;
 
 	if (returnType === 'error') {
-		implementation = `\treturn ${selfName}.client.Call("${method.name}", nil${methodParams})`
+		implementation = `\treturn ${selfName}.caller.Call(nil, "${method.name}"${methodParams})`
 	} else {
 		const resultType = returnType.split(',')[0].slice(1);
-		implementation = `\tvar result ${resultType}\n\terr := ${selfName}.client.Call("${method.name}", &result${methodParams})\n\treturn result, err`;
+		implementation = `\tvar result ${resultType}\n\terr := ${selfName}.caller.Call(&result, "${method.name}"${methodParams})\n\treturn result, err`;
 	}
 
 	return `func (${selfName} *${rootName}) ${method.Name}(${method.arguments}) ${returnType} {\n${implementation}\n}`
 }
 
-function generateMethods(root) {
+function generateMethods(generated, root) {
+	if (generated.has(root.fullPrefix)) {
+		return;
+	}
+	generated.add(root.fullPrefix);
+
 	const selfName = '__self__';
 
-	const methods = root.methods.map(method => getMethod(method, selfName, root.name))
+	const methods = root.methods.map(method => getMethod(method, selfName, root.fullPrefix))
 		.concat(_.map(root.children, child => {
-			return `func (${selfName} *${root.name}) ${child.Name}() ${child.Name} {\n\treturn ${selfName}.${child.name}\n}`;
+			return `func (${selfName} *${root.fullPrefix}) ${child.Name}() ${child.FullPrefix} {\n\treturn ${selfName}.${child.name}\n}`;
 		}));
-	const nestedMethods = _.map(root.children, child => generateMethods(child));
+	const nestedMethods = _.map(root.children, child => generateMethods(generated, child));
 
 	return [...methods, ...nestedMethods].join('\n\n');
 }
 
-function generateInterfaces(root) {
+function generateInterfaces(generated, root) {
+	if (generated.has(root.FullPrefix)) {
+		return;
+	}
+	generated.add(root.FullPrefix);
+
 	const methods = [
-		...(root.methods.map(method => [`${method.Name}(${method.arguments})`, method.returnType])),
-		...(_.map(root.children, child => [`${child.Name}()`, child.FullPrefix])).map(row => row.join(' '))
+		...root.methods.map(method => `${method.Name}(${method.arguments}) ${method.returnType}`),
+		..._.map(root.children, child => `${child.Name}() ${child.FullPrefix}`)
 	].join('\n\t');
 
 	return [
-		`type ${root.Name} interface {\n\t${methods}\n}`,
-		...( _.map(root.children, child => generateInterfaces(child)))
+		`type ${root.FullPrefix} interface {\n\tvrpc.RemoteService\n\n\t${methods}\n}`,
+		...( _.map(root.children, child => generateInterfaces(generated, child)))
 	].join('\n\n');
 }
 
-function generateStructs(root) {
+function generateStructs(generated, root) {
+	if (generated.has(root.fullPrefix)) {
+		return;
+	}
+	generated.add(root.fullPrefix);
+
 	const fields = formatColumns(
-	    [['client', 'Caller']].concat(_.map(root.children, child => [child.name, child.FullPrefix])),
+	    [['caller', 'vrpc.Caller']].concat(_.map(root.children, child => [child.name, child.FullPrefix])),
 			'\n\t'
 	);
 
 	return [
-		...(_.map(root.children, child => generateStructs(child))),
-		`\ntype ${root.name} struct {\n\t${fields}\n}`
+		...(_.map(root.children, child => generateStructs(generated, child))),
+		`\ntype ${root.fullPrefix} struct {\n\t${fields}\n}`
 	].join('\n');
 }
 
-function generateConstructors(root) {
-	const fields = formatColumns(
-		[['client:', 'client'], ...(_.map(root.children, child => [`${child.name}:`, `New${child.FullPrefix}(client)`]))],
+function generateConstructors(generated, root) {
+	if (generated.has(root.FullPrefix)) {
+		return;
+	}
+	generated.add(root.FullPrefix);
+
+	var fields = formatColumns(
+		[...(_.map(root.children, child => [`${child.name}:`, `New${child.FullPrefix}()`]))],
 		',\n\t\t'
 	);
+	if (fields.length > 0) {
+		fields = `\n\t\t${fields},\n\t`;
+	}
 
 	return [
-		...(_.map(root.children, child => generateConstructors(child))),
-		`\nfunc New${root.Name}(client Caller) ${root.Name} {\n\treturn &${root.name}{\n\t\t${fields},\n\t}\n}`
+		...(_.map(root.children, child => generateConstructors(generated, child))),
+		`\nfunc New${root.FullPrefix}() ${root.FullPrefix} {\n\treturn &${root.fullPrefix}{${fields}}\n}`
+	].join('\n');
+}
+
+function generateSetCallerMethods(generated, root) {
+	if (generated.has(root.fullPrefix)) {
+		return;
+	}
+	generated.add(root.fullPrefix);
+
+	const selfName = '__self__';
+	var fields = _.map(root.children, child => `\t${selfName}.${child.name}.SetCaller(caller);`).join('\n');
+	if (fields.length > 0) {
+		fields = `${fields}\n`;
+	}
+
+	return [
+		...(_.map(root.children, child => generateSetCallerMethods(generated, child))),
+		`\nfunc (${selfName} *${root.fullPrefix}) SetCaller(caller vrpc.Caller) {\n\t${selfName}.caller = caller;\n${fields}}`
 	].join('\n');
 }
 
@@ -273,14 +316,16 @@ function generateImports() {
 	const importPath = {
 		io: 'io',
 		time: 'time',
-		url: 'net/url'
+		url: 'net/url',
+		vrpc: 'git.chaosgroup.com/vcloud/vrcl/beehive/@vraycloud/proxy/src/vrpc'
 	};
 
-	const imports = _.flatMap(metadata.methods, m => m.params)
+	var imports = _.flatMap(metadata.methods, m => m.params)
 		.map(mapGoType)
 		.filter(type => type.indexOf('.') !== -1)
-		.map(type => type.slice(0, type.indexOf('.')))
-		.map(importName => `"${importPath[importName]}"`);
+		.map(type => type.slice(0, type.indexOf('.')));
+	imports.push('vrpc');
+	imports = imports.map(importName => `"${importPath[importName]}"`);
 	imports.sort();
 
 	return (imports.length > 0) ? `import (\n\t${imports.join('\n\t')}\n)` : '';
@@ -294,14 +339,10 @@ package <%= _.snakeCase(localName) %>
 
 <%- generateImports() %>
 
-type Caller interface {
-	Call(method string, result interface{}, params ...interface{}) error
-}
-
-type MapObject map[string]interface{}
 <%- generateTypes() %>
-<%- generateInterfaces(namespaceRoot) %>
-<%- generateStructs(namespaceRoot) %>
+<%- generateInterfaces(new Set(), namespaceRoot) %>
+<%- generateStructs(new Set(), namespaceRoot) %>
 
-<%- generateMethods(namespaceRoot) %>
-<%- generateConstructors(namespaceRoot) %>
+<%- generateMethods(new Set(), namespaceRoot) %>
+<%- generateConstructors(new Set(), namespaceRoot) %>
+<%- generateSetCallerMethods(new Set(), namespaceRoot) %>
