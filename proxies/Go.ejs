@@ -345,7 +345,7 @@ function generateImports() {
 		.filter(type => type.indexOf('.') !== -1)
 		.map(type => type.slice(0, type.indexOf('.')));
 	imports.push('vrpc');
-	imports = imports.map(importName => `"${importPath[importName]}"`);
+	imports = _.uniq(imports).map(importName => `"${importPath[importName]}"`);
 	imports.sort();
 
 	return (imports.length > 0) ? `import (\n\t${imports.join('\n\t')}\n)` : '';
