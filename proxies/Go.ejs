@@ -274,6 +274,26 @@ function generateStructs(generated, root) {
 	].join('\n');
 }
 
+function generateRootConstructor(generated, root) {
+	if (generated.has(root.FullPrefix)) {
+		return;
+	}
+	generated.add(root.FullPrefix);
+
+	var fields = formatColumns(
+		[...(_.map(root.children, child => [`${child.name}:`, `New${child.FullPrefix}()`]))],
+		',\n\t\t'
+	);
+	if (fields.length > 0) {
+		fields = `\n\t\t${fields},\n\t`;
+	}
+
+	return [
+		...(_.map(root.children, child => generateConstructors(generated, child))),
+		`\nfunc New() ${root.FullPrefix} {\n\treturn &${root.fullPrefix}{${fields}}\n}`
+	].join('\n');
+}
+
 function generateConstructors(generated, root) {
 	if (generated.has(root.FullPrefix)) {
 		return;
@@ -320,7 +340,7 @@ function generateImports() {
 		vrpc: 'git.chaosgroup.com/vcloud/vrcl/beehive/@vraycloud/proxy/src/vrpc'
 	};
 
-	var imports = _.flatMap(metadata.methods, m => m.params)
+	var imports = _.flatMap(metadata.methods, m => [{type: m.returns, isArray: m.returnsArray}].concat(m.params))
 		.map(mapGoType)
 		.filter(type => type.indexOf('.') !== -1)
 		.map(type => type.slice(0, type.indexOf('.')));
@@ -344,5 +364,5 @@ package <%= _.snakeCase(localName) %>
 <%- generateStructs(new Set(), namespaceRoot) %>
 
 <%- generateMethods(new Set(), namespaceRoot) %>
-<%- generateConstructors(new Set(), namespaceRoot) %>
+<%- generateRootConstructor(new Set(), namespaceRoot) %>
 <%- generateSetCallerMethods(new Set(), namespaceRoot) %>
