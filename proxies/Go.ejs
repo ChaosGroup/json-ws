@@ -217,7 +217,7 @@ function getMethod(method, selfName, rootName) {
 		implementation = `\treturn ${selfName}.caller.Call(nil, "${method.name}"${methodParams})`
 	} else {
 		const resultType = returnType.split(',')[0].slice(1);
-		implementation = `\tvar result ${resultType}\n\terr := ${selfName}.caller.Call(&result, "${method.name}"${methodParams})\n\treturn result, err`;
+		implementation = `\tvar __result__ ${resultType}\n\t__err__ := ${selfName}.caller.Call(&__result__, "${method.name}"${methodParams})\n\treturn __result__, __err__`;
 	}
 
 	return `func (${selfName} *${rootName}) ${method.Name}(${method.arguments}) ${returnType} {\n${implementation}\n}`
@@ -340,15 +340,20 @@ function generateImports() {
 		vrpc: 'git.chaosgroup.com/vcloud/vrcl/beehive/@vraycloud/proxy/src/vrpc'
 	};
 
-	var imports = _.flatMap(metadata.methods, m => [{type: m.returns, isArray: m.returnsArray}].concat(m.params))
+	const structFieldTypes = _.flatMap(metadata.types, t => _.values(t.struct))
+		.map(mapGoType)
+		.map(type => type.startsWith('[]') ? type.replace('[]', '') : type)
+		.filter(type => type.indexOf('.') !== -1)
+		.map(type => type.slice(0, type.indexOf('.')));
+	const methodTypes = _.flatMap(metadata.methods, m => [{type: m.returns, isArray: m.returnsArray}].concat(m.params))
 		.map(mapGoType)
 		.filter(type => type.indexOf('.') !== -1)
 		.map(type => type.slice(0, type.indexOf('.')));
-	imports.push('vrpc');
-	imports = _.uniq(imports).map(importName => `"${importPath[importName]}"`);
-	imports.sort();
+	var types = _.uniq(structFieldTypes.concat(methodTypes).concat(['vrpc']))
+		.map(importName => `"${importPath[importName]}"`);
+	types.sort();
 
-	return (imports.length > 0) ? `import (\n\t${imports.join('\n\t')}\n)` : '';
+	return (types.length > 0) ? `import (\n\t${types.join('\n\t')}\n)` : '';
 }
 
 %>// Package <%= metadata.name %> <%= metadata.version %>
