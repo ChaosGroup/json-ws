@@ -3,6 +3,13 @@
  */
 'use strict';
 
+/**
+ * TODO
+ * find a way to run all tests twice
+ * once with transport 'jsonws.transport.WebSocket' and
+ * once with transport 'jsonws.transport.SocketIO'
+ */
+
 // error codes:
 // -32600: jsonrpc not 2.0
 // -32601: method not found
