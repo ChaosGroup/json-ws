@@ -17,6 +17,7 @@ var localName = locals.localName;
 	var RpcTunnel = RpcClient.tunnel;
 
 	/**
+	 * @param {(url|Transport)} url - Either url of server (string) or Transport instance to be used as a sole transport.
 	 * @constructor
 	 * @alias module:<%=localName%>.<%=localName%>
 	 */
@@ -24,12 +25,19 @@ var localName = locals.localName;
 		if (!this instanceof <%=localName%>) {
 			return new <%=localName%>(url);
 		}
-		if (!url || typeof url !== 'string') {
+		if (!url) {
 			throw new Error('Invalid proxy URL');
 		}
+		if (typeof url !== 'string') {
+			this._transport = url;
+			this.defaultTransport = null;
+			this.rpc = new RpcTunnel(url);
+		} else {
+			this._transport = null;
+			this.rpc = new RpcTunnel(url, sslSettings);
+			this.defaultTransport = 'http';
+		}
 		var self = this;
-		this.defaultTransport = 'http';
-		this.rpc = new RpcTunnel(url, sslSettings);
 		this.rpc.on('event', function(e) {
 			self.emit(e.name, e.data);
 		});
@@ -55,12 +63,22 @@ var localName = locals.localName;
 	Object.defineProperty(<%= localName %>, 'VERSION', { value: '<%= metadata.version.slice(0, metadata.version.lastIndexOf('.')) %>'});
 
 	<%=localName%>.prototype.useHTTP = function() {
-		this.defaultTransport = 'http';
+		if (this._transport !== null && this._transport.name !== 'http') {
+			throw new Error('HTTP transport requested, but ' + this._transport.name + ' given.');
+		} else {
+			this.defaultTransport = 'http';
+		}
+
 		return this;
 	};
 
 	<%=localName%>.prototype.useWS = function() {
-		this.defaultTransport = 'socketio';
+		if (this._transport !== null && this._transport.name !== 'ws') {
+			throw new Error('WebSockets transport requested, but ' + this._transport.name + ' given.');
+		} else {
+			this.defaultTransport = 'ws';
+		}
+
 		return this;
 	};
 
@@ -70,7 +88,11 @@ var localName = locals.localName;
 
 	<%=localName%>.prototype.on = <%=localName%>.prototype.addListener = function(type, listener) {
 		if (this.listeners(type).length == 0) {
-			this.rpc.call({ method: 'rpc.on', params: [type], transport: 'socketio' });
+			if (this._transport && this._transport.supportEvents) {
+				this.rpc.call({ method: 'rpc.on', params: [type], transport: this._transport.name });
+			} else if (this._transport === null) {
+				this.rpc.call({ method: 'rpc.on', params: [type], transport: 'ws'});
+			}
 		}
 		EventEmitter.prototype.addListener.call(this, type, listener);
 	};
@@ -78,13 +100,21 @@ var localName = locals.localName;
 	<%=localName%>.prototype.removeListener = function(type, listener) {
 		EventEmitter.prototype.removeListener.call(this, type, listener);
 		if (this.listeners(type).length == 0) {
-			this.rpc.call({ method: 'rpc.off', params: [type], transport: 'socketio' });
+			if (this._transport && this._transport.supportEvents) {
+				this.rpc.call({ method: 'rpc.off', params: [type], transport: this._transport.name });
+			} else if (this._transport === null) {
+				this.rpc.call({ method: 'rpc.off', params: [type], transport: 'ws'});
+			}
 		}
 	};
 
 	<%=localName%>.prototype.removeAllListeners = function(type) {
 		EventEmitter.prototype.removeAllListeners.call(this, type);
-		this.rpc.call({ method: 'rpc.off', params: [type], transport: 'socketio' });
+		if (this._transport && this._transport.supportEvents) {
+			this.rpc.call({ method: 'rpc.off', params: [type], transport: this._transport.name });
+		} else if (this._transport === null) {
+			this.rpc.call({ method: 'rpc.off', params: [type], transport: 'ws'});
+		}
 	};
 <%
 
@@ -251,7 +281,7 @@ Object.keys(metadata.methods).forEach(function(methodName) {
 			method: '<%-methodName%>',
 			params: args,
 			expectReturn: <%-!!metadata.methods[methodName].returns || !!metadata.methods[methodName].async%>,
-			transport: this.defaultTransport
+			transport: this._transport && this._transport.name || this.defaultTransport
 		}, callback);
 	};
 
