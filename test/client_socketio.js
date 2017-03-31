@@ -252,7 +252,7 @@ describe('RPC over SocketIO', function() {
 				serviceName: 'test',
 				serviceVersion: '1.0'
 			};
-			socketToRootPath.emit('rpc.sio.setContext', connectionContextPayload, function(/*ack*/) {
+			socketToRootPath.emit('rpc.sio.setConnectionContext', connectionContextPayload, function(/*ack*/) {
 				socket = socketToRootPath;
 				done();
 			});
@@ -455,23 +455,26 @@ describe('RPC over SocketIO', function() {
 });
 
 describe('node.js proxy', function() {
+	let opts, transport;
 	before(done => {
 		serveMetadata = true;
 		setupServer(done);
 	});
 
 	const getProxy = Bluebird.promisify(jsonws.proxy, jsonws);
+	const SocketIoTransport = jsonws.client.transports.SocketIO;
+
+	beforeEach(() => {
+		opts = {
+			serviceName: serviceInstance.name,
+			serviceVersion: '1.0'
+		};
+		transport = new SocketIoTransport(serverUrl, Object.assign({}, opts));
+	});
 
 	it('works with legal method calls', function () {
 		return getProxy(httpProxyUrl).then(function (proxy) {
 			expect(proxy).to.be.ok;
-
-			const SocketIoTransport = jsonws.client.transports.SocketIO;
-			const opts = {
-				serviceName: serviceInstance.name,
-				serviceVersion: '1.0'
-			};
-			const transport = new SocketIoTransport(serverUrl, Object.assign({}, opts));
 			const t = new proxy.Tester(transport);
 			const expected = [5, 6, 10, 6, 10, 25, {a: 5, b: 'test'}, 'Abc', 'ABc', 'ABC', 'world', {
 				name: 'Error',
@@ -500,14 +503,6 @@ describe('node.js proxy', function() {
 	it('returns error codes', function() {
 		return getProxy(httpProxyUrl).then(function(proxy) {
 			expect(proxy).to.be.ok;
-
-			const SocketIoTransport = jsonws.client.transports.SocketIO;
-			const opts = {
-				serviceName: serviceInstance.name,
-				serviceVersion: '1.0'
-			};
-
-			const transport = new SocketIoTransport(serverUrl, opts);
 			const t = new proxy.Tester(transport);
 			const expected = [-32000, -32602, -32602, 3, -32602, 'world'];
 			const actual = [];
@@ -540,14 +535,6 @@ describe('node.js proxy', function() {
 	it('returns error codes on the Socket.IO Transport', function() {
 		return getProxy(httpProxyUrl).then(function(proxy) {
 			expect(proxy).to.be.ok;
-
-			const SocketIoTransport = jsonws.client.transports.SocketIO;
-			const opts = {
-				serviceName: serviceInstance.name,
-				serviceVersion: '1.0'
-			};
-
-			const transport = new SocketIoTransport(serverUrl, opts);
 			const t = new proxy.Tester(transport);
 			const expected = [-32000, -32602, -32602, 3, -32000, -32602, 'world'];
 			const actual = [];
@@ -579,22 +566,13 @@ describe('node.js proxy', function() {
 	});
 
 	it('works with events', function(done) {
-		this.timeout(5000);
-
+		const timeouts = [ 500, 1000, 1500, 2000 ];
+		const timeout = Math.max(...timeouts) + 1000;
+		this.timeout(timeout);
 		getProxy(httpProxyUrl).then(function(proxy) {
 			expect(proxy).to.be.ok;
-
-			const opts = {
-				serviceName: serviceInstance.name,
-				serviceVersion: '1.0'
-			};
-
-			const SocketIoTransport = jsonws.client.transports.SocketIO;
-			const transport = new SocketIoTransport(serverUrl, opts);
 			const t = new proxy.Tester(transport);
-			let h1 = 0;
-			let h2 = 0;
-			let h3 = 0;
+			let [ h1, h2, h3 ] = [0, 0, 0];
 			let data = null;
 			function eventHandler1() { h1++; }
 			function eventHandler2() { h2++; }
@@ -605,14 +583,14 @@ describe('node.js proxy', function() {
 			setTimeout(function() {
 				t.on('testEvent', eventHandler2);
 				t.on('test.the.namespace.event', eventHandler3);
-			}, 500);
+			}, timeouts[0]);
 
 			setTimeout(function() {
 				expect(h1).to.be.above(0);
 				t.removeListener('testEvent', eventHandler1);
 				h1 = 0;
 				done();
-			}, 1000);
+			}, timeouts[1]);
 
 			setTimeout(function() {
 				expect(h2).to.be.above(0);
@@ -620,13 +598,13 @@ describe('node.js proxy', function() {
 				t.removeAllListeners('testEvent');
 				t.removeAllListeners('test.the.namespace.event');
 				h2 = h3 = 0;
-			}, 1500);
+			}, timeouts[2]);
 
 			setTimeout(function() {
 				expect(h1 + h2 + h3).to.eq(0);
 				expect(data).to.deep.eq({ hello: 'world'});
 				done();
-			}, 2000);
+			}, timeouts[3]);
 		}).catch(done);
 	});
 
@@ -634,14 +612,6 @@ describe('node.js proxy', function() {
 		this.timeout(1000);
 		getProxy(httpProxyUrl).then(function(proxy) {
 			expect(proxy).to.be.ok;
-
-			const opts = {
-				serviceName: serviceInstance.name,
-				serviceVersion: '1.0'
-			};
-
-			const SocketIoTransport = jsonws.client.transports.SocketIO;
-			const transport = new SocketIoTransport(serverUrl, opts);
 			const t = new proxy.Tester(transport);
 			t.testAsyncReturn(false, function() {
 				t.testAsyncReturn(true, function(err) {
@@ -660,15 +630,8 @@ describe('node.js proxy', function() {
 			expect(proxies[0]).to.be.ok;
 			expect(proxies[1]).to.be.ok;
 
-			const SocketIoTransport = jsonws.client.transports.SocketIO;
-
-			const opts = {
-				serviceName: serviceInstance.name,
-				serviceVersion: '1.0'
-			};
-
-			const transport1 = new SocketIoTransport(serverUrl, opts);
-			const transport2 = new SocketIoTransport(serverUrl, opts);
+			const transport1 = new SocketIoTransport(serverUrl, Object.assign({}, opts));
+			const transport2 = new SocketIoTransport(serverUrl, Object.assign({}, opts));
 
 			const proxy1 = new proxies[0].Tester(transport1);
 			const proxy2 = new proxies[1].Tester(transport2);
@@ -717,13 +680,7 @@ describe('node.js proxy', function() {
 			expect(proxies[2]).to.be.ok;
 			expect(proxies[3]).to.be.ok;
 
-			const SocketIoTransport = jsonws.client.transports.SocketIO;
-			const opts = {
-				serviceName: serviceInstance.name,
-				serviceVersion: '1.0'
-			};
-
-			const transport1 = new SocketIoTransport(serverUrl, opts);
+			const transport1 = new SocketIoTransport(serverUrl, Object.assign({}, opts));
 			const transport2 = new SocketIoTransport(serverUrl, Object.assign({ validationParams: { ctxId: 'id1234'} }, opts));
 			const transport3 = new SocketIoTransport(serverUrl, Object.assign({ validationParams: { ctxId: 'id5678'} }, opts));
 			const transport4 = new SocketIoTransport(serverUrl, Object.assign({ validationParams: { ctxId: 'id4321'} }, opts));
