@@ -234,119 +234,126 @@ function getOriginAndPathname(url) {
 	return { origin, pathname };
 }
 
-describe.skip('RPC over SocketIO', function() {
+describe('RPC over SocketIO', function() {
 	before(done => {
 		serveMetadata = true;
 		setupServer(done);
+	});
+
+	const url = 'ws://localhost:3000/endpoint/test/1.0';
+	let socket;
+
+	beforeEach(done => {
+		const origin = getOriginAndPathname(url).origin;
+		const socketToRootPath = io.connect(origin);
+		socketToRootPath.on('connect', function(/*socketRoot*/) {
+			const connectionContextPayload = {
+				validationParams: null,
+				serviceName: 'test',
+				serviceVersion: '1.0'
+			};
+			socketToRootPath.emit('rpc.sio.setContext', connectionContextPayload, function(/*ack*/) {
+				socket = socketToRootPath;
+				done();
+			});
+		});
 	});
 
 	it('works with legal method calls and event subscription', function(done) {
 		const timeouts = [ 1200, 2000, 3000 ];
 		const timeout = Math.max(...timeouts) + 1000;
 		this.timeout(timeout);
-		const url = 'ws://localhost:3000/endpoint/test/1.0';
-		const { origin, pathname } = getOriginAndPathname(url);
 
-		const socketToRootPath = io.connect(origin);
-		socketToRootPath.on('connect', function(/*socketRoot*/) {
-			socketToRootPath.emit('ensure_socketio_namespace', pathname, function(/*ack*/) {
-				const socket = io.connect(url);
+		let events = 0;
+		let recCommands = 0;
+		let expCommands;
+		const expected = {
+			'sum': 0,
+			asyncSum: '12',
+			hello: 'world',
+			dataTest: {a: 5, b: 'test'},
+			sumArray: 10,
+			optionalArgs: 'AbC',
+			returnError: {name: 'Error', message: 'FooBar'}
+		};
+		const results = {};
 
-				let events = 0;
-				let recCommands = 0;
-				let expCommands;
-				const expected = {
-					'sum': 0,
-					asyncSum: '12',
-					hello: 'world',
-					dataTest: {a: 5, b: 'test'},
-					sumArray: 10,
-					optionalArgs: 'AbC',
-					returnError: {name: 'Error', message: 'FooBar'}
-				};
-				const results = {};
-
-				function sendCommand(command, params) {
-					const commandData = {
-						id: command,
-						method: command,
-						params: params,
-						jsonrpc: '2.0'
-					};
-					const request = JSON.stringify(commandData);
-					return new Promise(resolve => {
-						socket.send(request, () => {});
-						resolve();
-					});
-				}
-
-				socket.on('connect', function () {
-					socket.send(JSON.stringify({
-						'jsonrpc': '2.0',
-						'method': 'rpc.on',
-						'params': ['testEvent']
-					}));
-
-					Promise.all([
-						sendCommand('sum', [2, -2]),
-						sendCommand('sum', {'a': 2, 'b': -2}),
-						sendCommand('hello', null),
-						sendCommand('asyncSum', ['1', '2']),
-						sendCommand('dataTest', { a: { a: 5, b: 'test', extra: 'true' }}),
-						sendCommand('sumArray', { ints: [1, 2, 3, 4]}),
-						sendCommand('sumArray', [ [1, 2, 3, 4] ]),
-						sendCommand('optionalArgs', { a: 'A', c: 'C' }),
-						sendCommand('returnError')
-					]).then(function(result) {
-						expCommands = result.length;
-					});
-				});
-
-				socket.on('message', function (data) {
-					const parsedData = JSON.parse(data);
-					if (Object.keys(parsedData).length == 0) return;
-					expect(parsedData).not.to.be.null;
-					if (parsedData.error) console.log(parsedData.error); //eslint-disable-line no-console
-					expect(parsedData.error).to.be.undefined;
-					expect(parsedData.id).to.be.defined;
-					if (parsedData.id == 'testEvent') {
-						events++;
-					} else {
-						recCommands++;
-						if (typeof parsedData.result === 'object') {
-							expect(parsedData.result).to.deep.eq(expected[parsedData.id]);
-						} else {
-							expect(parsedData.result).to.eq(expected[parsedData.id]);
-						}
-						results[parsedData.id] = parsedData.result;
-					}
-				});
-
-				let finalEvents = 0;
-				setTimeout(function () {
-					expect(expected).to.deep.eq(results);
-					expect(recCommands).to.eq(expCommands);
-					expect(events).to.be.above(0);
-					socket.send(JSON.stringify({
-						'jsonrpc': '2.0',
-						'method': 'rpc.off',
-						'params': ['testEvent']
-					}));
-					finalEvents = events;
-				}, timeouts[0]);
-
-				setTimeout(function() {
-					finalEvents = events;
-				}, timeouts[1]);
-
-				setTimeout(function () {
-					expect(events).to.eq(finalEvents, 'events do not fire after unsubscribe');
-					socket.close();
-					done();
-				}, timeouts[2]);
+		function sendCommand(command, params) {
+			const commandData = {
+				id: command,
+				method: command,
+				params: params,
+				jsonrpc: '2.0'
+			};
+			const request = JSON.stringify(commandData);
+			return new Promise(resolve => {
+				socket.send(request, () => {});
+				resolve();
 			});
+		}
+
+		socket.send(JSON.stringify({
+			'jsonrpc': '2.0',
+			'method': 'rpc.on',
+			'params': ['testEvent']
+		}));
+
+		Promise.all([
+			sendCommand('sum', [2, -2]),
+			sendCommand('sum', {'a': 2, 'b': -2}),
+			sendCommand('hello', null),
+			sendCommand('asyncSum', ['1', '2']),
+			sendCommand('dataTest', { a: { a: 5, b: 'test', extra: 'true' }}),
+			sendCommand('sumArray', { ints: [1, 2, 3, 4]}),
+			sendCommand('sumArray', [ [1, 2, 3, 4] ]),
+			sendCommand('optionalArgs', { a: 'A', c: 'C' }),
+			sendCommand('returnError')
+		]).then(function(result) {
+			expCommands = result.length;
 		});
 
+		socket.on('message', function (data) {
+			const parsedData = JSON.parse(data);
+			if (Object.keys(parsedData).length == 0) return;
+			expect(parsedData).not.to.be.null;
+			if (parsedData.error) console.log(parsedData.error); //eslint-disable-line no-console
+			expect(parsedData.error).to.be.undefined;
+			expect(parsedData.id).to.be.defined;
+			if (parsedData.id == 'testEvent') {
+				events++;
+			} else {
+				recCommands++;
+				if (typeof parsedData.result === 'object') {
+					expect(parsedData.result).to.deep.eq(expected[parsedData.id]);
+				} else {
+					expect(parsedData.result).to.eq(expected[parsedData.id]);
+				}
+				results[parsedData.id] = parsedData.result;
+			}
+		});
+
+		let finalEvents = 0;
+		setTimeout(function () {
+			expect(expected).to.deep.eq(results);
+			expect(recCommands).to.eq(expCommands);
+			expect(events).to.be.above(0);
+			socket.send(JSON.stringify({
+				'jsonrpc': '2.0',
+				'method': 'rpc.off',
+				'params': ['testEvent']
+			}));
+			finalEvents = events;
+		}, timeouts[0]);
+
+		setTimeout(function() {
+			finalEvents = events;
+		}, timeouts[1]);
+
+		setTimeout(function () {
+			expect(events).to.eq(finalEvents, 'events do not fire after unsubscribe');
+			socket.close();
+			done();
+		}, timeouts[2]);
 	});
 
 	it('returns error codes', function(done) {
@@ -360,79 +367,68 @@ describe.skip('RPC over SocketIO', function() {
 			-32000, -32000, -32000, -32000];
 		const results = [];
 
-		const url = 'ws://localhost:3000/endpoint/test/1.0';
-		const { origin, pathname } = getOriginAndPathname(url);
-		const socketToRootPath = io.connect(origin);
-		socketToRootPath.on('connect', function(/*socketRoot*/) {
-			socketToRootPath.emit('ensure_socketio_namespace', pathname, function (/*ack*/) {
-				const socket = io.connect(url);
-
-				function sendCommand(command, params) {
-					const commandData = {
-						id: id++,
-						method: command,
-						params: params,
-						jsonrpc: '2.0'
-					};
-					const request = JSON.stringify(commandData);
-					return new Promise(resolve => {
-						socket.send(request, () => {});
-						resolve();
-					});
-				}
-
-				function sendPartialCommand(commandData) {
-					commandData.id = id++;
-					const request = JSON.stringify(commandData);
-					return new Promise(resolve => {
-						socket.send(request, () => {});
-						resolve();
-					});
-				}
-
-				function sendCommands() {
-					Bluebird.resolve([
-						sendPartialCommand.bind(null, {'jsonrpc': '1.0'}),
-						sendCommand.bind(null, 'inexistingMethod'),
-						sendCommand.bind(null),
-						sendPartialCommand.bind(null, {'jsonrpc': '2.0'}),
-						sendPartialCommand.bind(null, {'jsonrpc': '2.0', 'method': 'sum'}),
-						sendCommand.bind(null, 'sum'),
-						sendCommand.bind(null, 'sum', [2]),
-						sendCommand.bind(null, 'sum', {'a': 2, 'c': 1}),
-						sendCommand.bind(null, 'optionalArgs', []),
-						sendCommand.bind(null, 'hello', ['fake']),
-						sendCommand.bind(null, 'throwError'),
-						sendCommand.bind(null, 'dataTest', ['invalid']),
-						sendCommand.bind(null, 'dataTest', [1234]),
-						sendCommand.bind(null, 'sumArray', [1234])
-					]).each(function(func) {
-						return func();
-					});
-				}
-
-				socket.on('connect', function () {
-					sendCommands();
-				});
-
-				socket.on('message', function (data) {
-					const parsedData = JSON.parse(data);
-					if (Object.keys(parsedData).length == 0) return;
-					expect(parsedData).not.to.be.null;
-					expect(parsedData.error).to.be.defined;
-					expect(parsedData.error).not.to.be.null;
-					expect(parsedData.id).to.be.defined;
-					expect(parsedData.id).not.to.be.null;
-					results[parsedData.id] = parsedData.error.code;
-				});
-
-				setTimeout(function () {
-					expect(expected).to.deep.eq(results);
-					socket.close();
-					done();
-				}, timeouts[0]);
+		function sendCommand(command, params) {
+			const commandData = {
+				id: id++,
+				method: command,
+				params: params,
+				jsonrpc: '2.0'
+			};
+			const request = JSON.stringify(commandData);
+			return new Promise(resolve => {
+				socket.send(request, () => {});
+				resolve();
 			});
+		}
+
+		function sendPartialCommand(commandData) {
+			commandData.id = id++;
+			const request = JSON.stringify(commandData);
+			return new Promise(resolve => {
+				socket.send(request, () => {});
+				resolve();
+			});
+		}
+
+		function sendCommands() {
+			Bluebird.resolve([
+				sendPartialCommand.bind(null, {'jsonrpc': '1.0'}),
+				sendCommand.bind(null, 'inexistingMethod'),
+				sendCommand.bind(null),
+				sendPartialCommand.bind(null, {'jsonrpc': '2.0'}),
+				sendPartialCommand.bind(null, {'jsonrpc': '2.0', 'method': 'sum'}),
+				sendCommand.bind(null, 'sum'),
+				sendCommand.bind(null, 'sum', [2]),
+				sendCommand.bind(null, 'sum', {'a': 2, 'c': 1}),
+				sendCommand.bind(null, 'optionalArgs', []),
+				sendCommand.bind(null, 'hello', ['fake']),
+				sendCommand.bind(null, 'throwError'),
+				sendCommand.bind(null, 'dataTest', ['invalid']),
+				sendCommand.bind(null, 'dataTest', [1234]),
+				sendCommand.bind(null, 'sumArray', [1234])
+			]).each(function(func) {
+				return func();
+			});
+		}
+
+		sendCommands();
+
+		socket.on('message', function (data) {
+			const parsedData = JSON.parse(data);
+			if (Object.keys(parsedData).length == 0) return;
+			expect(parsedData).not.to.be.null;
+			expect(parsedData.error).to.be.defined;
+			expect(parsedData.error).not.to.be.null;
+			expect(parsedData.id).to.be.defined;
+			expect(parsedData.id).not.to.be.null;
+			results[parsedData.id] = parsedData.error.code;
 		});
+
+		setTimeout(function () {
+			expect(expected).to.deep.eq(results);
+			socket.close();
+			done();
+		}, timeouts[0]);
 	});
 
 	it('returns parse error for malformed JSON', function(done) {
@@ -441,30 +437,20 @@ describe.skip('RPC over SocketIO', function() {
 		this.timeout(timeout);
 		let messages = 0;
 
-		const url = 'ws://localhost:3000/endpoint/test/1.0';
-		const { origin, pathname } = getOriginAndPathname(url);
-		const socketToRootPath = io.connect(origin);
-		socketToRootPath.on('connect', function(/*socketRoot*/) {
-			socketToRootPath.emit('ensure_socketio_namespace', pathname, function (/*ack*/) {
-				const socket = io.connect(url);
-				socket.on('connect', function () {
-					socket.send('Parse Error must be returned.');
-				});
-				socket.on('message', function (data) {
-					const parsedData = JSON.parse(data);
-					if (Object.keys(parsedData).length == 0) return;
-					messages++;
-					expect(parsedData).not.to.be.null;
-					expect(parsedData.error).not.to.be.null;
-					expect(parsedData.error).to.be.defined;
-					expect(parsedData.error.code).to.eq(-32700);
-				});
-				setTimeout(function () {
-					expect(messages).to.eq(1);
-					done();
-				}, timeouts[0]);
-			});
+		socket.send('Parse Error must be returned.');
+		socket.on('message', function (data) {
+			const parsedData = JSON.parse(data);
+			if (Object.keys(parsedData).length == 0) return;
+			messages++;
+			expect(parsedData).not.to.be.null;
+			expect(parsedData.error).not.to.be.null;
+			expect(parsedData.error).to.be.defined;
+			expect(parsedData.error.code).to.eq(-32700);
 		});
+		setTimeout(function () {
+			expect(messages).to.eq(1);
+			done();
+		}, timeouts[0]);
 	});
 });
 
@@ -628,19 +614,19 @@ describe('node.js proxy', function() {
 				done();
 			}, 1000);
 
-			// setTimeout(function() {
-			// 	expect(h2).to.be.above(0);
-			// 	expect(h3).to.be.above(0);
-			// 	t.removeAllListeners('testEvent');
-			// 	t.removeAllListeners('test.the.namespace.event');
-			// 	h2 = h3 = 0;
-			// }, 1500);
-            //
-			// setTimeout(function() {
-			// 	expect(h1 + h2 + h3).to.eq(0);
-			// 	expect(data).to.deep.eq({ hello: 'world'});
-			// 	done();
-			// }, 2000);
+			setTimeout(function() {
+				expect(h2).to.be.above(0);
+				expect(h3).to.be.above(0);
+				t.removeAllListeners('testEvent');
+				t.removeAllListeners('test.the.namespace.event');
+				h2 = h3 = 0;
+			}, 1500);
+
+			setTimeout(function() {
+				expect(h1 + h2 + h3).to.eq(0);
+				expect(data).to.deep.eq({ hello: 'world'});
+				done();
+			}, 2000);
 		}).catch(done);
 	});
 
