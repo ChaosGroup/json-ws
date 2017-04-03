@@ -49,7 +49,7 @@ function mapGoType(param) {
 			break;
 
 		case 'url':
-			returnType = 'url.URL';
+			returnType = 'string';
 			break;
 
 		case 'buffer':
@@ -336,7 +336,6 @@ function generateImports() {
 	const importPath = {
 		io: 'io',
 		time: 'time',
-		url: 'net/url',
 		vrpc: 'git.chaosgroup.com/vcloud/vrcl/beehive/@vraycloud/proxy/src/vrpc'
 	};
 
