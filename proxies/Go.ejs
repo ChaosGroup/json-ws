@@ -59,7 +59,7 @@ function mapGoType(param) {
 			break;
 
 		case 'error':
-			returnType = 'jsonws.Error';
+			returnType = '*jsonws.Error';
 			break;
 
 		case undefined:
@@ -352,7 +352,7 @@ function generateImports() {
 		.map(mapGoType)
 		.filter(type => type.indexOf('.') !== -1)
 		.map(type => type.slice(0, type.indexOf('.')));
-	var types = _.uniq(structFieldTypes.concat(methodTypes).concat(['vrpc']))
+	var types = _.uniq(structFieldTypes.concat(methodTypes).concat(['vrpc']).map(type => type.replace("*", "")))
 		.map(importName => `"${importPath[importName]}"`);
 	types.sort();
 
