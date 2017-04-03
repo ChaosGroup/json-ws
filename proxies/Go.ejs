@@ -49,13 +49,17 @@ function mapGoType(param) {
 			break;
 
 		case 'url':
-			returnType = 'url.URL';
+			returnType = 'string';
 			break;
 
 		case 'buffer':
 		case 'binary':
 		case 'stream':
-			returnType = 'io.Reader';
+			returnType = '[]byte';
+			break;
+
+		case 'error':
+			returnType = '*jsonws.Error';
 			break;
 
 		case undefined:
@@ -334,10 +338,9 @@ function generateSetCallerMethods(generated, root) {
 
 function generateImports() {
 	const importPath = {
-		io: 'io',
 		time: 'time',
-		url: 'net/url',
-		vrpc: 'git.chaosgroup.com/vcloud/vrcl/beehive/@vraycloud/proxy/src/vrpc'
+		vrpc: 'git.chaosgroup.com/vcloud/vrcl/beehive/@vraycloud/proxy/src/vrpc',
+		jsonws: 'git.chaosgroup.com/vcloud/vrcl/beehive/@vraycloud/proxy/src/vrpc/jsonws'
 	};
 
 	const structFieldTypes = _.flatMap(metadata.types, t => _.values(t.struct))
@@ -349,7 +352,7 @@ function generateImports() {
 		.map(mapGoType)
 		.filter(type => type.indexOf('.') !== -1)
 		.map(type => type.slice(0, type.indexOf('.')));
-	var types = _.uniq(structFieldTypes.concat(methodTypes).concat(['vrpc']))
+	var types = _.uniq(structFieldTypes.concat(methodTypes).concat(['vrpc']).map(type => type.replace("*", "")))
 		.map(importName => `"${importPath[importName]}"`);
 	types.sort();
 
