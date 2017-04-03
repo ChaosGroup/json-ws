@@ -55,7 +55,7 @@ function mapGoType(param) {
 		case 'buffer':
 		case 'binary':
 		case 'stream':
-			returnType = 'io.Reader';
+			returnType = '[]byte';
 			break;
 
 		case undefined:
@@ -334,7 +334,6 @@ function generateSetCallerMethods(generated, root) {
 
 function generateImports() {
 	const importPath = {
-		io: 'io',
 		time: 'time',
 		vrpc: 'git.chaosgroup.com/vcloud/vrcl/beehive/@vraycloud/proxy/src/vrpc'
 	};
