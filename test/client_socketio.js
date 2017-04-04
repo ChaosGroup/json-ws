@@ -462,7 +462,7 @@ describe('node.js proxy', function() {
 	});
 
 	const getProxy = Bluebird.promisify(jsonws.proxy, jsonws);
-	const SocketIoTransport = jsonws.client.transports.SocketIO;
+	const SocketIoTransport = require('../lib/client/transports/sio');
 
 	beforeEach(() => {
 		opts = {

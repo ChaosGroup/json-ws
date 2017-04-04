@@ -4,17 +4,10 @@ var localName = locals.localName;
 %>/**
  * @module <%=localName%>
  */
-(function (exports) {
-	var RpcClient = (function () {
-		try {
-			return require('json-ws/client');
-		} catch (e) {
-			return exports.RpcClient;
-		}
-	}());
-	var inherits = RpcClient.ports.inherits;
-	var EventEmitter = RpcClient.ports.EventEmitter;
-	var RpcTunnel = RpcClient.tunnel;
+(function (module, require, define) {
+	var EventEmitter = require('events');
+	var inherits = require('util').inherits;
+	var RpcTunnel = require('json-ws/client');
 
 	/**
 	 * @param {(url|Transport)} url - Either url of server (string) or Transport instance to be used as a sole transport.
@@ -304,4 +297,19 @@ Object.keys(metadata.methods).forEach(function(methodName) {
 	})
 })()
 
-%>}(typeof module !== 'undefined' ? module.exports : window));
+%>}.apply(null, (function() {
+	'use strict';
+
+	if (typeof window !== 'undefined') {
+		if (typeof window.jsonws === 'undefined') {
+			throw new Error('No json-ws polyfills found.');
+		}
+
+		var jsonws = window.jsonws;
+
+		return [jsonws, jsonws.require, jsonws.define];
+	}
+
+	// else assume node.js:
+	return [module, require, function() {}];
+}())));
