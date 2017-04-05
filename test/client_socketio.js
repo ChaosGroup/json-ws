@@ -192,7 +192,8 @@ function startServer(done) {
 			// transport has already been added
 		}
 		try {
-			registry.addTransport(new jsonws.transport.SocketIO(registry, serviceInstance.name, servicePathPrefix));
+			const socketIoTransport = require('../lib/transport/socketio-transport');
+			registry.addTransport(new socketIoTransport(registry));
 		} catch (err) {
 			// transport has already been added
 		}
@@ -250,7 +251,8 @@ describe('RPC over SocketIO', function() {
 			const connectionContextPayload = {
 				validationParams: null,
 				serviceName: 'test',
-				serviceVersion: '1.0'
+				serviceVersion: '1.0',
+				path: '/socket.io'
 			};
 			socketToRootPath.emit('rpc.sio.setConnectionContext', connectionContextPayload, function(/*ack*/) {
 				socket = socketToRootPath;

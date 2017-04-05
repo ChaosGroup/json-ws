@@ -34,7 +34,8 @@ expressApp.get('/test', function(req, res) {
 httpServer.listen(expressApp.get('port'), function () {
 	registry.addTransport(transport.HTTP);
 	// registry.addTransport(transport.WebSocket);
-	registry.addTransport(SocketIOTransport);
+	// see 'examples_snippets_sio.js' for client transport example to connect to this socket
+	registry.addTransport(new SocketIOTransport(registry, '/test-api/socket.io'));
 	registry.addService(serviceApi);
 	console.log('Express server listening on ' + JSON.stringify(httpServer.address()));
 });
