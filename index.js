@@ -22,8 +22,7 @@ module.exports.getLanguageProxy = require('./lib/get-language-proxy');
 
 module.exports.transport = {
 	HTTP: require('./lib/transport/http-transport'),
-	WebSocket: require('./lib/transport/ws-transport'),
-	SocketIO: require('./lib/transport/socketio-transport')
+	WebSocket: require('./lib/transport/ws-transport')
 };
 
 /**
