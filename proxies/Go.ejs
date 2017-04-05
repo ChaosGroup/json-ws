@@ -339,8 +339,8 @@ function generateSetCallerMethods(generated, root) {
 function generateImports() {
 	const importPath = {
 		time: 'time',
-		vrpc: 'git.chaosgroup.com/vcloud/vrcl/beehive/@vraycloud/proxy/src/vrpc',
-		jsonws: 'git.chaosgroup.com/vcloud/vrcl/beehive/@vraycloud/proxy/src/vrpc/jsonws'
+		vrpc: 'git.chaosgroup.com/vcloud/service-framework/vrpc',
+		jsonws: 'git.chaosgroup.com/vcloud/service-framework/vrpc/jsonws'
 	};
 
 	const structFieldTypes = _.flatMap(metadata.types, t => _.values(t.struct))
