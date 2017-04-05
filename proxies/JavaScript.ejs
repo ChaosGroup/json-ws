@@ -5,6 +5,8 @@ var localName = locals.localName;
  * @module <%=localName%>
  */
 (function (module, require, define) {
+	'use strict';
+
 	var EventEmitter = require('events');
 	var inherits = require('util').inherits;
 	var RpcTunnel = require('json-ws/client');
@@ -14,7 +16,7 @@ var localName = locals.localName;
 	 * @constructor
 	 * @alias module:<%=localName%>.<%=localName%>
 	 */
-	var <%=localName%> = exports.<%=localName%> = function <%=localName%>(url, sslSettings) {
+	var <%=localName%> = module.exports.<%=localName%> = function <%=localName%>(url, sslSettings) {
 		if (!this instanceof <%=localName%>) {
 			return new <%=localName%>(url);
 		}
@@ -293,6 +295,7 @@ Object.keys(metadata.methods).forEach(function(methodName) {
 	 * @type <%-getFullTypeName(eventInfo.type)%>
 	 */
 
+	define('<%-localName%>', <%-localName%>);
 <%
 	})
 })()
