@@ -4,8 +4,11 @@ var localName = locals.localName;
 %>/**
  * @module <%=localName%>
  */
-(function (module, require, define) {
-	'use strict';
+(function (module, define) {
+	// using non-strict mode, otherwise the re-assignment of require would throw TypeError
+	if (typeof require !== 'function') {
+		require = module.require;
+	}
 
 	var EventEmitter = require('events');
 	var inherits = require('util').inherits;
@@ -295,24 +298,30 @@ Object.keys(metadata.methods).forEach(function(methodName) {
 	 * @type <%-getFullTypeName(eventInfo.type)%>
 	 */
 
-	define('<%-localName%>', <%-localName%>);
 <%
-	})
-})()
+	})%>
+	define('<%-localName%>', <%-localName%>);
+
+<%})()
 
 %>}.apply(null, (function() {
 	'use strict';
 
+	if (typeof module !== 'undefined') {
+		// node.js and webpack
+		return [module, function() {}];
+	}
+
 	if (typeof window !== 'undefined') {
+		// browser
 		if (typeof window.jsonws === 'undefined') {
 			throw new Error('No json-ws polyfills found.');
 		}
 
 		var jsonws = window.jsonws;
 
-		return [jsonws, jsonws.require, jsonws.define];
+		return [jsonws, jsonws.define];
 	}
 
-	// else assume node.js:
-	return [module, require, function() {}];
+	throw new Error('Unknown environment, this code should be used in node.js/webpack/browser');
 }())));
