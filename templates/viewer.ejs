@@ -1,21 +1,24 @@
 <%
-	var root = locals.root;
 	var title = locals.title;
-	var url = locals.url;
 	var examples = locals.examples;
 	var snippets = locals.snippets;
 	var code = locals.code;
 	var client = locals.client;
 	var metadata = locals.metadata;
+	var jsFiles = locals.jsFiles;
+	var constructorName = locals.constructorName;
 %><!DOCTYPE html>
 <html>
 <head>
 	<meta charset="utf-8">
 	<title><%= title %> - Playground</title>
+    <% Object.keys(jsFiles).forEach(function (jsScript) { %>
+	<script><%-jsFiles[jsScript]%></script>
+    <% }); %>
 	<script>
-		<%-client%>
+		window.require = jsonws.require;
 	</script>
-	<script src="?proxy=JavaScript&localName=Proxy"></script>
+	<script src="?proxy=JavaScript&localName=<%-constructorName%>"></script>
 	<script src="./static/ace.js"></script>
 	<script src="./static/ext-language_tools.js"></script>
 	<style>
@@ -140,7 +143,7 @@
 				<button title="Examples" type="button" class="btn blue" id="listButton"><svg id="listSvg" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24"><path d="M19 9H2v2h17V9zm0-4H2v2h17V5zM2 15h13v-2H2v2zm15-2v6l5-3-5-3z"/></svg></button>
 				<div class="listDropdown blue">
 					<% snippets.forEach(function(snippet) {
-						var link = url + "?viewer&snippet=" + snippet; %>
+						var link = "?viewer&snippet=" + snippet; %>
 					<a class="blue entry" href="<%-link%>"><svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24">
 							<path d="M0 0h24v24H0z" fill="none"/>
 							<path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/>
@@ -333,7 +336,8 @@
 		}
 
 		function getFirstLine() {
-			return 'var proxy = new Proxy("' + getWindowLocationOrigin() + window.location.pathname + '");\n\n';
+			return 'var <%-constructorName%> = require("<%-constructorName%>");\n' +
+				'var proxy = new <%-constructorName%>("' + getWindowLocationOrigin() + window.location.pathname + '");\n\n';
 		}
 
 		function initEditor() {

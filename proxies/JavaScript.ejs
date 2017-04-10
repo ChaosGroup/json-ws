@@ -4,32 +4,38 @@ var localName = locals.localName;
 %>/**
  * @module <%=localName%>
  */
-(function (exports) {
-	var RpcClient = (function () {
-		try {
-			return require('json-ws/client');
-		} catch (e) {
-			return exports.RpcClient;
-		}
-	}());
-	var inherits = RpcClient.ports.inherits;
-	var EventEmitter = RpcClient.ports.EventEmitter;
-	var RpcTunnel = RpcClient.tunnel;
+(function (module, define) {
+	// using non-strict mode, otherwise the re-assignment of require would throw TypeError
+	if (typeof require !== 'function') {
+		require = module.require;
+	}
+
+	var EventEmitter = require('events');
+	var inherits = require('util').inherits;
+	var RpcTunnel = require('json-ws/client');
 
 	/**
+	 * @param {(url|Transport)} url - Either url of server (string) or Transport instance to be used as a sole transport.
 	 * @constructor
 	 * @alias module:<%=localName%>.<%=localName%>
 	 */
-	var <%=localName%> = exports.<%=localName%> = function <%=localName%>(url, sslSettings) {
+	var <%=localName%> = module.exports.<%=localName%> = function <%=localName%>(url, sslSettings) {
 		if (!this instanceof <%=localName%>) {
 			return new <%=localName%>(url);
 		}
-		if (!url || typeof url !== 'string') {
+		if (!url) {
 			throw new Error('Invalid proxy URL');
 		}
+		if (typeof url !== 'string') {
+			this._transport = url;
+			this.defaultTransport = null;
+			this.rpc = new RpcTunnel(url);
+		} else {
+			this._transport = null;
+			this.rpc = new RpcTunnel(url, sslSettings);
+			this.defaultTransport = 'http';
+		}
 		var self = this;
-		this.defaultTransport = 'http';
-		this.rpc = new RpcTunnel(url, sslSettings);
 		this.rpc.on('event', function(e) {
 			self.emit(e.name, e.data);
 		});
@@ -55,12 +61,22 @@ var localName = locals.localName;
 	Object.defineProperty(<%= localName %>, 'VERSION', { value: '<%= metadata.version.slice(0, metadata.version.lastIndexOf('.')) %>'});
 
 	<%=localName%>.prototype.useHTTP = function() {
-		this.defaultTransport = 'http';
+		if (this._transport !== null && this._transport.name !== 'http') {
+			throw new Error('HTTP transport requested, but ' + this._transport.name + ' given.');
+		} else {
+			this.defaultTransport = 'http';
+		}
+
 		return this;
 	};
 
 	<%=localName%>.prototype.useWS = function() {
-		this.defaultTransport = 'ws';
+		if (this._transport !== null && this._transport.name !== 'ws') {
+			throw new Error('WebSockets transport requested, but ' + this._transport.name + ' given.');
+		} else {
+			this.defaultTransport = 'ws';
+		}
+
 		return this;
 	};
 
@@ -70,7 +86,11 @@ var localName = locals.localName;
 
 	<%=localName%>.prototype.on = <%=localName%>.prototype.addListener = function(type, listener) {
 		if (this.listeners(type).length == 0) {
-			this.rpc.call({ method: 'rpc.on', params: [type], transport: 'ws' });
+			if (this._transport && this._transport.supportEvents) {
+				this.rpc.call({ method: 'rpc.on', params: [type], transport: this._transport.name });
+			} else if (this._transport === null) {
+				this.rpc.call({ method: 'rpc.on', params: [type], transport: 'ws'});
+			}
 		}
 		EventEmitter.prototype.addListener.call(this, type, listener);
 	};
@@ -78,13 +98,21 @@ var localName = locals.localName;
 	<%=localName%>.prototype.removeListener = function(type, listener) {
 		EventEmitter.prototype.removeListener.call(this, type, listener);
 		if (this.listeners(type).length == 0) {
-			this.rpc.call({ method: 'rpc.off', params: [type], transport: 'ws' });
+			if (this._transport && this._transport.supportEvents) {
+				this.rpc.call({ method: 'rpc.off', params: [type], transport: this._transport.name });
+			} else if (this._transport === null) {
+				this.rpc.call({ method: 'rpc.off', params: [type], transport: 'ws'});
+			}
 		}
 	};
 
 	<%=localName%>.prototype.removeAllListeners = function(type) {
 		EventEmitter.prototype.removeAllListeners.call(this, type);
-		this.rpc.call({ method: 'rpc.off', params: [type], transport: 'ws' });
+		if (this._transport && this._transport.supportEvents) {
+			this.rpc.call({ method: 'rpc.off', params: [type], transport: this._transport.name });
+		} else if (this._transport === null) {
+			this.rpc.call({ method: 'rpc.off', params: [type], transport: 'ws'});
+		}
 	};
 <%
 
@@ -251,7 +279,7 @@ Object.keys(metadata.methods).forEach(function(methodName) {
 			method: '<%-methodName%>',
 			params: args,
 			expectReturn: <%-!!metadata.methods[methodName].returns || !!metadata.methods[methodName].async%>,
-			transport: this.defaultTransport
+			transport: this._transport && this._transport.name || this.defaultTransport
 		}, callback);
 	};
 
@@ -271,7 +299,29 @@ Object.keys(metadata.methods).forEach(function(methodName) {
 	 */
 
 <%
-	})
-})()
+	})%>
+	define('<%-localName%>', <%-localName%>);
 
-%>}(typeof module !== 'undefined' ? module.exports : window));
+<%})()
+
+%>}.apply(null, (function() {
+	'use strict';
+
+	if (typeof module !== 'undefined') {
+		// node.js and webpack
+		return [module, function() {}];
+	}
+
+	if (typeof window !== 'undefined') {
+		// browser
+		if (typeof window.jsonws === 'undefined') {
+			throw new Error('No json-ws polyfills found.');
+		}
+
+		var jsonws = window.jsonws;
+
+		return [jsonws, jsonws.define];
+	}
+
+	throw new Error('Unknown environment, this code should be used in node.js/webpack/browser');
+}())));

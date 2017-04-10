@@ -1,21 +1,8 @@
 /**
  * JSON-WS RPC client test suite
+ * Testing SocketIO client
  */
 'use strict';
-
-/**
- * TODO
- * find a way to run all tests twice
- * once with transport 'jsonws.transport.WebSocket' and
- * once with transport 'jsonws.transport.SocketIO'
- */
-
-// error codes:
-// -32600: jsonrpc not 2.0
-// -32601: method not found
-// -32602: invalid parameters
-// -32000: internal server error
-// -32700: parse error
 
 const fs = require('fs');
 const Bluebird = require('bluebird');
@@ -25,7 +12,7 @@ const EventEmitter = require('events');
 
 const jsonws = require('../index.js');
 const request = Bluebird.promisifyAll(require('request'), {multiArgs: true});
-const WebSocket = require('ws');
+const io = require('socket.io-client');
 const http = require('http');
 const express = require('express');
 const bodyParser = require('body-parser');
@@ -179,6 +166,7 @@ let serverUrl;
 let serverWsUrl;
 let httpProxyUrl;
 let getContextUrl;
+let serviceInstance;
 
 let serveMetadata = false;
 
@@ -196,17 +184,19 @@ function startServer(done) {
 	registry.addRoute('/ctx/:ctxId');
 
 	httpServer.listen(PORT, function () {
+		serviceInstance = buildTestService();
+		const servicePathPrefix = registry.addService(serviceInstance);
 		try {
 			registry.addTransport(jsonws.transport.HTTP);
 		} catch (err) {
 			// transport has already been added
 		}
 		try {
-			registry.addTransport(jsonws.transport.WebSocket);
+			const socketIoTransport = require('../lib/transport/socketio-transport');
+			registry.addTransport(new socketIoTransport(registry));
 		} catch (err) {
 			// transport has already been added
 		}
-		const servicePathPrefix = registry.addService(buildTestService());
 		const registryRootUrl = `http://localhost:${httpServer.address().port}${registry.rootPath}`;
 		serverUrl = `${registryRootUrl}${servicePathPrefix}`;
 
@@ -229,194 +219,53 @@ function setupServer(done) {
 	httpServer ? done() : startServer(done);
 }
 
-function destroyServer(done) {
-	if (httpServer) {
-		httpServer.close(done);
-		httpServer = null;
-	} else {
-		done();
+/**
+ * Returns the origin(protocol://host:port) and pathname(/some/path/after/origin)
+ * @param {string} url
+ * @returns {{origin: string, pathname: string}}
+ */
+function getOriginAndPathname(url) {
+	const re = /((ws|http)s?:\/+|)(\S+:\d+)(\/.*)/;
+	const reUrl = re.exec(url);
+	if (!reUrl) {
+		throw new Error(`Count not parse url: '${url}'`);
 	}
+	const origin = reUrl[1] + reUrl[3];
+	const pathname = reUrl[4];
+	return { origin, pathname };
 }
 
-describe('Metadata Off', function() {
-	before(setupServer);
-	after(destroyServer);
-
-	it('/ returns 404 with the registry flag serveMetadata=false', () =>
-		request.getAsync(serverUrl, { json: true }).then(function(result) {
-			expect(result[0].statusCode).to.eq(404);
-			expect(result[1]).to.match(/Cannot GET/);
-		})
-	);
-
-	it('?json returns 404 with the registry flag serveMetadata=false', () =>
-		request.getAsync(serverUrl + '?json', { json: true }).then(function(result) {
-			expect(result[0].statusCode).to.eq(404);
-			expect(result[1]).to.match(/Cannot GET/);
-		})
-	);
-
-	it('?viewer returns 404 with the registry flag serveMetadata=false', () =>
-		request.getAsync(serverUrl + '?viewer', { json: true }).then(function(result) {
-			expect(result[0].statusCode).to.eq(404);
-			expect(result[1]).to.match(/Cannot GET/);
-		})
-	);
-
-	it('?proxy returns 404 with the registry flag serveMetadata=false', () =>
-		request.getAsync(serverUrl + '?proxy', { json: true }).then(function(result) {
-			expect(result[0].statusCode).to.eq(404);
-			expect(result[1]).to.match(/Cannot GET/);
-		})
-	);
-});
-
-describe('Metadata On', function() {
+describe('RPC over SocketIO', function() {
 	before(done => {
 		serveMetadata = true;
 		setupServer(done);
 	});
 
-	it('returns metadata in JSON format', function() {
-		return request.getAsync(serverUrl + '?json', { json: true }).then(function(result) {
-			const json = result[1]; // result === [response, body]
-			expect(json.name).to.be.defined;
-			expect(json.version).to.be.defined;
-			expect(json.transports).to.be.defined;
-			expect(json.types).to.be.defined;
-			expect(json.events).to.be.defined;
-			expect(json.methods).to.be.defined;
-		});
-	});
+	const url = 'ws://localhost:3000/endpoint/test/1.0';
+	let socket;
 
-	it('returns proxies for the supported languages', function() {
-		const languages = ['JavaScript', 'Java', 'CSharp', 'Python', 'Php'];
-		const proxyRequests = languages.map(function (language) {
-			return request.getAsync(serverUrl + '?proxy=' + language);
-		});
-
-		return Promise.all(proxyRequests).then(function(results) {
-			results.forEach(function(result) { // result === [response, body]
-				const r = result[0];
-				expect(r.statusCode).to.eq(200, 'Missing proxy for ' + r.req.path.substr(20));
+	beforeEach(done => {
+		const origin = getOriginAndPathname(url).origin;
+		const socketToRootPath = io.connect(origin);
+		socketToRootPath.on('connect', function(/*socketRoot*/) {
+			const connectionContextPayload = {
+				validationParams: null,
+				serviceName: 'test',
+				serviceVersion: '1.0',
+				path: '/socket.io'
+			};
+			socketToRootPath.emit('rpc.sio.setConnectionContext', connectionContextPayload, function(/*ack*/) {
+				socket = socketToRootPath;
+				done();
 			});
 		});
 	});
-});
-
-describe('RPC over HTTP', function() {
-	before(setupServer);
-
-	function getAsync(method) {
-		return request.getAsync({
-			url: serverUrl + '/' + method
-		});
-	}
-
-	function postAsync(method, json) {
-		return request.postAsync({
-			url: serverUrl + '/' + method,
-			json: json || {}
-		});
-	}
-
-	it('works with legal method calls', function() {
-		const expected = [
-			3, 3, 3, '12', 3, 6, 12,
-			{a: 12, b: 'hello'}, 10, 11, 12, 13,
-			'world', 'world',
-			'Abc', 'ABc', 'AbC', 'ABC',
-			'Abc', 'ABc', 'ABC',
-			'Abc', 'ABc', 'AbC', 'ABC', 'ABC',
-			{name: 'Error', message: 'FooBar'}, {name: 'Error', message: 'FooBar'}
-		];
-		return Promise.all([
-			postAsync('sum', {params: {b: 1, a: 2}}),
-			postAsync('asyncSum?id=1', {params: [2, 1]}),
-			getAsync('sum?a=2&b=1'),
-			postAsync('asyncSum', {params: ['1', '2']}),
-			getAsync('sum?params=["1", "2"]'),
-			getAsync('mul?params=["3", "2"]'),
-			postAsync('mul', {params: {a: 4, b: 3}}),
-			getAsync('dataTest?params=[{"a": 12, "b": "hello"}]'),
-			getAsync('sumArray?params=[[1,2,3,4]]'),
-			getAsync('sumArray?ints=[1,2,3,5]'),
-			postAsync('sumArray', {params: { ints: [1,2,3,6] } }),
-			postAsync('sumArray', {params: [ [1,2,3,7] ] }),
-			getAsync('hello'),
-			postAsync('hello'),
-			getAsync('optionalArgs?a=A'),
-			getAsync('optionalArgs?a=A&b=B'),
-			getAsync('optionalArgs?a=A&c=C'),
-			getAsync('optionalArgs?a=A&b=B&c=C'),
-			getAsync('optionalArgs?params=["A"]'),
-			getAsync('optionalArgs?params=["A", "B"]'),
-			getAsync('optionalArgs?params=["A", "B", "C"]'),
-			postAsync('optionalArgs', { params: ['A']}),
-			postAsync('optionalArgs', { params: ['A', 'B']}),
-			postAsync('optionalArgs', { params: { a: 'A', c: 'C' } }),
-			postAsync('optionalArgs', { params: ['A', 'B', 'C'] }),
-			postAsync('optionalArgs', { params: { a: 'A', b: 'B', c: 'C' } }),
-			getAsync('returnError'),
-			postAsync('returnError')
-		]).then(function(results) {
-			results = results.map(function(r) { // r === [response, body]
-				if (typeof r[1] === 'string') {
-					r[1] = JSON.parse(r[1]);
-				}
-				return r[1].result;
-			});
-			expect(results).to.deep.eq(expected);
-		});
-	});
-
-	it('returns error codes', function() {
-		const expected = [
-			-32601, -32601, -32601,	 // method not found
-			-32602, -32602, -32602,  // invalid parameters
-			-32602, -32602,
-			-32000, -32000, -32000, -32602, -32602, -32000	 // internal server error
-		];
-
-		return Promise.all([
-			getAsync('inexistingMethod'),
-			postAsync('inexistingMethod'),
-			postAsync('?'),
-			getAsync('sum?params={"c":1, "a":2}'),
-			getAsync('sum?a=2&c=1'),
-			getAsync('sum?params=[2]'),
-			getAsync('optionalArgs'),
-			getAsync('optionalArgs?b=b&c=c'),
-			getAsync('sumArray?ints=1234'),
-			getAsync('throwError'),
-			getAsync('throwUnexpectedError'),
-			getAsync('hello?params=["fake"]'),
-			postAsync('hello', {params:['fake']}),
-			getAsync('dataTest?params=[1234]')
-		]).then(function(results) {
-			results = results.map(function (r) { // r === [response, body]
-				if (typeof r[1] === 'string') {
-					r[1] = JSON.parse(r[1]);
-				}
-				expect(r[1].error).to.be.defined;
-				expect(r[1].error).not.to.be.null;
-				if (r[1].id == 'throwUnexpectedError') {
-					expect(r[1].error.data).to.match(/unexpected error/);
-				}
-				return r[1].error.code;
-			});
-			expect(results).to.deep.eq(expected);
-		});
-	});
-});
-
-describe('RPC over WebSocket', function() {
-	before(setupServer);
 
 	it('works with legal method calls and event subscription', function(done) {
-		this.timeout(4000);
+		const timeouts = [ 1200, 2000, 3000 ];
+		const timeout = Math.max(...timeouts) + 1000;
+		this.timeout(timeout);
 
-		const ws = new WebSocket(serverWsUrl);
 		let events = 0;
 		let recCommands = 0;
 		let expCommands;
@@ -439,34 +288,33 @@ describe('RPC over WebSocket', function() {
 				jsonrpc: '2.0'
 			};
 			const request = JSON.stringify(commandData);
-			return new Promise(function(resolve) {
-				ws.send(request, resolve);
+			return new Promise(resolve => {
+				socket.send(request, () => {});
+				resolve();
 			});
 		}
 
-		ws.on('open', function () {
-			ws.send(JSON.stringify({
-				'jsonrpc': '2.0',
-				'method': 'rpc.on',
-				'params': ['testEvent']
-			}));
+		socket.send(JSON.stringify({
+			'jsonrpc': '2.0',
+			'method': 'rpc.on',
+			'params': ['testEvent']
+		}));
 
-			Promise.all([
-				sendCommand('sum', [2, -2]),
-				sendCommand('sum', {'a': 2, 'b': -2}),
-				sendCommand('hello', null),
-				sendCommand('asyncSum', ['1', '2']),
-				sendCommand('dataTest', { a: { a: 5, b: 'test', extra: 'true' }}),
-				sendCommand('sumArray', { ints: [1, 2, 3, 4]}),
-				sendCommand('sumArray', [ [1, 2, 3, 4] ]),
-				sendCommand('optionalArgs', { a: 'A', c: 'C' }),
-				sendCommand('returnError')
-			]).then(function(result) {
-				expCommands = result.length;
-			});
+		Promise.all([
+			sendCommand('sum', [2, -2]),
+			sendCommand('sum', {'a': 2, 'b': -2}),
+			sendCommand('hello', null),
+			sendCommand('asyncSum', ['1', '2']),
+			sendCommand('dataTest', { a: { a: 5, b: 'test', extra: 'true' }}),
+			sendCommand('sumArray', { ints: [1, 2, 3, 4]}),
+			sendCommand('sumArray', [ [1, 2, 3, 4] ]),
+			sendCommand('optionalArgs', { a: 'A', c: 'C' }),
+			sendCommand('returnError')
+		]).then(function(result) {
+			expCommands = result.length;
 		});
 
-		ws.on('message', function (data) {
+		socket.on('message', function (data) {
 			const parsedData = JSON.parse(data);
 			if (Object.keys(parsedData).length == 0) return;
 			expect(parsedData).not.to.be.null;
@@ -491,28 +339,29 @@ describe('RPC over WebSocket', function() {
 			expect(expected).to.deep.eq(results);
 			expect(recCommands).to.eq(expCommands);
 			expect(events).to.be.above(0);
-			ws.send(JSON.stringify({
+			socket.send(JSON.stringify({
 				'jsonrpc': '2.0',
 				'method': 'rpc.off',
 				'params': ['testEvent']
 			}));
 			finalEvents = events;
-		}, 1200);
+		}, timeouts[0]);
 
 		setTimeout(function() {
 			finalEvents = events;
-		}, 2000);
+		}, timeouts[1]);
 
 		setTimeout(function () {
 			expect(events).to.eq(finalEvents, 'events do not fire after unsubscribe');
-			ws.close();
+			socket.close();
 			done();
-		}, 3000);
+		}, timeouts[2]);
 	});
 
 	it('returns error codes', function(done) {
-		this.timeout(660);
-		const ws = new WebSocket(serverWsUrl);
+		const timeouts = [ 500 ];
+		const timeout = Math.max(...timeouts) + 200;
+		this.timeout(timeout);
 		let id = 0;
 		const expected = [-32600,
 			-32601, -32601, -32601,
@@ -528,18 +377,18 @@ describe('RPC over WebSocket', function() {
 				jsonrpc: '2.0'
 			};
 			const request = JSON.stringify(commandData);
-
-			return new Promise(function(resolve) {
-				ws.send(request, resolve);
+			return new Promise(resolve => {
+				socket.send(request, () => {});
+				resolve();
 			});
 		}
 
 		function sendPartialCommand(commandData) {
 			commandData.id = id++;
 			const request = JSON.stringify(commandData);
-
-			return new Promise(function(resolve) {
-				ws.send(request, resolve);
+			return new Promise(resolve => {
+				socket.send(request, () => {});
+				resolve();
 			});
 		}
 
@@ -564,10 +413,9 @@ describe('RPC over WebSocket', function() {
 			});
 		}
 
-		ws.on('open', function () {
-			sendCommands();
-		});
-		ws.on('message', function (data) {
+		sendCommands();
+
+		socket.on('message', function (data) {
 			const parsedData = JSON.parse(data);
 			if (Object.keys(parsedData).length == 0) return;
 			expect(parsedData).not.to.be.null;
@@ -580,19 +428,19 @@ describe('RPC over WebSocket', function() {
 
 		setTimeout(function () {
 			expect(expected).to.deep.eq(results);
-			ws.close();
+			socket.close();
 			done();
-		}, 500);
+		}, timeouts[0]);
 	});
 
 	it('returns parse error for malformed JSON', function(done) {
-		this.timeout(150);
-		const ws = new WebSocket(serverWsUrl);
+		const timeouts = [ 120 ];
+		const timeout = Math.max(...timeouts) + 200;
+		this.timeout(timeout);
 		let messages = 0;
-		ws.on('open', function () {
-			ws.send('Parse Error must be returned.');
-		});
-		ws.on('message', function (data) {
+
+		socket.send('Parse Error must be returned.');
+		socket.on('message', function (data) {
 			const parsedData = JSON.parse(data);
 			if (Object.keys(parsedData).length == 0) return;
 			messages++;
@@ -604,21 +452,36 @@ describe('RPC over WebSocket', function() {
 		setTimeout(function () {
 			expect(messages).to.eq(1);
 			done();
-		}, 120);
+		}, timeouts[0]);
 	});
 });
 
 describe('node.js proxy', function() {
-	before(setupServer);
+	let opts, transport;
+	before(done => {
+		serveMetadata = true;
+		setupServer(done);
+	});
 
 	const getProxy = Bluebird.promisify(jsonws.proxy, jsonws);
+	const SocketIoTransport = require('../lib/client/transports/sio');
 
-	it('works with legal method calls', function() {
-		return getProxy(httpProxyUrl).then(function(proxy) {
+	beforeEach(() => {
+		opts = {
+			serviceName: serviceInstance.name,
+			serviceVersion: '1.0'
+		};
+		transport = new SocketIoTransport(serverUrl, Object.assign({}, opts));
+	});
+
+	it('works with legal method calls', function () {
+		return getProxy(httpProxyUrl).then(function (proxy) {
 			expect(proxy).to.be.ok;
-
-			const t = new proxy.Tester(serverUrl);
-			const expected = [5, 6, 10, 6, 10, 25, {a: 5, b: 'test'}, 'Abc', 'ABc', 'ABC', 'world', {name: 'Error', message: 'FooBar'}];
+			const t = new proxy.Tester(transport);
+			const expected = [5, 6, 10, 6, 10, 25, {a: 5, b: 'test'}, 'Abc', 'ABc', 'ABC', 'world', {
+				name: 'Error',
+				message: 'FooBar'
+			}];
 
 			return Promise.all([
 				t.sum(2, 3),
@@ -633,7 +496,7 @@ describe('node.js proxy', function() {
 				t.optionalArgs('A', 'B', 'C'),
 				t.hello(),
 				t.returnError()
-			]).then(function(results) {
+			]).then(function (results) {
 				expect(results).to.deep.eq(expected, 'invalid results');
 			});
 		});
@@ -642,8 +505,7 @@ describe('node.js proxy', function() {
 	it('returns error codes', function() {
 		return getProxy(httpProxyUrl).then(function(proxy) {
 			expect(proxy).to.be.ok;
-
-			const t = new proxy.Tester(serverUrl);
+			const t = new proxy.Tester(transport);
 			const expected = [-32000, -32602, -32602, 3, -32602, 'world'];
 			const actual = [];
 
@@ -672,12 +534,10 @@ describe('node.js proxy', function() {
 		});
 	});
 
-	it('returns error codes on the WebSockets Transport', function() {
+	it('returns error codes on the Socket.IO Transport', function() {
 		return getProxy(httpProxyUrl).then(function(proxy) {
 			expect(proxy).to.be.ok;
-
-			const t = new proxy.Tester(serverUrl);
-			t.useWS();
+			const t = new proxy.Tester(transport);
 			const expected = [-32000, -32602, -32602, 3, -32000, -32602, 'world'];
 			const actual = [];
 
@@ -708,15 +568,13 @@ describe('node.js proxy', function() {
 	});
 
 	it('works with events', function(done) {
-		this.timeout(5000);
-
+		const timeouts = [ 500, 1000, 1500, 2000 ];
+		const timeout = Math.max(...timeouts) + 1000;
+		this.timeout(timeout);
 		getProxy(httpProxyUrl).then(function(proxy) {
 			expect(proxy).to.be.ok;
-
-			const t = new proxy.Tester(serverUrl);
-			let h1 = 0;
-			let h2 = 0;
-			let h3 = 0;
+			const t = new proxy.Tester(transport);
+			let [ h1, h2, h3 ] = [0, 0, 0];
 			let data = null;
 			function eventHandler1() { h1++; }
 			function eventHandler2() { h2++; }
@@ -727,13 +585,14 @@ describe('node.js proxy', function() {
 			setTimeout(function() {
 				t.on('testEvent', eventHandler2);
 				t.on('test.the.namespace.event', eventHandler3);
-			}, 500);
+			}, timeouts[0]);
 
 			setTimeout(function() {
 				expect(h1).to.be.above(0);
 				t.removeListener('testEvent', eventHandler1);
 				h1 = 0;
-			}, 1000);
+				done();
+			}, timeouts[1]);
 
 			setTimeout(function() {
 				expect(h2).to.be.above(0);
@@ -741,13 +600,13 @@ describe('node.js proxy', function() {
 				t.removeAllListeners('testEvent');
 				t.removeAllListeners('test.the.namespace.event');
 				h2 = h3 = 0;
-			}, 1500);
+			}, timeouts[2]);
 
 			setTimeout(function() {
 				expect(h1 + h2 + h3).to.eq(0);
 				expect(data).to.deep.eq({ hello: 'world'});
 				done();
-			}, 2000);
+			}, timeouts[3]);
 		}).catch(done);
 	});
 
@@ -755,8 +614,7 @@ describe('node.js proxy', function() {
 		this.timeout(1000);
 		getProxy(httpProxyUrl).then(function(proxy) {
 			expect(proxy).to.be.ok;
-
-			const t = new proxy.Tester(serverUrl);
+			const t = new proxy.Tester(transport);
 			t.testAsyncReturn(false, function() {
 				t.testAsyncReturn(true, function(err) {
 					expect(err).to.be.ok;
@@ -774,8 +632,11 @@ describe('node.js proxy', function() {
 			expect(proxies[0]).to.be.ok;
 			expect(proxies[1]).to.be.ok;
 
-			const proxy1 = new proxies[0].Tester(serverUrl);
-			const proxy2 = new proxies[1].Tester(serverUrl);
+			const transport1 = new SocketIoTransport(serverUrl, Object.assign({}, opts));
+			const transport2 = new SocketIoTransport(serverUrl, Object.assign({}, opts));
+
+			const proxy1 = new proxies[0].Tester(transport1);
+			const proxy2 = new proxies[1].Tester(transport2);
 
 			let handler1Called = false;
 			let handler2Called = false;
@@ -819,11 +680,17 @@ describe('node.js proxy', function() {
 			expect(proxies[0]).to.be.ok;
 			expect(proxies[1]).to.be.ok;
 			expect(proxies[2]).to.be.ok;
+			expect(proxies[3]).to.be.ok;
 
-			const proxy1 = new proxies[0].Tester(serverUrl);
-			const proxy2 = new proxies[1].Tester(getContextUrl('id1234'));
-			const proxy3 = new proxies[2].Tester(getContextUrl('id5678'));
-			const proxy4 = new proxies[2].Tester(getContextUrl('id4321'));
+			const transport1 = new SocketIoTransport(serverUrl, Object.assign({}, opts));
+			const transport2 = new SocketIoTransport(serverUrl, Object.assign({ validationParams: { ctxId: 'id1234'} }, opts));
+			const transport3 = new SocketIoTransport(serverUrl, Object.assign({ validationParams: { ctxId: 'id5678'} }, opts));
+			const transport4 = new SocketIoTransport(serverUrl, Object.assign({ validationParams: { ctxId: 'id4321'} }, opts));
+
+			const proxy1 = new proxies[0].Tester(transport1);
+			const proxy2 = new proxies[1].Tester(transport2);
+			const proxy3 = new proxies[2].Tester(transport3);
+			const proxy4 = new proxies[3].Tester(transport4);
 
 			let handler2Called = false;
 			let handler3Called = false;

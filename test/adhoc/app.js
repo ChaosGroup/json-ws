@@ -7,6 +7,7 @@ const express = require('express');
 const bodyParser = require('body-parser');
 const jsonws = require('../../index.js');
 const transport = jsonws.transport;
+const SocketIOTransport = require('../../lib/transport/socketio-transport');
 const serviceApi = require('./api.js');
 const path = require('path');
 
@@ -32,7 +33,9 @@ expressApp.get('/test', function(req, res) {
 
 httpServer.listen(expressApp.get('port'), function () {
 	registry.addTransport(transport.HTTP);
-	registry.addTransport(transport.WebSocket);
+	// registry.addTransport(transport.WebSocket);
+	// see 'examples_snippets_sio.js' for client transport example to connect to this socket
+	registry.addTransport(new SocketIOTransport(registry, '/test-api/socket.io'));
 	registry.addService(serviceApi);
 	console.log('Express server listening on ' + JSON.stringify(httpServer.address()));
 });
