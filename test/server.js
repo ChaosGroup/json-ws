@@ -98,10 +98,12 @@ describe('Enums - api.enum() and api.type(_, _, _, isEnum = true)', function() {
 		expect(enumType.convert.bind(enumType, {})).to.throw(/only numbers or strings are allowed/);
 		expect(enumType.convert.bind(enumType, 0)).to.not.throw();
 		expect(enumType.convert.bind(enumType, 1)).to.not.throw();
-		expect(enumType.convert(0)).to.eq('A');
-		expect(enumType.convert(1)).to.eq('B');
-		expect(enumType.convert('A')).to.eq('A');
-		expect(enumType.convert('B')).to.eq('B');
+		expect(enumType.convert(0)).to.eq(0);
+		expect(enumType.convert(1)).to.eq(1);
+		expect(enumType.convert('A')).to.eq(0);
+		expect(enumType.convert('B')).to.eq(1);
+		expect(enumType.convert('A', true)).to.eq(0);
+		expect(enumType.convert('B', true)).to.eq(1);
 		expect(enumType.convert.bind(enumType, 2)).to.throw(/Unknown enum .* value/);
 		expect(enumType.convert.bind(enumType, 'C')).to.throw(/Unknown enum .* value/);
 	});
@@ -422,20 +424,20 @@ describe('Types - api.type()', function() {
 		expect(testType.convert({
 			name: 'test name',
 			options: {
-				testMode: 1,
+				testMode: 'A',
 				parameter1: 'p1',
 				parameter2: 0.0
 			}
 		})).to.deep.eq({
 			name: 'test name',
 			options: {
-				testMode: 'A',
+				testMode: 1,
 				parameter1: 'p1',
 				parameter2: 0.0,
 				parameter3: undefined
 			},
 			defaultOptions: {
-				testMode: 'B',
+				testMode: 2,
 				parameter1: 'string',
 				parameter2: 1.1,
 				parameter3: 10
