@@ -19,21 +19,18 @@ var localName = locals.localName;
 	 * @constructor
 	 * @alias module:<%=localName%>.<%=localName%>
 	 */
-	var <%=localName%> = module.exports.<%=localName%> = function <%=localName%>(url, sslSettings) {
+	var <%=localName%> = module.exports.<%=localName%> = function <%=localName%>(url, settings) {
 		if (!this instanceof <%=localName%>) {
 			return new <%=localName%>(url);
 		}
 		if (!url) {
 			throw new Error('Invalid proxy URL');
 		}
+		this.rpc = new RpcTunnel(url, settings);
 		if (typeof url !== 'string') {
 			this._transport = url;
-			this.defaultTransport = null;
-			this.rpc = new RpcTunnel(url);
 		} else {
-			this._transport = null;
-			this.rpc = new RpcTunnel(url, sslSettings);
-			this.defaultTransport = 'http';
+			this._transport = this.rpc.transports.http;
 		}
 		var self = this;
 		this.rpc.on('event', function(e) {
@@ -61,22 +58,18 @@ var localName = locals.localName;
 	Object.defineProperty(<%= localName %>, 'VERSION', { value: '<%= metadata.version.slice(0, metadata.version.lastIndexOf('.')) %>'});
 
 	<%=localName%>.prototype.useHTTP = function() {
-		if (this._transport !== null && this._transport.name !== 'http') {
+		if (!this.rpc.transports.http) {
 			throw new Error('HTTP transport requested, but ' + this._transport.name + ' given.');
-		} else {
-			this.defaultTransport = 'http';
 		}
-
+		this._transport = this.rpc.transports.http;
 		return this;
 	};
 
 	<%=localName%>.prototype.useWS = function() {
-		if (this._transport !== null && this._transport.name !== 'ws') {
-			throw new Error('WebSockets transport requested, but ' + this._transport.name + ' given.');
-		} else {
-			this.defaultTransport = 'ws';
+		if (!this.rpc.transports.ws) {
+			throw new Error('WebSocket transport requested, but ' + this._transport.name + ' given.');
 		}
-
+		this._transport = this.rpc.transports.ws;
 		return this;
 	};
 
@@ -86,11 +79,7 @@ var localName = locals.localName;
 
 	<%=localName%>.prototype.on = <%=localName%>.prototype.addListener = function(type, listener) {
 		if (this.listeners(type).length == 0) {
-			if (this._transport && this._transport.supportEvents) {
-				this.rpc.call({ method: 'rpc.on', params: [type], transport: this._transport.name });
-			} else if (this._transport === null) {
-				this.rpc.call({ method: 'rpc.on', params: [type], transport: 'ws'});
-			}
+			this.rpc.call({ method: 'rpc.on', params: [type], transport: this.rpc.transports.http ? 'ws' : this._transport.name });
 		}
 		EventEmitter.prototype.addListener.call(this, type, listener);
 	};
@@ -98,29 +87,22 @@ var localName = locals.localName;
 	<%=localName%>.prototype.removeListener = function(type, listener) {
 		EventEmitter.prototype.removeListener.call(this, type, listener);
 		if (this.listeners(type).length == 0) {
-			if (this._transport && this._transport.supportEvents) {
-				this.rpc.call({ method: 'rpc.off', params: [type], transport: this._transport.name });
-			} else if (this._transport === null) {
-				this.rpc.call({ method: 'rpc.off', params: [type], transport: 'ws'});
-			}
+			this.rpc.call({ method: 'rpc.off', params: [type], transport: this.rpc.transports.http ? 'ws' : this._transport.name });
 		}
 	};
 
 	<%=localName%>.prototype.removeAllListeners = function(type) {
 		EventEmitter.prototype.removeAllListeners.call(this, type);
-		if (this._transport && this._transport.supportEvents) {
-			this.rpc.call({ method: 'rpc.off', params: [type], transport: this._transport.name });
-		} else if (this._transport === null) {
-			this.rpc.call({ method: 'rpc.off', params: [type], transport: 'ws'});
-		}
+		this.rpc.call({ method: 'rpc.off', params: [type], transport: this.rpc.transports.http ? 'ws' : this._transport.name });
 	};
 <%
 
 var typedefs = Object.keys(metadata.types);
 
 function getFullTypeName(type) {
-	if (!type)
+	if (!type) {
 		return String(type);
+	}
 	return typedefs.indexOf(type) !== -1 ? 'module:' + localName + '.' + localName + '.' + type : type;
 }
 
@@ -279,7 +261,7 @@ Object.keys(metadata.methods).forEach(function(methodName) {
 			method: '<%-methodName%>',
 			params: args,
 			expectReturn: <%-!!metadata.methods[methodName].returns || !!metadata.methods[methodName].async%>,
-			transport: this._transport && this._transport.name || this.defaultTransport
+			transport: this._transport.name
 		}, callback);
 	};
 

@@ -7,7 +7,7 @@ const express = require('express');
 const bodyParser = require('body-parser');
 const jsonws = require('../../index.js');
 const transport = jsonws.transport;
-const SocketIOTransport = require('../../lib/transport/socketio-transport');
+const SocketIOTransport = require('../../lib/transport/socket-io-transport');
 const serviceApi = require('./api.js');
 const path = require('path');
 

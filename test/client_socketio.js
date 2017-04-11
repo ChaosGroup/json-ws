@@ -11,7 +11,7 @@ const expect = chai.expect;
 const EventEmitter = require('events');
 
 const jsonws = require('../index.js');
-const request = Bluebird.promisifyAll(require('request'), {multiArgs: true});
+//const request = Bluebird.promisifyAll(require('request'), {multiArgs: true});
 const io = require('socket.io-client');
 const http = require('http');
 const express = require('express');
@@ -163,9 +163,9 @@ function buildTestService() {
 
 let httpServer;
 let serverUrl;
-let serverWsUrl;
+//let serverWsUrl;
 let httpProxyUrl;
-let getContextUrl;
+//let getContextUrl;
 let serviceInstance;
 
 let serveMetadata = false;
@@ -200,11 +200,11 @@ function startServer(done) {
 		const registryRootUrl = `http://localhost:${httpServer.address().port}${registry.rootPath}`;
 		serverUrl = `${registryRootUrl}${servicePathPrefix}`;
 
-		getContextUrl = function(ctxId) {
-			return `${registryRootUrl}/ctx/${ctxId}${servicePathPrefix}`;
-		};
+		// getContextUrl = function(ctxId) {
+		// 	return `${registryRootUrl}/ctx/${ctxId}${servicePathPrefix}`;
+		// };
 
-		serverWsUrl = serverUrl.replace('http', 'ws');
+		// serverWsUrl = serverUrl.replace('http', 'ws');
 		httpProxyUrl = `${serverUrl}?proxy=JavaScript&localName=Tester`;
 		done();
 	});
