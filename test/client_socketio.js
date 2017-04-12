@@ -11,8 +11,6 @@ const expect = chai.expect;
 const EventEmitter = require('events');
 
 const jsonws = require('../index.js');
-//const request = Bluebird.promisifyAll(require('request'), {multiArgs: true});
-const io = require('socket.io-client');
 const http = require('http');
 const express = require('express');
 const bodyParser = require('body-parser');
@@ -163,9 +161,7 @@ function buildTestService() {
 
 let httpServer;
 let serverUrl;
-//let serverWsUrl;
 let httpProxyUrl;
-//let getContextUrl;
 let serviceInstance;
 
 let serveMetadata = false;
@@ -186,26 +182,13 @@ function startServer(done) {
 	httpServer.listen(PORT, function () {
 		serviceInstance = buildTestService();
 		const servicePathPrefix = registry.addService(serviceInstance);
-		try {
-			registry.addTransport(jsonws.transport.HTTP);
-		} catch (err) {
-			// transport has already been added
-		}
-		try {
-			const socketIoTransport = require('../lib/transport/socketio-transport');
-			registry.addTransport(new socketIoTransport(registry));
-		} catch (err) {
-			// transport has already been added
-		}
 		const registryRootUrl = `http://localhost:${httpServer.address().port}${registry.rootPath}`;
 		serverUrl = `${registryRootUrl}${servicePathPrefix}`;
 
-		// getContextUrl = function(ctxId) {
-		// 	return `${registryRootUrl}/ctx/${ctxId}${servicePathPrefix}`;
-		// };
-
-		// serverWsUrl = serverUrl.replace('http', 'ws');
 		httpProxyUrl = `${serverUrl}?proxy=JavaScript&localName=Tester`;
+		const SocketIOTransport = require('../lib/transport/socket-io-transport');
+		registry.addTransport(new SocketIOTransport(registry));
+
 		done();
 	});
 
@@ -219,243 +202,6 @@ function setupServer(done) {
 	httpServer ? done() : startServer(done);
 }
 
-/**
- * Returns the origin(protocol://host:port) and pathname(/some/path/after/origin)
- * @param {string} url
- * @returns {{origin: string, pathname: string}}
- */
-function getOriginAndPathname(url) {
-	const re = /((ws|http)s?:\/+|)(\S+:\d+)(\/.*)/;
-	const reUrl = re.exec(url);
-	if (!reUrl) {
-		throw new Error(`Count not parse url: '${url}'`);
-	}
-	const origin = reUrl[1] + reUrl[3];
-	const pathname = reUrl[4];
-	return { origin, pathname };
-}
-
-describe('RPC over SocketIO', function() {
-	before(done => {
-		serveMetadata = true;
-		setupServer(done);
-	});
-
-	const url = 'ws://localhost:3000/endpoint/test/1.0';
-	let socket;
-
-	beforeEach(done => {
-		const origin = getOriginAndPathname(url).origin;
-		const socketToRootPath = io.connect(origin);
-		socketToRootPath.on('connect', function(/*socketRoot*/) {
-			const connectionContextPayload = {
-				validationParams: null,
-				serviceName: 'test',
-				serviceVersion: '1.0',
-				path: '/socket.io'
-			};
-			socketToRootPath.emit('rpc.sio.setConnectionContext', connectionContextPayload, function(/*ack*/) {
-				socket = socketToRootPath;
-				done();
-			});
-		});
-	});
-
-	it('works with legal method calls and event subscription', function(done) {
-		const timeouts = [ 1200, 2000, 3000 ];
-		const timeout = Math.max(...timeouts) + 1000;
-		this.timeout(timeout);
-
-		let events = 0;
-		let recCommands = 0;
-		let expCommands;
-		const expected = {
-			'sum': 0,
-			asyncSum: '12',
-			hello: 'world',
-			dataTest: {a: 5, b: 'test'},
-			sumArray: 10,
-			optionalArgs: 'AbC',
-			returnError: {name: 'Error', message: 'FooBar'}
-		};
-		const results = {};
-
-		function sendCommand(command, params) {
-			const commandData = {
-				id: command,
-				method: command,
-				params: params,
-				jsonrpc: '2.0'
-			};
-			const request = JSON.stringify(commandData);
-			return new Promise(resolve => {
-				socket.send(request, () => {});
-				resolve();
-			});
-		}
-
-		socket.send(JSON.stringify({
-			'jsonrpc': '2.0',
-			'method': 'rpc.on',
-			'params': ['testEvent']
-		}));
-
-		Promise.all([
-			sendCommand('sum', [2, -2]),
-			sendCommand('sum', {'a': 2, 'b': -2}),
-			sendCommand('hello', null),
-			sendCommand('asyncSum', ['1', '2']),
-			sendCommand('dataTest', { a: { a: 5, b: 'test', extra: 'true' }}),
-			sendCommand('sumArray', { ints: [1, 2, 3, 4]}),
-			sendCommand('sumArray', [ [1, 2, 3, 4] ]),
-			sendCommand('optionalArgs', { a: 'A', c: 'C' }),
-			sendCommand('returnError')
-		]).then(function(result) {
-			expCommands = result.length;
-		});
-
-		socket.on('message', function (data) {
-			const parsedData = JSON.parse(data);
-			if (Object.keys(parsedData).length == 0) return;
-			expect(parsedData).not.to.be.null;
-			if (parsedData.error) console.log(parsedData.error); //eslint-disable-line no-console
-			expect(parsedData.error).to.be.undefined;
-			expect(parsedData.id).to.be.defined;
-			if (parsedData.id == 'testEvent') {
-				events++;
-			} else {
-				recCommands++;
-				if (typeof parsedData.result === 'object') {
-					expect(parsedData.result).to.deep.eq(expected[parsedData.id]);
-				} else {
-					expect(parsedData.result).to.eq(expected[parsedData.id]);
-				}
-				results[parsedData.id] = parsedData.result;
-			}
-		});
-
-		let finalEvents = 0;
-		setTimeout(function () {
-			expect(expected).to.deep.eq(results);
-			expect(recCommands).to.eq(expCommands);
-			expect(events).to.be.above(0);
-			socket.send(JSON.stringify({
-				'jsonrpc': '2.0',
-				'method': 'rpc.off',
-				'params': ['testEvent']
-			}));
-			finalEvents = events;
-		}, timeouts[0]);
-
-		setTimeout(function() {
-			finalEvents = events;
-		}, timeouts[1]);
-
-		setTimeout(function () {
-			expect(events).to.eq(finalEvents, 'events do not fire after unsubscribe');
-			socket.close();
-			done();
-		}, timeouts[2]);
-	});
-
-	it('returns error codes', function(done) {
-		const timeouts = [ 500 ];
-		const timeout = Math.max(...timeouts) + 200;
-		this.timeout(timeout);
-		let id = 0;
-		const expected = [-32600,
-			-32601, -32601, -32601,
-			-32602, -32602, -32602, -32602, -32602, -32602,
-			-32000, -32000, -32000, -32000];
-		const results = [];
-
-		function sendCommand(command, params) {
-			const commandData = {
-				id: id++,
-				method: command,
-				params: params,
-				jsonrpc: '2.0'
-			};
-			const request = JSON.stringify(commandData);
-			return new Promise(resolve => {
-				socket.send(request, () => {});
-				resolve();
-			});
-		}
-
-		function sendPartialCommand(commandData) {
-			commandData.id = id++;
-			const request = JSON.stringify(commandData);
-			return new Promise(resolve => {
-				socket.send(request, () => {});
-				resolve();
-			});
-		}
-
-		function sendCommands() {
-			Bluebird.resolve([
-				sendPartialCommand.bind(null, {'jsonrpc': '1.0'}),
-				sendCommand.bind(null, 'inexistingMethod'),
-				sendCommand.bind(null),
-				sendPartialCommand.bind(null, {'jsonrpc': '2.0'}),
-				sendPartialCommand.bind(null, {'jsonrpc': '2.0', 'method': 'sum'}),
-				sendCommand.bind(null, 'sum'),
-				sendCommand.bind(null, 'sum', [2]),
-				sendCommand.bind(null, 'sum', {'a': 2, 'c': 1}),
-				sendCommand.bind(null, 'optionalArgs', []),
-				sendCommand.bind(null, 'hello', ['fake']),
-				sendCommand.bind(null, 'throwError'),
-				sendCommand.bind(null, 'dataTest', ['invalid']),
-				sendCommand.bind(null, 'dataTest', [1234]),
-				sendCommand.bind(null, 'sumArray', [1234])
-			]).each(function(func) {
-				return func();
-			});
-		}
-
-		sendCommands();
-
-		socket.on('message', function (data) {
-			const parsedData = JSON.parse(data);
-			if (Object.keys(parsedData).length == 0) return;
-			expect(parsedData).not.to.be.null;
-			expect(parsedData.error).to.be.defined;
-			expect(parsedData.error).not.to.be.null;
-			expect(parsedData.id).to.be.defined;
-			expect(parsedData.id).not.to.be.null;
-			results[parsedData.id] = parsedData.error.code;
-		});
-
-		setTimeout(function () {
-			expect(expected).to.deep.eq(results);
-			socket.close();
-			done();
-		}, timeouts[0]);
-	});
-
-	it('returns parse error for malformed JSON', function(done) {
-		const timeouts = [ 120 ];
-		const timeout = Math.max(...timeouts) + 200;
-		this.timeout(timeout);
-		let messages = 0;
-
-		socket.send('Parse Error must be returned.');
-		socket.on('message', function (data) {
-			const parsedData = JSON.parse(data);
-			if (Object.keys(parsedData).length == 0) return;
-			messages++;
-			expect(parsedData).not.to.be.null;
-			expect(parsedData.error).not.to.be.null;
-			expect(parsedData.error).to.be.defined;
-			expect(parsedData.error.code).to.eq(-32700);
-		});
-		setTimeout(function () {
-			expect(messages).to.eq(1);
-			done();
-		}, timeouts[0]);
-	});
-});
-
 describe('node.js proxy', function() {
 	let opts, transport;
 	before(done => {
@@ -464,14 +210,10 @@ describe('node.js proxy', function() {
 	});
 
 	const getProxy = Bluebird.promisify(jsonws.proxy, jsonws);
-	const SocketIoTransport = require('../lib/client/transports/sio');
+	const SocketIOTransport = require('../lib/client/transports/socket-io');
 
 	beforeEach(() => {
-		opts = {
-			serviceName: serviceInstance.name,
-			serviceVersion: '1.0'
-		};
-		transport = new SocketIoTransport(serverUrl, Object.assign({}, opts));
+		transport = new SocketIOTransport(serverUrl);
 	});
 
 	it('works with legal method calls', function () {
@@ -632,8 +374,8 @@ describe('node.js proxy', function() {
 			expect(proxies[0]).to.be.ok;
 			expect(proxies[1]).to.be.ok;
 
-			const transport1 = new SocketIoTransport(serverUrl, Object.assign({}, opts));
-			const transport2 = new SocketIoTransport(serverUrl, Object.assign({}, opts));
+			const transport1 = new SocketIOTransport(serverUrl, Object.assign({}, opts));
+			const transport2 = new SocketIOTransport(serverUrl, Object.assign({}, opts));
 
 			const proxy1 = new proxies[0].Tester(transport1);
 			const proxy2 = new proxies[1].Tester(transport2);
@@ -682,10 +424,10 @@ describe('node.js proxy', function() {
 			expect(proxies[2]).to.be.ok;
 			expect(proxies[3]).to.be.ok;
 
-			const transport1 = new SocketIoTransport(serverUrl, Object.assign({}, opts));
-			const transport2 = new SocketIoTransport(serverUrl, Object.assign({ validationParams: { ctxId: 'id1234'} }, opts));
-			const transport3 = new SocketIoTransport(serverUrl, Object.assign({ validationParams: { ctxId: 'id5678'} }, opts));
-			const transport4 = new SocketIoTransport(serverUrl, Object.assign({ validationParams: { ctxId: 'id4321'} }, opts));
+			const transport1 = new SocketIOTransport(serverUrl, Object.assign({}, opts));
+			const transport2 = new SocketIOTransport(serverUrl, Object.assign({ validationParams: { ctxId: 'id1234'} }, opts));
+			const transport3 = new SocketIOTransport(serverUrl, Object.assign({ validationParams: { ctxId: 'id5678'} }, opts));
+			const transport4 = new SocketIOTransport(serverUrl, Object.assign({ validationParams: { ctxId: 'id4321'} }, opts));
 
 			const proxy1 = new proxies[0].Tester(transport1);
 			const proxy2 = new proxies[1].Tester(transport2);
