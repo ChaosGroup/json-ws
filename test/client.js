@@ -3,13 +3,6 @@
  */
 'use strict';
 
-/**
- * TODO
- * find a way to run all tests twice
- * once with transport 'jsonws.transport.WebSocket' and
- * once with transport 'jsonws.transport.SocketIO'
- */
-
 // error codes:
 // -32600: jsonrpc not 2.0
 // -32601: method not found
@@ -32,6 +25,8 @@ const bodyParser = require('body-parser');
 const Service = jsonws.service;
 const ServiceRegistry = jsonws.registry.ServiceRegistry;
 const SocketIOTransport = require('../lib/transport/socket-io-transport');
+
+const getProxy = Bluebird.promisify(jsonws.proxy, jsonws);
 
 function buildTestService() {
 	const service = new Service('1.0.0', 'test');
@@ -181,15 +176,20 @@ let serverWsUrl;
 let httpProxyUrl;
 let getContextUrl;
 
-let serveMetadata = false;
-
 function startServer(done, options = {}) {
 	const PORT = 3000;
 	const rootPath = '/endpoint';
 	const expressApp = express();
 
+	const serveMetadata = (typeof options.serveMetadata === 'undefined') ? true : options.serveMetadata;
+
 	httpServer = http.createServer(expressApp);
-	const registry = new ServiceRegistry({ rootPath, httpServer, expressApp, serveMetadata });
+	const registry = new ServiceRegistry({
+		rootPath,
+		httpServer,
+		expressApp,
+		serveMetadata
+	});
 
 	expressApp.use(bodyParser.json());
 	expressApp.use(registry.getRouter());
@@ -200,14 +200,12 @@ function startServer(done, options = {}) {
 		try {
 			registry.addTransport(jsonws.transport.HTTP);
 		} catch (err) {
-			console.error(err);
 			// transport has already been added
 		}
 		if (options['socket-io']) {
 			try {
 				registry.addTransport(SocketIOTransport);
 			} catch (err) {
-				console.error(err);
 				// transport has already been added
 			}
 		} else {
@@ -231,7 +229,7 @@ function startServer(done, options = {}) {
 	});
 
 	httpServer.on('error', function (err) {
-		console.log(err); //eslint-disable-line no-console
+		console.log('???', err); //eslint-disable-line no-console
 		process.exit();
 	});
 }
@@ -250,43 +248,45 @@ function destroyServer(done) {
 }
 
 describe('Metadata Off', function() {
-	before(setupServer);
+	before(function(done) {
+		setupServer(done, {
+			serveMetadata: false
+		});
+	});
 	after(destroyServer);
 
-	it('/ returns 404 with the registry flag serveMetadata=false', () =>
-		request.getAsync(serverUrl, { json: true }).then(function(result) {
+	it('/ returns 404 with the registry flag serveMetadata=false', function() {
+		return request.getAsync(serverUrl, {json: true}).then(function(result) {
 			expect(result[0].statusCode).to.eq(404);
 			expect(result[1]).to.match(/Cannot GET/);
-		})
-	);
+		});
+	});
 
-	it('?json returns 404 with the registry flag serveMetadata=false', () =>
-		request.getAsync(serverUrl + '?json', { json: true }).then(function(result) {
+	it('?json returns 404 with the registry flag serveMetadata=false', function() {
+		return request.getAsync(serverUrl + '?json', {json: true}).then(function(result) {
 			expect(result[0].statusCode).to.eq(404);
 			expect(result[1]).to.match(/Cannot GET/);
-		})
-	);
+		});
+	});
 
-	it('?viewer returns 404 with the registry flag serveMetadata=false', () =>
-		request.getAsync(serverUrl + '?viewer', { json: true }).then(function(result) {
+	it('?viewer returns 404 with the registry flag serveMetadata=false', function() {
+		return request.getAsync(serverUrl + '?viewer', {json: true}).then(function(result) {
 			expect(result[0].statusCode).to.eq(404);
 			expect(result[1]).to.match(/Cannot GET/);
-		})
-	);
+		});
+	});
 
-	it('?proxy returns 404 with the registry flag serveMetadata=false', () =>
-		request.getAsync(serverUrl + '?proxy', { json: true }).then(function(result) {
+	it('?proxy returns 404 with the registry flag serveMetadata=false', function() {
+		return request.getAsync(serverUrl + '?proxy', {json: true}).then(function(result) {
 			expect(result[0].statusCode).to.eq(404);
 			expect(result[1]).to.match(/Cannot GET/);
-		})
-	);
+		});
+	});
 });
 
 describe('Metadata On', function() {
-	before(done => {
-		serveMetadata = true;
-		setupServer(done);
-	});
+	before(setupServer);
+	after(destroyServer);
 
 	it('returns metadata in JSON format', function() {
 		return request.getAsync(serverUrl + '?json', { json: true }).then(function(result) {
@@ -423,6 +423,7 @@ describe('RPC over HTTP', function() {
 
 describe('RPC over WebSocket', function() {
 	before(setupServer);
+	after(destroyServer);
 
 	it('works with legal method calls and event subscription', function(done) {
 		this.timeout(4000);
@@ -614,6 +615,7 @@ describe('RPC over WebSocket', function() {
 		});
 		setTimeout(function () {
 			expect(messages).to.eq(1);
+			ws.close();
 			done();
 		}, 120);
 	});
@@ -621,8 +623,13 @@ describe('RPC over WebSocket', function() {
 
 describe('node.js proxy', function() {
 	before(setupServer);
+	after(destroyServer);
 
-	const getProxy = Bluebird.promisify(jsonws.proxy, jsonws);
+	function closeProxies(...proxies) {
+		for (const proxy of proxies) {
+			proxy.close();
+		}
+	}
 
 	it('works with legal method calls', function() {
 		return getProxy(httpProxyUrl).then(function(proxy) {
@@ -645,6 +652,7 @@ describe('node.js proxy', function() {
 				t.hello(),
 				t.returnError()
 			]).then(function(results) {
+				closeProxies(t);
 				expect(results).to.deep.eq(expected, 'invalid results');
 			});
 		});
@@ -666,6 +674,8 @@ describe('node.js proxy', function() {
 				t.optionalArgs(),
 				t.hello('fake', 'argument') // JavaScript proxies filter out unneeded arguments, so this won't throw
 			]).then(function(results) {
+				closeProxies(t);
+
 				results.forEach(function(result) {
 					if (result.isRejected()) {
 						const reason = result.reason();
@@ -701,6 +711,8 @@ describe('node.js proxy', function() {
 				t.optionalArgs(),
 				t.hello('fake', 'argument') // JavaScript proxies filter out unneeded arguments, so this won't throw
 			]).then(function(results) {
+				closeProxies(t);
+
 				results.forEach(function(result) {
 					if (result.isRejected()) {
 						const reason = result.reason();
@@ -755,6 +767,8 @@ describe('node.js proxy', function() {
 			}, 1500);
 
 			setTimeout(function() {
+				closeProxies(t);
+
 				expect(h1 + h2 + h3).to.eq(0);
 				expect(data).to.deep.eq({ hello: 'world'});
 				done();
@@ -770,6 +784,8 @@ describe('node.js proxy', function() {
 			const t = new proxy.Tester(serverUrl);
 			t.testAsyncReturn(false, function() {
 				t.testAsyncReturn(true, function(err) {
+					closeProxies(t);
+
 					expect(err).to.be.ok;
 					done();
 				});
@@ -799,6 +815,7 @@ describe('node.js proxy', function() {
 				handler1Called = true;
 				callCount++;
 				if (callCount == 2) {
+					closeProxies(proxy1, proxy2);
 					done();
 				}
 			}
@@ -811,6 +828,7 @@ describe('node.js proxy', function() {
 				handler2Called = true;
 				callCount++;
 				if (callCount == 2) {
+					closeProxies(proxy1, proxy2);
 					done();
 				}
 			}
@@ -845,6 +863,7 @@ describe('node.js proxy', function() {
 				callCount++;
 
 				if (callCount == 3) {
+					closeProxies(proxy1, proxy2, proxy3, proxy4);
 					done();
 				}
 			}, 500);
@@ -855,6 +874,7 @@ describe('node.js proxy', function() {
 					handler2Called = true;
 					callCount++;
 					if (callCount == 3) {
+						closeProxies(proxy1, proxy2, proxy3, proxy4);
 						done();
 					}
 				}
@@ -867,6 +887,7 @@ describe('node.js proxy', function() {
 					handler3Called = true;
 					callCount++;
 					if (callCount == 3) {
+						closeProxies(proxy1, proxy2, proxy3, proxy4);
 						done();
 					}
 				}
@@ -879,7 +900,7 @@ describe('node.js proxy', function() {
 		}).catch(done);
 	});
 
-	describe.only('Socket.IO transport', function() {
+	describe('Socket.IO transport', function() {
 		const SocketIOTransport = require('../lib/client/transports/socket-io');
 		let transport;
 		const opts = {};
@@ -891,9 +912,14 @@ describe('node.js proxy', function() {
 				});
 			});
 		});
+		after(destroyServer);
 
 		beforeEach(function() {
 			transport = new SocketIOTransport(serverUrl);
+		});
+
+		afterEach(function() {
+			transport.close();
 		});
 
 		it('works with legal method calls', function () {
@@ -919,6 +945,7 @@ describe('node.js proxy', function() {
 					t.hello(),
 					t.returnError()
 				]).then(function (results) {
+					closeProxies(t);
 					expect(results).to.deep.eq(expected, 'invalid results');
 				});
 			});
@@ -939,6 +966,8 @@ describe('node.js proxy', function() {
 					t.optionalArgs(),
 					t.hello('fake', 'argument') // JavaScript proxies filter out unneeded arguments, so this won't throw
 				]).then(function(results) {
+					closeProxies(t);
+
 					results.forEach(function(result) {
 						if (result.isRejected()) {
 							const reason = result.reason();
@@ -972,6 +1001,8 @@ describe('node.js proxy', function() {
 					t.optionalArgs(),
 					t.hello('fake', 'argument') // JavaScript proxies filter out unneeded arguments, so this won't throw
 				]).then(function(results) {
+					closeProxies(t);
+
 					results.forEach(function(result) {
 						if (result.isRejected()) {
 							const reason = result.reason();
@@ -990,13 +1021,15 @@ describe('node.js proxy', function() {
 		});
 
 		it('works with events', function(done) {
-			const timeouts = [ 500, 1000, 1500, 2000 ];
-			const timeout = Math.max(...timeouts) + 1000;
-			this.timeout(timeout);
+			this.timeout(5000);
+
 			getProxy(httpProxyUrl).then(function(proxy) {
 				expect(proxy).to.be.ok;
+
 				const t = new proxy.Tester(transport);
-				let [ h1, h2, h3 ] = [0, 0, 0];
+				let h1 = 0;
+				let h2 = 0;
+				let h3 = 0;
 				let data = null;
 				function eventHandler1() { h1++; }
 				function eventHandler2() { h2++; }
@@ -1007,14 +1040,13 @@ describe('node.js proxy', function() {
 				setTimeout(function() {
 					t.on('testEvent', eventHandler2);
 					t.on('test.the.namespace.event', eventHandler3);
-				}, timeouts[0]);
+				}, 500);
 
 				setTimeout(function() {
 					expect(h1).to.be.above(0);
 					t.removeListener('testEvent', eventHandler1);
 					h1 = 0;
-					done();
-				}, timeouts[1]);
+				}, 1000);
 
 				setTimeout(function() {
 					expect(h2).to.be.above(0);
@@ -1022,13 +1054,15 @@ describe('node.js proxy', function() {
 					t.removeAllListeners('testEvent');
 					t.removeAllListeners('test.the.namespace.event');
 					h2 = h3 = 0;
-				}, timeouts[2]);
+				}, 1500);
 
 				setTimeout(function() {
+					closeProxies(t);
+
 					expect(h1 + h2 + h3).to.eq(0);
 					expect(data).to.deep.eq({ hello: 'world'});
 					done();
-				}, timeouts[3]);
+				}, 2000);
 			}).catch(done);
 		});
 
@@ -1039,6 +1073,8 @@ describe('node.js proxy', function() {
 				const t = new proxy.Tester(transport);
 				t.testAsyncReturn(false, function() {
 					t.testAsyncReturn(true, function(err) {
+						closeProxies(t);
+
 						expect(err).to.be.ok;
 						done();
 					});
@@ -1071,6 +1107,7 @@ describe('node.js proxy', function() {
 					handler1Called = true;
 					callCount++;
 					if (callCount == 2) {
+						closeProxies(proxy1, proxy2);
 						done();
 					}
 				}
@@ -1083,6 +1120,7 @@ describe('node.js proxy', function() {
 					handler2Called = true;
 					callCount++;
 					if (callCount == 2) {
+						closeProxies(proxy1, proxy2);
 						done();
 					}
 				}
@@ -1123,6 +1161,7 @@ describe('node.js proxy', function() {
 					callCount++;
 
 					if (callCount == 3) {
+						closeProxies(proxy1, proxy2, proxy3, proxy4);
 						done();
 					}
 				}, 500);
@@ -1133,6 +1172,7 @@ describe('node.js proxy', function() {
 						handler2Called = true;
 						callCount++;
 						if (callCount == 3) {
+							closeProxies(proxy1, proxy2, proxy3, proxy4);
 							done();
 						}
 					}
@@ -1145,6 +1185,7 @@ describe('node.js proxy', function() {
 						handler3Called = true;
 						callCount++;
 						if (callCount == 3) {
+							closeProxies(proxy1, proxy2, proxy3, proxy4);
 							done();
 						}
 					}
