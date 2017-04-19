@@ -14,7 +14,7 @@ try {
 
 module.exports.service = require('./lib/service/service.js');
 
-module.exports.client = require('./lib/client.js').RpcClient;
+module.exports.client = require('./lib/client/index.js').RpcClient;
 
 module.exports.registry = require('./lib/registry');
 

@@ -11,19 +11,25 @@
 // -32700: parse error
 
 const fs = require('fs');
-const Bluebird = require('bluebird');
+const Promise = require('bluebird');
+const _ = require('lodash');
 const chai = require('chai');
 const expect = chai.expect;
 const EventEmitter = require('events');
 
 const jsonws = require('../index.js');
-const request = Bluebird.promisifyAll(require('request'), {multiArgs: true});
+const request = Promise.promisifyAll(require('request'), {multiArgs: true});
 const WebSocket = require('ws');
 const http = require('http');
 const express = require('express');
 const bodyParser = require('body-parser');
 const Service = jsonws.service;
 const ServiceRegistry = jsonws.registry.ServiceRegistry;
+const SocketIOTransport = require('../lib/transport/socket-io-transport');
+const WebSocketClientTransport = require('../lib/client/transports/ws');
+const SocketIOClientTransport = require('../lib/client/transports/socket-io');
+
+const AssertionError = chai.AssertionError;
 
 function buildTestService() {
 	const service = new Service('1.0.0', 'test');
@@ -173,15 +179,20 @@ let serverWsUrl;
 let httpProxyUrl;
 let getContextUrl;
 
-let serveMetadata = false;
-
-function startServer(done) {
+function startServer(done, options = {}) {
 	const PORT = 3000;
 	const rootPath = '/endpoint';
 	const expressApp = express();
 
+	const serveMetadata = (typeof options.serveMetadata === 'undefined') ? true : options.serveMetadata;
+
 	httpServer = http.createServer(expressApp);
-	const registry = new ServiceRegistry({ rootPath, httpServer, expressApp, serveMetadata });
+	const registry = new ServiceRegistry({
+		rootPath,
+		httpServer,
+		expressApp,
+		serveMetadata
+	});
 
 	expressApp.use(bodyParser.json());
 	expressApp.use(registry.getRouter());
@@ -194,10 +205,18 @@ function startServer(done) {
 		} catch (err) {
 			// transport has already been added
 		}
-		try {
-			registry.addTransport(jsonws.transport.WebSocket);
-		} catch (err) {
-			// transport has already been added
+		if (options['socket-io']) {
+			try {
+				registry.addTransport(SocketIOTransport);
+			} catch (err) {
+				// transport has already been added
+			}
+		} else {
+			try {
+				registry.addTransport(jsonws.transport.WebSocket);
+			} catch (err) {
+				// transport has already been added
+			}
 		}
 		const servicePathPrefix = registry.addService(buildTestService());
 		const registryRootUrl = `http://localhost:${httpServer.address().port}${registry.rootPath}`;
@@ -213,13 +232,13 @@ function startServer(done) {
 	});
 
 	httpServer.on('error', function (err) {
-		console.log(err); //eslint-disable-line no-console
+		console.log('???', err); //eslint-disable-line no-console
 		process.exit();
 	});
 }
 
-function setupServer(done) {
-	httpServer ? done() : startServer(done);
+function setupServer(done, options) {
+	httpServer ? done() : startServer(done, options);
 }
 
 function destroyServer(done) {
@@ -232,43 +251,45 @@ function destroyServer(done) {
 }
 
 describe('Metadata Off', function() {
-	before(setupServer);
+	before(function(done) {
+		setupServer(done, {
+			serveMetadata: false
+		});
+	});
 	after(destroyServer);
 
-	it('/ returns 404 with the registry flag serveMetadata=false', () =>
-		request.getAsync(serverUrl, { json: true }).then(function(result) {
+	it('/ returns 404 with the registry flag serveMetadata=false', function() {
+		return request.getAsync(serverUrl, {json: true}).then(function(result) {
 			expect(result[0].statusCode).to.eq(404);
 			expect(result[1]).to.match(/Cannot GET/);
-		})
-	);
+		});
+	});
 
-	it('?json returns 404 with the registry flag serveMetadata=false', () =>
-		request.getAsync(serverUrl + '?json', { json: true }).then(function(result) {
+	it('?json returns 404 with the registry flag serveMetadata=false', function() {
+		return request.getAsync(serverUrl + '?json', {json: true}).then(function(result) {
 			expect(result[0].statusCode).to.eq(404);
 			expect(result[1]).to.match(/Cannot GET/);
-		})
-	);
+		});
+	});
 
-	it('?viewer returns 404 with the registry flag serveMetadata=false', () =>
-		request.getAsync(serverUrl + '?viewer', { json: true }).then(function(result) {
+	it('?viewer returns 404 with the registry flag serveMetadata=false', function() {
+		return request.getAsync(serverUrl + '?viewer', {json: true}).then(function(result) {
 			expect(result[0].statusCode).to.eq(404);
 			expect(result[1]).to.match(/Cannot GET/);
-		})
-	);
+		});
+	});
 
-	it('?proxy returns 404 with the registry flag serveMetadata=false', () =>
-		request.getAsync(serverUrl + '?proxy', { json: true }).then(function(result) {
+	it('?proxy returns 404 with the registry flag serveMetadata=false', function() {
+		return request.getAsync(serverUrl + '?proxy', {json: true}).then(function(result) {
 			expect(result[0].statusCode).to.eq(404);
 			expect(result[1]).to.match(/Cannot GET/);
-		})
-	);
+		});
+	});
 });
 
 describe('Metadata On', function() {
-	before(done => {
-		serveMetadata = true;
-		setupServer(done);
-	});
+	before(setupServer);
+	after(destroyServer);
 
 	it('returns metadata in JSON format', function() {
 		return request.getAsync(serverUrl + '?json', { json: true }).then(function(result) {
@@ -405,6 +426,7 @@ describe('RPC over HTTP', function() {
 
 describe('RPC over WebSocket', function() {
 	before(setupServer);
+	after(destroyServer);
 
 	it('works with legal method calls and event subscription', function(done) {
 		this.timeout(4000);
@@ -537,7 +559,7 @@ describe('RPC over WebSocket', function() {
 		}
 
 		function sendCommands() {
-			Bluebird.resolve([
+			Promise.resolve([
 				sendPartialCommand.bind(null, {'jsonrpc': '1.0'}),
 				sendCommand.bind(null, 'inexistingMethod'),
 				sendCommand.bind(null),
@@ -596,21 +618,92 @@ describe('RPC over WebSocket', function() {
 		});
 		setTimeout(function () {
 			expect(messages).to.eq(1);
+			ws.close();
 			done();
 		}, 120);
 	});
 });
 
-describe('node.js proxy', function() {
-	before(setupServer);
+const TRANSPORT_CONSTRUCTION = {
+	'HTTP': {
+		plain: () => serverUrl,
+		context: ctxId => getContextUrl(ctxId)
+	},
+	'WebSocket': {
+		plain: () => new WebSocketClientTransport(serverUrl),
+		context: ctxId => new WebSocketClientTransport(getContextUrl(ctxId))
+	},
+	'Socket.IO': {
+		plain: () => new SocketIOClientTransport(serverUrl),
+		context: ctxId => new SocketIOClientTransport(serverUrl, {validationParams: {ctxId}})
+	}
+};
 
-	const getProxy = Bluebird.promisify(jsonws.proxy, jsonws);
+['HTTP', 'WebSocket', 'Socket.IO'].forEach(transportName => describe(`node.js proxy - ${transportName} transport`, function() {
+	// Note that the HTTP transport tests will still use WebSockets transport for events
+
+	const transport = TRANSPORT_CONSTRUCTION[transportName];
+	let Tester;
+
+	before(function(done) {
+		setupServer(function() {
+			jsonws.proxy(httpProxyUrl, function(err, proxy) {
+				if (err) {
+					return done(err);
+				}
+
+				Tester = proxy.Tester;
+				done();
+			});
+		}, {
+			'socket-io': transportName === 'Socket.IO'
+		});
+	});
+
+	after(destroyServer);
+
+	/**
+	 * getProxy() used together with Promise.using() ensures that the proxy is closed after the test is used.
+	 *
+	 * @param urlOrTransport
+	 */
+	function getProxy(urlOrTransport) {
+		return Promise.resolve(new Tester(urlOrTransport)).disposer(function(proxy) {
+			proxy.close();
+		});
+	}
+
+	/**
+	 * expectProxyEvent resolves if "proxy" receives "event" before "timeouts" milliseconds
+	 * and rejects otherwise. The promise is resolved with the eventData.
+	 */
+	function expectProxyEvent(proxy, event, errorMessage, timeout = 1000) {
+		return (
+			new Promise(resolve => proxy.on(event, _.once(resolve)))
+		).timeout(
+			timeout,
+			new AssertionError(errorMessage ? errorMessage : `No event "${event}" received for ${timeout} milliseconds`)
+		);
+	}
+
+	/**
+	 * expectNoProxyEvent rejects if "proxy" receives "event" after "delay" milliseconds.
+	 */
+	function expectNoProxyEvent(proxy, event, errorMessage, delay = 1000) {
+		return Promise.race([
+			Promise.delay(delay), // This waits for an event to occur
+			new Promise((resolve, reject) => {
+				proxy.on(event, () => {
+					_.once(reject(
+						new AssertionError(errorMessage ? errorMessage : `Unexpected event "${event}" received`)
+					));
+				});
+			})
+		]);
+	}
 
 	it('works with legal method calls', function() {
-		return getProxy(httpProxyUrl).then(function(proxy) {
-			expect(proxy).to.be.ok;
-
-			const t = new proxy.Tester(serverUrl);
+		return Promise.using(getProxy(transport.plain()), function(t) {
 			const expected = [5, 6, 10, 6, 10, 25, {a: 5, b: 'test'}, 'Abc', 'ABc', 'ABC', 'world', {name: 'Error', message: 'FooBar'}];
 
 			return Promise.all([
@@ -633,14 +726,11 @@ describe('node.js proxy', function() {
 	});
 
 	it('returns error codes', function() {
-		return getProxy(httpProxyUrl).then(function(proxy) {
-			expect(proxy).to.be.ok;
-
-			const t = new proxy.Tester(serverUrl);
+		return Promise.using(getProxy(transport.plain()), function(t) {
 			const expected = [-32000, -32602, -32602, 3, -32602, 'world'];
 			const actual = [];
 
-			return Bluebird.settle([
+			return Promise.settle([
 				t.throwError(),
 				t.sum(1),
 				t.sum(),
@@ -665,70 +755,60 @@ describe('node.js proxy', function() {
 		});
 	});
 
-	it('returns error codes on the WebSockets Transport', function() {
-		return getProxy(httpProxyUrl).then(function(proxy) {
-			expect(proxy).to.be.ok;
-
-			const t = new proxy.Tester(serverUrl);
-			t.useWS();
-			const expected = [-32000, -32602, -32602, 3, -32000, -32602, 'world'];
-			const actual = [];
-
-			return Bluebird.settle([
-				t.throwError(),
-				t.sum(1),
-				t.sum(),
-				t.sum(1, 2, 3),
-				t.getStream(),
-				t.optionalArgs(),
-				t.hello('fake', 'argument') // JavaScript proxies filter out unneeded arguments, so this won't throw
-			]).then(function(results) {
-				results.forEach(function(result) {
-					if (result.isRejected()) {
-						const reason = result.reason();
-						expect(reason).to.be.instanceof(Error);
-						expect(reason.data).to.be.ok;
-						expect(reason.code).to.be.a('number');
-						actual.push(reason.code);
-					} else {
-						actual.push(result.value());
+	it('works for async return methods', function() {
+		return Promise.using(getProxy(transport.plain()), function(t) {
+			return new Promise(function(resolve, reject) {
+				t.testAsyncReturn(false, function(err) {
+					if (err) {
+						return reject(err);
 					}
-				});
 
-				expect(expected).to.deep.eq(actual);
+					t.testAsyncReturn(true, function(err) {
+						expect(err).to.exist;
+						resolve();
+					});
+				});
 			});
 		});
 	});
 
-	it('works with events', function(done) {
+	it('works with events', function() {
 		this.timeout(5000);
 
-		getProxy(httpProxyUrl).then(function(proxy) {
-			expect(proxy).to.be.ok;
-
-			const t = new proxy.Tester(serverUrl);
+		return Promise.using(getProxy(transport.plain()), function(t) {
 			let h1 = 0;
 			let h2 = 0;
 			let h3 = 0;
 			let data = null;
-			function eventHandler1() { h1++; }
-			function eventHandler2() { h2++; }
-			function eventHandler3() { h3++; }
+
+			function eventHandler1() {
+				h1++;
+			}
+
+			function eventHandler2() {
+				h2++;
+			}
+
+			function eventHandler3() {
+				h3++;
+			}
 
 			t.on('testEvent', eventHandler1);
-			t.on('testDataEvent', function(e) { data = e; });
-			setTimeout(function() {
+			t.on('testDataEvent', function (e) {
+				data = e;
+			});
+			setTimeout(function () {
 				t.on('testEvent', eventHandler2);
 				t.on('test.the.namespace.event', eventHandler3);
 			}, 500);
 
-			setTimeout(function() {
+			setTimeout(function () {
 				expect(h1).to.be.above(0);
 				t.removeListener('testEvent', eventHandler1);
 				h1 = 0;
 			}, 1000);
 
-			setTimeout(function() {
+			setTimeout(function () {
 				expect(h2).to.be.above(0);
 				expect(h3).to.be.above(0);
 				t.removeAllListeners('testEvent');
@@ -736,128 +816,42 @@ describe('node.js proxy', function() {
 				h2 = h3 = 0;
 			}, 1500);
 
-			setTimeout(function() {
-				expect(h1 + h2 + h3).to.eq(0);
-				expect(data).to.deep.eq({ hello: 'world'});
-				done();
-			}, 2000);
-		}).catch(done);
-	});
-
-	it('works for async return methods', function(done) {
-		this.timeout(1000);
-		getProxy(httpProxyUrl).then(function(proxy) {
-			expect(proxy).to.be.ok;
-
-			const t = new proxy.Tester(serverUrl);
-			t.testAsyncReturn(false, function() {
-				t.testAsyncReturn(true, function(err) {
-					expect(err).to.be.ok;
-					done();
-				});
+			return new Promise(function(resolve) {
+				setTimeout(function () {
+					expect(h1 + h2 + h3).to.eq(0);
+					expect(data).to.deep.eq({hello: 'world'});
+					resolve();
+				}, 2000);
 			});
-		}).catch(done);
+		});
 	});
 
-	it('works with events for multiple clients', function(done) {
-		Promise.all([
-			getProxy(httpProxyUrl),
-			getProxy(httpProxyUrl)
-		]).then(function(proxies) {
-			expect(proxies[0]).to.be.ok;
-			expect(proxies[1]).to.be.ok;
-
-			const proxy1 = new proxies[0].Tester(serverUrl);
-			const proxy2 = new proxies[1].Tester(serverUrl);
-
-			let handler1Called = false;
-			let handler2Called = false;
-			let callCount = 0;
-			function eventHandler1() {
-				if (handler1Called) {
-					return;
-				}
-
-				handler1Called = true;
-				callCount++;
-				if (callCount == 2) {
-					done();
-				}
-			}
-
-			function eventHandler2() {
-				if (handler2Called) {
-					return;
-				}
-
-				handler2Called = true;
-				callCount++;
-				if (callCount == 2) {
-					done();
-				}
-			}
-
-			proxy1.on('testEvent', eventHandler1);
-			proxy2.on('testEvent', eventHandler2);
-		}).catch(done);
+	it('works with events for multiple clients', function() {
+		return Promise.using(getProxy(transport.plain()), getProxy(transport.plain()), (proxy1, proxy2) => {
+			return Promise.all([
+				expectProxyEvent(proxy1, 'testEvent'),
+				expectProxyEvent(proxy2, 'testEvent')
+			]);
+		});
 	});
 
-	it('works with contextualized events', function(done) {
-		Promise.all([
-			getProxy(httpProxyUrl),
-			getProxy(httpProxyUrl),
-			getProxy(httpProxyUrl),
-			getProxy(httpProxyUrl)
-		]).then(function(proxies) {
-			expect(proxies[0]).to.be.ok;
-			expect(proxies[1]).to.be.ok;
-			expect(proxies[2]).to.be.ok;
-
-			const proxy1 = new proxies[0].Tester(serverUrl);
-			const proxy2 = new proxies[1].Tester(getContextUrl('id1234'));
-			const proxy3 = new proxies[2].Tester(getContextUrl('id5678'));
-			const proxy4 = new proxies[2].Tester(getContextUrl('id4321'));
-
-			let handler2Called = false;
-			let handler3Called = false;
-			let callCount = 0;
-
-			// Give time to ensure the event handler is not called:
-			setTimeout(function() {
-				callCount++;
-
-				if (callCount == 3) {
-					done();
-				}
-			}, 500);
-
-			function eventHandler2(data) {
-				expect(data.hello).to.eq('hello1234');
-				if (!handler2Called) {
-					handler2Called = true;
-					callCount++;
-					if (callCount == 3) {
-						done();
-					}
-				}
+	it('works with contextualized events', function() {
+		return Promise.using(
+			getProxy(transport.plain()),
+			getProxy(transport.context('id1234')),
+			getProxy(transport.context('id5678')),
+			getProxy(transport.context('id4321')),
+			(proxy1, proxy2, proxy3, proxy4) => {
+				return Promise.all([
+					expectProxyEvent(proxy2, 'testContextEvent'),
+					expectProxyEvent(proxy3, 'testContextEvent'),
+					expectNoProxyEvent(proxy1, 'testContextEvent', '"testContextEvent" received without context'),
+					expectNoProxyEvent(proxy4, 'testContextEvent', '"testContextEvent" received for wrong context')
+				]).spread((proxy2EventData, proxy3EventData) => {
+					expect(proxy2EventData).to.deep.eq({hello: 'hello1234'});
+					expect(proxy3EventData).to.deep.eq({hello: 'hello5678'});
+				});
 			}
-
-			function eventHandler3(data) {
-				expect(data.hello).to.eq('hello5678');
-
-				if (!handler3Called) {
-					handler3Called = true;
-					callCount++;
-					if (callCount == 3) {
-						done();
-					}
-				}
-			}
-
-			proxy1.on('testContextEvent', function() { done(new Error('testContextEvent received without context')); });
-			proxy2.on('testContextEvent', eventHandler2);
-			proxy3.on('testContextEvent', eventHandler3);
-			proxy4.on('testContextEvent', function() { done(new Error('testContextEvent received for wrong context')); });
-		}).catch(done);
+		);
 	});
-});
+}));
