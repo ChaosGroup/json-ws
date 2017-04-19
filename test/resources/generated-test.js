@@ -1,7 +1,12 @@
 /**
  * @module GeneratedTest
  */
-(function (module, require, define) {
+(function (module, define) {
+	// using non-strict mode, otherwise the re-assignment of require would throw TypeError
+	if (typeof require !== 'function') {
+		require = module.require;
+	}
+
 	var EventEmitter = require('events');
 	var inherits = require('util').inherits;
 	var RpcTunnel = require('json-ws/client');
@@ -11,21 +16,18 @@
 	 * @constructor
 	 * @alias module:GeneratedTest.GeneratedTest
 	 */
-	var GeneratedTest = exports.GeneratedTest = function GeneratedTest(url, sslSettings) {
+	var GeneratedTest = module.exports.GeneratedTest = function GeneratedTest(url, settings) {
 		if (!this instanceof GeneratedTest) {
 			return new GeneratedTest(url);
 		}
 		if (!url) {
 			throw new Error('Invalid proxy URL');
 		}
+		this.rpc = new RpcTunnel(url, settings);
 		if (typeof url !== 'string') {
 			this._transport = url;
-			this.defaultTransport = null;
-			this.rpc = new RpcTunnel(url);
 		} else {
-			this._transport = null;
-			this.rpc = new RpcTunnel(url, sslSettings);
-			this.defaultTransport = 'http';
+			this._transport = this.rpc.transports.http;
 		}
 		var self = this;
 		this.rpc.on('event', function(e) {
@@ -53,22 +55,18 @@
 	Object.defineProperty(GeneratedTest, 'VERSION', { value: '1.0'});
 
 	GeneratedTest.prototype.useHTTP = function() {
-		if (this._transport !== null && this._transport.name !== 'http') {
+		if (!this.rpc.transports.http) {
 			throw new Error('HTTP transport requested, but ' + this._transport.name + ' given.');
-		} else {
-			this.defaultTransport = 'http';
 		}
-
+		this._transport = this.rpc.transports.http;
 		return this;
 	};
 
 	GeneratedTest.prototype.useWS = function() {
-		if (this._transport !== null && this._transport.name !== 'ws') {
-			throw new Error('WebSockets transport requested, but ' + this._transport.name + ' given.');
-		} else {
-			this.defaultTransport = 'ws';
+		if (!this.rpc.transports.ws) {
+			throw new Error('WebSocket transport requested, but ' + this._transport.name + ' given.');
 		}
-
+		this._transport = this.rpc.transports.ws;
 		return this;
 	};
 
@@ -78,11 +76,7 @@
 
 	GeneratedTest.prototype.on = GeneratedTest.prototype.addListener = function(type, listener) {
 		if (this.listeners(type).length == 0) {
-			if (this._transport && this._transport.supportEvents) {
-				this.rpc.call({ method: 'rpc.on', params: [type], transport: this._transport.name });
-			} else if (this._transport === null) {
-				this.rpc.call({ method: 'rpc.on', params: [type], transport: 'ws'});
-			}
+			this.rpc.call({ method: 'rpc.on', params: [type], transport: this.rpc.transports.http ? 'ws' : this._transport.name });
 		}
 		EventEmitter.prototype.addListener.call(this, type, listener);
 	};
@@ -90,21 +84,13 @@
 	GeneratedTest.prototype.removeListener = function(type, listener) {
 		EventEmitter.prototype.removeListener.call(this, type, listener);
 		if (this.listeners(type).length == 0) {
-			if (this._transport && this._transport.supportEvents) {
-				this.rpc.call({ method: 'rpc.off', params: [type], transport: this._transport.name });
-			} else if (this._transport === null) {
-				this.rpc.call({ method: 'rpc.off', params: [type], transport: 'ws'});
-			}
+			this.rpc.call({ method: 'rpc.off', params: [type], transport: this.rpc.transports.http ? 'ws' : this._transport.name });
 		}
 	};
 
 	GeneratedTest.prototype.removeAllListeners = function(type) {
 		EventEmitter.prototype.removeAllListeners.call(this, type);
-		if (this._transport && this._transport.supportEvents) {
-			this.rpc.call({ method: 'rpc.off', params: [type], transport: this._transport.name });
-		} else if (this._transport === null) {
-			this.rpc.call({ method: 'rpc.off', params: [type], transport: 'ws'});
-		}
+		this.rpc.call({ method: 'rpc.off', params: [type], transport: this.rpc.transports.http ? 'ws' : this._transport.name });
 	};
 
 	GeneratedTest.RenderMode = function (val) {
@@ -132,6 +118,36 @@
 	GeneratedTest.RenderMode.RtCpu = 0;
 	GeneratedTest.RenderMode.RtGpuCuda = 5
 	Object.freeze(GeneratedTest.RenderMode);
+
+	GeneratedTest.JobState = function (val) {
+		switch (val) {
+			case 'Created': return 0;
+			case 'Pending': return 1;
+			case 'Active': return 2;
+			case 'Done': return 3;
+			case 0: return 'Created';
+			case 1: return 'Pending';
+			case 2: return 'Active';
+			case 3: return 'Done';
+		}
+	};
+
+	/**
+	 * @enum {number}
+	 * @alias module:GeneratedTest.GeneratedTest.JobState
+	 */
+	var JobState = {
+		Created: 0,
+		Pending: 1,
+		Active: 2,
+		Done: 3
+	};
+
+	GeneratedTest.JobState.Created = 0;
+	GeneratedTest.JobState.Pending = 1;
+	GeneratedTest.JobState.Active = 2;
+	GeneratedTest.JobState.Done = 3
+	Object.freeze(GeneratedTest.JobState);
 
 	/**
 	 * RenderOptions description
@@ -173,7 +189,7 @@
 			method: 'sum',
 			params: args,
 			expectReturn: true,
-			transport: this._transport && this._transport.name || this.defaultTransport
+			transport: this._transport.name
 		}, callback);
 	};
 
@@ -193,7 +209,7 @@
 			method: 'sumReturn',
 			params: args,
 			expectReturn: false,
-			transport: this._transport && this._transport.name || this.defaultTransport
+			transport: this._transport.name
 		}, callback);
 	};
 
@@ -215,7 +231,7 @@
 			method: 'echo',
 			params: args,
 			expectReturn: true,
-			transport: this._transport && this._transport.name || this.defaultTransport
+			transport: this._transport.name
 		}, callback);
 	};
 
@@ -237,7 +253,7 @@
 			method: 'echoObject',
 			params: args,
 			expectReturn: true,
-			transport: this._transport && this._transport.name || this.defaultTransport
+			transport: this._transport.name
 		}, callback);
 	};
 
@@ -258,7 +274,7 @@
 			method: 'throwError',
 			params: args,
 			expectReturn: true,
-			transport: this._transport && this._transport.name || this.defaultTransport
+			transport: this._transport.name
 		}, callback);
 	};
 
@@ -279,7 +295,7 @@
 			method: 'throwUnexpectedError',
 			params: args,
 			expectReturn: true,
-			transport: this._transport && this._transport.name || this.defaultTransport
+			transport: this._transport.name
 		}, callback);
 	};
 
@@ -300,7 +316,7 @@
 			method: 'testMe',
 			params: args,
 			expectReturn: true,
-			transport: this._transport && this._transport.name || this.defaultTransport
+			transport: this._transport.name
 		}, callback);
 	};
 
@@ -320,7 +336,7 @@
 			method: 'testMe1',
 			params: args,
 			expectReturn: true,
-			transport: this._transport && this._transport.name || this.defaultTransport
+			transport: this._transport.name
 		}, callback);
 	};
 
@@ -342,7 +358,7 @@
 			method: 'testMe2',
 			params: args,
 			expectReturn: true,
-			transport: this._transport && this._transport.name || this.defaultTransport
+			transport: this._transport.name
 		}, callback);
 	};
 
@@ -362,7 +378,7 @@
 			method: 'testMe3',
 			params: args,
 			expectReturn: false,
-			transport: this._transport && this._transport.name || this.defaultTransport
+			transport: this._transport.name
 		}, callback);
 	};
 
@@ -382,7 +398,7 @@
 			method: 'testMe4',
 			params: args,
 			expectReturn: false,
-			transport: this._transport && this._transport.name || this.defaultTransport
+			transport: this._transport.name
 		}, callback);
 	};
 
@@ -403,7 +419,7 @@
 			method: 'getStream',
 			params: args,
 			expectReturn: true,
-			transport: this._transport && this._transport.name || this.defaultTransport
+			transport: this._transport.name
 		}, callback);
 	};
 
@@ -424,7 +440,7 @@
 			method: 'TestDefaultArray',
 			params: args,
 			expectReturn: false,
-			transport: this._transport && this._transport.name || this.defaultTransport
+			transport: this._transport.name
 		}, callback);
 	};
 
@@ -446,7 +462,7 @@
 			method: 'TestUrl',
 			params: args,
 			expectReturn: true,
-			transport: this._transport && this._transport.name || this.defaultTransport
+			transport: this._transport.name
 		}, callback);
 	};
 
@@ -467,7 +483,7 @@
 			method: 'getRenderOptions',
 			params: args,
 			expectReturn: true,
-			transport: this._transport && this._transport.name || this.defaultTransport
+			transport: this._transport.name
 		}, callback);
 	};
 
@@ -489,7 +505,7 @@
 			method: 'echoStringAsBuffer',
 			params: args,
 			expectReturn: true,
-			transport: this._transport && this._transport.name || this.defaultTransport
+			transport: this._transport.name
 		}, callback);
 	};
 
@@ -511,7 +527,7 @@
 			method: 'getBufferSize',
 			params: args,
 			expectReturn: true,
-			transport: this._transport && this._transport.name || this.defaultTransport
+			transport: this._transport.name
 		}, callback);
 	};
 
@@ -533,7 +549,7 @@
 			method: 'returnFrom0ToN',
 			params: args,
 			expectReturn: true,
-			transport: this._transport && this._transport.name || this.defaultTransport
+			transport: this._transport.name
 		}, callback);
 	};
 
@@ -556,7 +572,7 @@
 			method: 'optionalArgs',
 			params: args,
 			expectReturn: false,
-			transport: this._transport && this._transport.name || this.defaultTransport
+			transport: this._transport.name
 		}, callback);
 	};
 
@@ -578,7 +594,7 @@
 			method: 'sumArray',
 			params: args,
 			expectReturn: true,
-			transport: this._transport && this._transport.name || this.defaultTransport
+			transport: this._transport.name
 		}, callback);
 	};
 
@@ -600,7 +616,7 @@
 			method: 'testAny',
 			params: args,
 			expectReturn: true,
-			transport: this._transport && this._transport.name || this.defaultTransport
+			transport: this._transport.name
 		}, callback);
 	};
 
@@ -622,7 +638,7 @@
 			method: 'getSeconds',
 			params: args,
 			expectReturn: true,
-			transport: this._transport && this._transport.name || this.defaultTransport
+			transport: this._transport.name
 		}, callback);
 	};
 
@@ -643,7 +659,7 @@
 			method: 'getNow',
 			params: args,
 			expectReturn: true,
-			transport: this._transport && this._transport.name || this.defaultTransport
+			transport: this._transport.name
 		}, callback);
 	};
 
@@ -664,7 +680,7 @@
 			method: 'ns1.method1',
 			params: args,
 			expectReturn: true,
-			transport: this._transport && this._transport.name || this.defaultTransport
+			transport: this._transport.name
 		}, callback);
 	};
 
@@ -684,7 +700,7 @@
 			method: 'ns1.sub1.sub2.method1',
 			params: args,
 			expectReturn: false,
-			transport: this._transport && this._transport.name || this.defaultTransport
+			transport: this._transport.name
 		}, callback);
 	};
 
@@ -704,7 +720,7 @@
 			method: 'ns2.sub1.sub2.method1',
 			params: args,
 			expectReturn: false,
-			transport: this._transport && this._transport.name || this.defaultTransport
+			transport: this._transport.name
 		}, callback);
 	};
 
@@ -740,19 +756,27 @@
 	 * @type null
 	 */
 
+
+	define('GeneratedTest', GeneratedTest);
+
 }.apply(null, (function() {
 	'use strict';
 
+	if (typeof module !== 'undefined') {
+		// node.js and webpack
+		return [module, function() {}];
+	}
+
 	if (typeof window !== 'undefined') {
+		// browser
 		if (typeof window.jsonws === 'undefined') {
 			throw new Error('No json-ws polyfills found.');
 		}
 
 		var jsonws = window.jsonws;
 
-		return [jsonws, jsonws.require, jsonws.define];
+		return [jsonws, jsonws.define];
 	}
 
-	// else assume node.js:
-	return [module, require, function() {}];
+	throw new Error('Unknown environment, this code should be used in node.js/webpack/browser');
 }())));

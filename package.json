@@ -1,6 +1,6 @@
 {
   "name": "json-ws",
-  "version": "2.4.0",
+  "version": "2.5.0",
   "author": "ChaosGroup (c) 2013-2017",
   "description": "JSON-RPC based Web Services with automatic help and client side source creation for Java/JavaScript/.Net/Python/Node.js",
   "keywords": [
@@ -9,7 +9,9 @@
     "remote procedure call",
     "json-ws",
     "json-rpc",
-    "web service"
+    "web service",
+    "web socket",
+    "socket-io"
   ],
   "homepage": "https://github.com/ChaosGroup/json-ws",
   "repository": "https://github.com/ChaosGroup/json-ws",
