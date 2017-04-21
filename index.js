@@ -1,49 +1,29 @@
 'use strict';
 
-var Trace = require("./lib/trace.js");
-var vm = require('vm');
-var Module = require('module');
-var path = require('path');
-var request = require('request');
-var debugLogger;
+const vm = require('vm');
+const Module = require('module');
+const path = require('path');
+const request = require('request');
 
 try {
 	require.resolve('json-ws');
-} catch(err) {
+} catch (err) {
 	// Import error, make json-ws requireable (for require('json-ws/client') in proxies):
 	module.paths.unshift(path.resolve(__dirname, '..'));
 }
 
-module.exports = function(logger) {
-	debugLogger = logger;
-	return module.exports;
-}
+module.exports.service = require('./lib/service/service.js');
 
-module.exports.api = require("./lib/api.js");
+module.exports.client = require('./lib/client/index.js').RpcClient;
 
-module.exports.client = require("./lib/client.js").RpcClient;
+module.exports.registry = require('./lib/registry');
+
+module.exports.getLanguageProxy = require('./lib/get-language-proxy');
 
 module.exports.transport = {
-	WebSocket: function(httpServer) {
-		var transport = require("./lib/ws-transport");
-		transport = new transport(httpServer);
-		transport.trace = new Trace(debugLogger);
-		return transport;
-	},
-
-	HTTP: function(httpServer, expressApp, options) {
-		if (!httpServer || !expressApp) {
-			throw new Error('HTTP transport requires an HTTP server and an Express application instance.');
-		}
-		var transport = require("./lib/rest-transport");
-		transport = new transport(httpServer, expressApp, options);
-		transport.trace = new Trace(debugLogger);
-		return transport;
-	}
+	HTTP: require('./lib/transport/http-transport'),
+	WebSocket: require('./lib/transport/ws-transport')
 };
-
-module.exports.transport.WebSocket.type = 'WebSocket';
-module.exports.transport.HTTP.type = 'HTTP';
 
 /**
  * Fetches proxy code from a URL
@@ -68,13 +48,13 @@ module.exports.proxy = function(proxyUrl, sslSettings, callback) {
 			return;
 		}
 
-		var proxyModule = {exports: {}};
+		const proxyModule = {exports: {}};
 
 		try {
-			var moduleWrapper = vm.runInThisContext(Module.wrap(body), {filename: proxyUrl});
+			const moduleWrapper = vm.runInThisContext(Module.wrap(body), {filename: proxyUrl});
 			moduleWrapper(proxyModule.exports, require, proxyModule);
 		} catch (vmError) {
-			var err = new Error('Error loading proxy');
+			const err = new Error('Error loading proxy');
 			err.stack = vmError.stack;
 			callback(err);
 			return;
@@ -89,34 +69,21 @@ module.exports.getClientProxy = function(apiRoot, apiType, version, sslSettings,
 		callback = sslSettings;
 		sslSettings = {};
 	}
-	var serviceUrl = apiRoot + '/' + apiType + '/' + version;
-	var proxyClassName = apiType.split(/\W+/).map(function(string) {
+	const serviceUrl = apiRoot + '/' + apiType + '/' + version;
+	const proxyClassName = apiType.split(/\W+/).map(function(string) {
 		return string[0].toUpperCase() + string.slice(1).toLowerCase();
 	}).join('') + 'Proxy';
-	var proxyUrl = serviceUrl + '?proxy=JavaScript&localName=' + proxyClassName;
+	const proxyUrl = serviceUrl + '?proxy=JavaScript&localName=' + proxyClassName;
 	module.exports.proxy(proxyUrl, sslSettings, function(err, proxy) {
 		if (err) {
 			callback(err, null);
 		} else {
-			var proxyClass = proxy[proxyClassName];
-			if (proxyClass) {
-				callback(null, new proxyClass(serviceUrl, sslSettings));
+			const ProxyClass = proxy[proxyClassName];
+			if (ProxyClass) {
+				callback(null, new ProxyClass(serviceUrl, sslSettings));
 			} else {
 				callback(new Error('Proxy not available'));
 			}
 		}
 	});
-}
-
-/**
- * API Registry middleware for Express/Connect
- * Responds to OPTIONS request, renders a page listing all registered services
- * and serves the NodeJS/browser client library.
- * @param {String} rootPath Mount point of the service registry.
- */
-module.exports.registry = function(rootPath) {
-	var registry = require('./lib/registry');
-	return registry(rootPath);
 };
-
-module.exports.getLanguageProxy = require('./lib/get-language-proxy');

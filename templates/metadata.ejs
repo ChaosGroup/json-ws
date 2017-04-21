@@ -1,23 +1,22 @@
 <!DOCTYPE html><%
 
-function prettify(ujs, r) {
+function prettify(r) {
 	if (!r) return "void";
 	if (typeof r === 'string') return r;
-	var code = ujs.minify("_=" + JSON.stringify(r), {fromString: true, output: {beautify: true}}).code;
-	return code.substr(4, code.length - 5);
+
+	return JSON.stringify(r, null, '    ');
 }
 
 function anchorType(typeName) {
-	var typeInfo = metadata.typeMap[typeName];
+	var typeInfo = locals.metadata.typeMap[typeName];
 	if (typeInfo && typeInfo.struct) {
-	%><a class="linkMember" href="#<%- typeName %>"><%= typeName %></a><%
-	} else {
-	%><%= typeName %><%
+	  	return `<a class="linkMember" href="#${typeName}">${typeName}</a>`;
 	}
+	return typeName;
 }
 
 function renderExamples(exampleMap, name, type) {     // types: 'example', 'snippet'
-	var languages = metadata.languages.sort();
+	var languages = locals.metadata.languages.sort();
 
 	// The number of values in paramsStr can be less or equal to the number of defined params
 	// They need to be in the same order.
@@ -26,7 +25,7 @@ function renderExamples(exampleMap, name, type) {     // types: 'example', 'snip
 		try {
 			var paramsArr = JSON.parse(paramsStr);
 			paramsArr.forEach(function(val, i) {
-				var paramName = metadata.methodMap[name].params[i].name;
+				var paramName = locals.metadata.methodMap[name].params[i].name;
 				if (!paramName) {
 					return null;
 				}
@@ -66,21 +65,20 @@ function renderExamples(exampleMap, name, type) {     // types: 'example', 'snip
 		}
 	}
 
-	function renderLanguagesNav() { %>
-		<ul class="nav nav-tabs">
-	<%	languages.forEach(function(language) { %>
-		<li class="<%- language %>">
-			<a class="<%- language %>" href="#<%- name %>-<%- language %>" data-toggle="tab">
-				<%- getLanguageName(language) %></a></li>
-		<% }); %>
-		</ul>
+	function renderLanguagesTabs() { %>
+		<div class="tab-panel">
+	<%	languages.forEach(function(language, index) { %>
+			<button id="<%- language %>" class=" <% if (index === 0) {%> active<%}%> tab-btn <%- language %>" onclick="onTabClick(this)" aria-hidden="true"><%-getLanguageName(language)%></button>
+			<% }); %>
+		</div>
+		<% renderCodeTabs() %>
 <% }
 
 	function renderCodeTabs() {
 	%>
 	<div class="tab-content">
-		<% languages.forEach(function(language) { %>
-		<div class="tab-pane <%- language %>" id="<%- name %>-<%- language %>">
+		<% languages.forEach(function(language, index) { %>
+		<div class=" <% if (index === 0) {%> active<%}%> tab-pane <%- language %>" id="<%- name %>-<%- language %>">
 		<% var text = exampleMap[language];
 		if (language === 'Node' && text === undefined) {
 			text = exampleMap['JavaScript'];
@@ -103,140 +101,270 @@ function renderExamples(exampleMap, name, type) {     // types: 'example', 'snip
 	}
 
 	if (type === 'snippet') { %>
-		<div><a class="anchor" id="<%-name%>">
-			<strong><%= name %></strong></a></div>
+		<div class="x">
+			<a class="anchor" id="<%-name%>">
+				<strong><%= name %></strong>
+			</a>
+		</div>
 <% }
-	renderLanguagesNav();
-	renderCodeTabs();
+	renderLanguagesTabs();
+}
+
+function renderProperty(property) {
+	var description = property.description ? `\n&nbsp;&nbsp;&nbsp;&nbsp;// ${property.description}`: '';
+	var propertyLine = `\n&nbsp;&nbsp;&nbsp;&nbsp;${property.name}: ${anchorType(property.type)}${property.isArray ? '[]' : ''}${property.default !== undefined? ` = ${JSON.stringify(property.default)}` : ''}`;
+	return description + propertyLine;
+}
+
+function renderEnum(property, value) {
+	return `\n&nbsp;&nbsp;&nbsp;&nbsp;${property}: ${value}`;
 }
 
 function renderType(typeInfo) {
-	%><code><%-typeInfo.enum ? 'enum' : 'struct'%> <a class="anchor" id="<%-typeInfo.name%>" name="<%-typeInfo.name%>"><strong><%= typeInfo.name %></strong></a>
-	<% if (typeInfo.enum) { %><pre><%- prettify(ujs, typeInfo.struct) %></pre><% } %>
-	</code>
-	<% if (!typeInfo.enum) { %>
-	<table class="table table-striped table-condensed table-bordered">
-		<thead>
-		<tr>
-			<th style="width: 25%">Property</th>
-			<th style="width: 25%">Type</th>
-			<th style="width: 50%">Description</th>
-		</tr>
-		</thead>
-		<tbody>
-		<% Object.keys(typeInfo.struct).forEach(function(propertyKey) {
-			var property = typeInfo.struct[propertyKey]; %>
-		<tr>
-			<% if (property.default) { %>
-				<td>
-					<%- property.name %> =
-					<small>
-						<%- JSON.stringify(property.default) %>
-					</small>
-				</td>
-			<% } else { %>
-				<td><%- property.name %></td>
-			<% } %>
-			<td class="codeline"><% anchorType(property.type) %><%= property.isArray ? '[]' : '' %></td>
-			<td><%- property.description || '' %></td>
-		</tr>
-		<% }); %>
-		</tbody>
-	</table>
-	<% } %>
-	<div><!--<span class="label label-primary">Description</span> --><%-typeInfo.description%></div>
-	<%
-}
+	%><code><pre class="prettyprint"><%if (typeInfo.description) {%>// <%-typeInfo.description%><%}%>
+<%-typeInfo.enum ? 'enum' : 'struct'%> <a class="anchor" id="<%-typeInfo.name%>" name="<%-typeInfo.name%>"><strong><%= typeInfo.name %></strong></a> { <%
+		var renderedProperties = Object.keys(typeInfo.struct).map(function(propertyKey) {
+		var propertyValue = typeInfo.struct[propertyKey];
+		if (typeInfo.enum) {
+			return renderEnum(propertyKey, propertyValue);
+		}
+		return renderProperty(propertyValue);
+	});
+	%><%-renderedProperties.join(',')%>
+}</pre></code>
+<%}
 
 function renderEvent(eventInfo) {
-	%><code>event <a class="anchor" id="<%-eventInfo.name%>"><strong><%= eventInfo.name %></strong></a>: <% anchorType(eventInfo.type || 'void') %><%= eventInfo.isArray ? '[]' : '' %></code>
-	<div><%-eventInfo.description%></div>
+	%><code><pre class="prettyprint"><%if (eventInfo.description) {%>// <%-eventInfo.description%><%}%>
+<%- anchorType(eventInfo.type || 'void') %><%= eventInfo.isArray ? '[]' : '' %> event <a class="anchor" id="<%-eventInfo.name%>"><strong><%= eventInfo.name %></strong></a></pre></code>
 	<%
 }
 
 function renderMethod(methodInfo) {
-	%><code>function <a class="anchor" id="<%-methodInfo.name%>"><strong><%= methodInfo.name %></strong></a>(<%= Object.keys(methodInfo.params).map(function (p) {
-			// + ": " + methodInfo.params[p].type;
+	%><code><pre class="prettyprint"><%if (methodInfo.description) {%>// <%-methodInfo.description%><%}%>
+<%- anchorType(methodInfo.returns || 'void') %><%= methodInfo.returnsArray ? '[]' : '' %> <a
+				class="anchor" id="<%-methodInfo.name%>"><strong><%= methodInfo.name %></strong></a>(<%- Object.keys(methodInfo.params).map(function (p) {
 			var param = methodInfo.params[p];
-			return param.default !== undefined ? ('[' + param.name + ']') : param.name;
-		}).join(", ") %>): <% anchorType(methodInfo.returns || 'void') %><%= methodInfo.returnsArray ? '[]' : '' %>
-	</code>
-	<% if (methodInfo.params.length > 0) { %>
-	<table class="table table-striped table-condensed table-bordered">
-		<thead>
-		<tr>
-			<th style="width: 25%">Argument</th>
-			<th style="width: 25%">Type</th>
-			<th style="width: 50%">Description</th>
-		</tr>
-		</thead>
-		<tbody>
-		<% for (var p = 0; p < methodInfo.params.length; p++) {
-			var param = methodInfo.params[p]; %>
-		<tr>
-			<% if (param.default !== undefined) { %>
-			<td>
-				<%- param.name %> =
-				<small>
-					<%- JSON.stringify(param.default) %>
-				</small>
-			</td>
-			<% } else { %>
-			<td><%- param.name %></td>
-			<% } %>
-			<td class="codeline"><% anchorType(param.type) %><%= param.isArray ? '[]' : '' %></td>
-			<td><%- param.description || '' %></td>
-		</tr>
-		<% } %>
-		</tbody>
-	</table>
-	<% } %>
-	<div><%-methodInfo.description%></div>
-	<%
-		// Object.keys.length would be better but it's not fully supported
-		var examples = 0;
-		for (var e in methodInfo.examples) {
-			if (methodInfo.examples.hasOwnProperty(e)) {
-				++examples;
-			}
+			return renderProperty(param);
+		}).join(','); %><%-methodInfo.params.length > 0 ? '\n)' : ')'%></pre></code>
+<%
+	// Object.keys.length would be better but it's not fully supported
+	var examples = 0;
+	for (var e in methodInfo.examples) {
+		if (methodInfo.examples.hasOwnProperty(e)) {
+			++examples;
 		}
-		if (examples > 0) {
-			renderExamples(methodInfo.examples, methodInfo.name, 'example');
-		}
+	}
+	if (examples > 0) {
+		renderExamples(methodInfo.examples, methodInfo.name, 'example');
+	}
 }
 
 %><html lang="en">
 <head>
 	<meta charset="utf-8">
-	<title><%= metadata.friendlyName %> <%= metadata.version %></title>
+	<title><%= locals.metadata.name %> <%= locals.metadata.version %></title>
 
 	<meta name="viewport" content="width=device-width, initial-scale=1.0">
-	<link href="//netdna.bootstrapcdn.com/bootstrap/3.0.0/css/bootstrap.min.css" rel="stylesheet">
-	<link rel="stylesheet" type="text/css" href="./static/prettify.css" />
+	<!--<link rel="stylesheet" type="text/css" href="./static/prettify.css" />-->
 	<style>
+		<%Object.keys(locals.css).forEach(function (cssFile) { %>
+		<%-locals.css[cssFile]%>
+	   <%}) %>
+
+		html, body {
+			width: 100%;
+			height: 100%;
+		}
+
+		.type-img {
+			background: url(data:image/svg+xml;base64,<%- locals.images.type %>);
+			background-repeat: no-repeat;
+		}
+
+		.event-img {
+			background: url(data:image/svg+xml;base64,<%- locals.images.event %>);
+			fill: white;
+		}
+
+		.method-img {
+			background: url(data:image/svg+xml;base64,<%- locals.images.method %>);
+			background-repeat: no-repeat;
+		}
+
+		.snippet-img {
+			background: url(data:image/svg+xml;base64,<%- locals.images.snippet %>);
+			background-repeat: no-repeat;
+		}
+
+		.tab-panel {
+			display: flex;
+			flex-direction: row;
+			margin-top: 10px;
+		}
+
+		.tab-btn.active {
+			color: black;
+			border: 1px solid #545454;
+			border-bottom: none;
+			cursor: default;
+		}
+
+		.tab-btn {
+			background-color: #EEE;
+			font-size: 11px;
+			color: #0081c2;
+			border: none;
+			padding: 5px 8px;
+			margin: 0px 3px;
+			cursor: pointer;
+			outline: none;
+		}
+
+		.tab-btn::-moz-focus-inner {
+			border: 0;
+		}
+
+		.tab-btn:not(.active):hover {
+			background-color: #d0d0d0;
+		}
+
+		.tab-pane.active {
+			display: block;
+		}
+
+		.tab-pane {
+			display: none;
+		}
+
+		.proxies-btn {
+			font-size: 15px;
+			background-color: #3b8ec2;
+			color: white;
+			border: none;
+			cursor: pointer;
+			outline: none;
+			padding: 10px 5px;
+		}
+
+		.proxies-btn::-moz-focus-inner {
+			border: 0;
+		}
+
+		.proxies-btn:hover {
+			background-color: #3cb0fd;
+			text-decoration: none;
+		}
+
+		.dropdown-content {
+			z-index: 1;
+			display: none;
+			position: absolute;
+			top: 37px;
+			background-color: #3b8ec2;
+			overflow: auto;
+			box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.2);
+		}
+
+		.dropdown-content a {
+			color: white;
+			padding: 5px 8px;
+			font-size: 13px;
+			text-decoration: none;
+			display: block;
+		}
+
+		.dropdown-content a:hover {background-color: #3cb0fd}
+
 		body {
-			position: relative;
-			top: 70px;
+			display: flex;
+			font-family: "Helvetica Neue",Helvetica,Arial,sans-serif;
 			font-size: 12px;
+			margin: 0px;
+			overflow: hidden;
 		}
 
-		pre {
-			border-radius: 0;
+		.container {
+			display: flex;
+			flex-direction: column;
+			flex: 1 1 90%;
+			background-color: #eee;
 		}
 
-		span.badge {
-			font-size: 90%;
-			float: right;
+		aside {
+			flex: 1 1 10%;
+			display: flex;
+			overflow: auto;
+			flex-direction: column;
+			align-self: flex-start;
+			background-color: #3b8ec2;
+			min-width: 16em;
+			height: 100%;
+		}
+
+		#main {
+			overflow-y: auto;
+		}
+
+		#search-results {
+			overflow-y: auto;
+			color: white;
+		}
+
+		#search {
+			min-height: 38px;
+			border: 0;
+			padding: 0px;
+			padding-left: 4px;
+			background-color: #eee;
+		}
+
+		header {
+			display: flex;
+			flex-direction: row;
+			width: 100%;
+			min-height: 38px;
+			top: 0;
+			z-index: 1;
+			background: #3b8ec2;
+		}
+
+		#proxy-name {
+			padding: 7px;
+		}
+
+		nav {
+			height: 38px;
+			display: flex;
+			width: 100%;
+			justify-content: space-between;
+		}
+
+		header nav a {
+			padding: 10px 5px;
+			color: white;
+			font-size: 15px;
+			text-decoration: none;
+		}
+
+		#header-buttons {
+			font-size: 15px;
+			align-self: flex-end;
+		}
+
+		.btn:hover {
+			background-color: #3cb0fd;
+			text-decoration: none;
 		}
 
 		code {
 			display: block;
-			margin-top: 10px;
-			margin-bottom: 10px;
+			margin: 10px 0px;
 			font-size: 13px;
 			word-break: break-all;
 			word-wrap: break-word;
 			white-space: normal;
+			font-family: Monaco,Menlo,Consolas,"Courier New",monospace;
 		}
 
 		.codeline {
@@ -244,11 +372,7 @@ function renderMethod(methodInfo) {
 		}
 
 		pre {
-			padding: 0;
 			margin: 0;
-			color: inherit;
-			background: inherit;
-			border: inherit;
 		}
 
 		a {
@@ -257,125 +381,93 @@ function renderMethod(methodInfo) {
 		}
 
 		a.anchor {
-			text-decoration: none;
-			color: inherit;
-			padding-top: 70px;
 			pointer-events: none;
 		}
 
 		.group {
-			position: relative;
 			margin: -1px 0 20px;
 			padding: 0 19px 14px;
 			background-color: #fff;
-			border: 1px solid #ddd;
 		}
 
-		.group-description {
-			padding: 10px 0 0 0;
-			margin-left: -8px;
+		.group-description, .group-title {
+			margin: 7px;
 		}
 
-		.group-text {
-			margin-top:-1px;
-			padding: 6px 10px;
-			font-weight: bold;
-			background-color: #f5f5f5;
-			border: 1px solid #ddd;
-			color: #5F6163;
+		.group-expand {
 			cursor: pointer;
+			display: inline-flex;
+			align-items: center;
+		}
+
+		.group-expand.opened:before {
+			/*background svg original(using base64 for the support of IE and Edge) :
+			<svg fill="#000000" height="12" viewBox="0 0 24 24" width="12" xmlns="http://www.w3.org/2000/svg">
+				<path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/><path d="M0 0h24v24H0z" fill="none"/>
+			</svg>*/
+			background: url('data:image/svg+xml;base64,PHN2ZyBmaWxsPSIjMDAwMDAwIiBoZWlnaHQ9IjEyIiB2aWV3Qm94PSIwIDAgMjQgMjQiIHdpZHRoPSIxMiIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3Zn	Ij48cGF0aCBkPSJNMTkgMTNoLTZ2NmgtMnYtNkg1di0yaDZWNWgydjZoNnYyeiIvPjxwYXRoIGQ9Ik0wIDBoMjR2MjRIMHoiIGZpbGw9Im5vbmUiLz48L3N2Zz4K');
+			content: '';
+			height: 12px;
+			width: 12px;
+			border: 1px solid black;
+			margin: 0px 3px;
+		}
+
+		.group-expand:before {
+			/*background svg original(using base64 for the support of IE and Edge):
+			<svg xmlns="http://www.w3.org/2000/svg" fill="#000000" height="12" viewBox="0 0 24 24" width="12">
+				<path d="M19 13H5v-2h14v2z"/><path d="M0 0h24v24H0z" fill="none"/>
+			</svg>
+			*/
+			background: url('data:image/svg+xml;base64, PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIGZpbGw9IiMwMDAwMDAiIGhlaWdodD0iMTIiIHZpZXdCb3g9IjAgMCAyNCAyNCIgd2lkdGg9IjEyIj48cGF0aCBkPSJNMTkgMTNINXYtMmgxNHYyeiIvPjxwYXRoIGQ9Ik0wIDBoMjR2MjRIMHoiIGZpbGw9Im5vbmUiLz48L3N2Zz4K');
+			content: '';
+			height: 12px;
+			width: 12px;
+			border: 1px solid black;
+			margin: 0px 3px;
+		}
+
+		.group-title {
+			display: flex;
+			padding: 5px 0px;
+		}
+
+		.group-content {
+			display: none;
+		}
+
+		.group-content.opened {
+			display: block;
+		}
+
+		code .linkMember {
+			color: #3cb0fd;
 		}
 
 		.entry {
-			padding: 5px;
-		}
-
-		.entry:hover {
-			background-color: #fafafa;
-		}
-
-		h5 {
-			margin-top: 20px;
-		}
-
-		.table-bordered>thead>tr>th, .table-bordered>thead>tr>td {
-			border-bottom-width: 1px;
-		}
-
-		.navbar {
-			font-size: 14px;
-		}
-
-		.navbar-header {
-			float: left;
-		}
-
-		.navbar-brand {
-			margin-left: -15px;
-		}
-
-		.navbar-nav {
-			float: left;
-			margin: 0;
-		}
-
-		.navbar-nav > li {
-			float: left;
-		}
-
-		.navbar-nav > li > a {
-			padding: 15px;
-		}
-
-		.navbar-nav.navbar-right {
-			float: right;
-		}
-
-		.sidebar {
-			background: #f8f8f8;
-			position: fixed;
-			top: 52px;
-			bottom: 0;
-			left: 0;
-			width: 240px;
-		}
-
-		.sidebar .container {
-			padding: 15px;
-		}
-
-		#main {
+			background-color: #EEE;
+			margin: 7px;
 			position: relative;
-			left: 120px;
-			background-color: #ffffff;
-		}
-
-		#search-results {
-			position: absolute;
-			top: 60px;
-			bottom: 0px;
-			left: 14px;
-			right: 14px;
-			overflow-x: hidden;
-			overflow-y: auto;
 		}
 
 		.member:hover {
-			background: #ccc;
+			background: #3cb0fd;
 		}
 
 		.linkMember {
-			display: inline-block;
 			text-align: left;
 			text-decoration: none;
 			white-space: nowrap;
+			color: white;
 		}
 
-		.member > .linkMember {
+		.member > .linkMember,
+		.entry > .linkMember {
 			display: block;
 			line-height: 2em;
 			padding-left: 32px;
-			background-position: 12px 4px;
+			padding-right: 8px;
+			background-position: 6px 3px;
 			background-repeat: no-repeat;
 		}
 
@@ -384,13 +476,11 @@ function renderMethod(methodInfo) {
 		}
 
 		.groupTitle {
-			background: #eeeeee;
-			border: 1px solid #ddd;
-			border-radius: 4px;
+			background: #3cb0fd;
 		}
 
 		.groupTitle:hover {
-			background: #ccc;
+			background: #3CB2C8;
 		}
 
 		.groupTitle .linkMember {
@@ -398,66 +488,33 @@ function renderMethod(methodInfo) {
 		}
 
 		pre.prettyprint {
-			background-color: #EEE;
+			background-color: #eee;
 			padding: 5px;
 			overflow: auto;
-			max-height: 750px;
-			margin: 5px 0;
-			border-color: #CCC;
+			border: none;
 		}
 
 		.playgroundLink {
 			position: absolute;
-			right: 0px;
-			margin-right: 1em;
-			margin-top: 2px;
+			top: 10px;
+			right: 20px;
 		}
 
 		.playgroundLink:hover {
 			text-decoration: none;
 		}
 
-		.nav-tabs {
-			margin-top: 10px;
-		}
-
-		.nav-tabs>li>a {
-			padding: 5px;
-		}
 	</style>
-	<script src="//code.jquery.com/jquery-2.0.3.min.js"></script>
-	<script src="//netdna.bootstrapcdn.com/bootstrap/3.0.0/js/bootstrap.min.js"></script>
-	<script src="./static/prettify.js"></script>
+	<%Object.keys(locals.js).forEach(function (jsScript) { %>
+	<script><%-locals.js[jsScript]%></script>
+	<%}) %>
 </head>
 
-<body onload="prettyPrint()">
-
-<div class="navbar navbar-default navbar-fixed-top">
-	<div class="container">
-		<div class="navbar-header">
-			<a class="navbar-brand" href="#"><%= metadata.friendlyName %> <%= metadata.version %></a>
-		</div>
-		<ul class="nav navbar-nav">
-			<li class="dropdown">
-				<a href="#" class="dropdown-toggle" data-toggle="dropdown">Proxies</a>
-				<ul class="dropdown-menu">
-					<% proxies.forEach(function(proxy) { %>
-					<li><a href="?proxy=<%= proxy %>"><%= proxy %></a></li>
-					<% }); %>
-				</ul>
-			</li>
-			<li class="dropdown">
-			   <a class="dropdown-toggle" href="?viewer" target="_blank">Playground</a>
-           </li>
-		</ul>
-	</div>
-</div>
-
 <%
-var groups = Object.keys(metadata.groups);
+var groups = Object.keys(locals.metadata.groups);
 groups.sort();
 var groupsMap = [];
-groups.map(function(groupIndex) { return metadata.groups[groupIndex].items}).forEach(function(group, i) {
+groups.map(function(groupIndex) { return locals.metadata.groups[groupIndex].items}).forEach(function(group, i) {
 	if (group.length == 0) return;
 	var types = group.filter(function(i) { return i.indexOf('type:') == 0}).sort();
 	var events = group.filter(function(i) { return i.indexOf('event:') == 0}).sort();
@@ -469,12 +526,12 @@ groups.map(function(groupIndex) { return metadata.groups[groupIndex].items}).for
 	});
 	groupsMap[i] = {
 		name: groups[i],
-		description: metadata.groups[groups[i]].description,
+		description: locals.metadata.groups[groups[i]].description,
 		items: groupItems
 	};
 });
-var snippets = Object.keys(metadata.snippetMap).map(function(snipppet) {
-	return { type: 'snippet', item: snipppet };
+var snippets = Object.keys(locals.metadata.snippetMap).map(function(snippet) {
+	return { type: 'snippet', item: snippet };
 });
 if (snippets.length > 0) {
 	groupsMap.push({
@@ -485,146 +542,192 @@ if (snippets.length > 0) {
 }
 %>
 
-<div id="searchDiv" class="navbar-left sidebar">
-	<div class="container">
-		<input type="text" id="search" placeholder="Search" class="form-control"/>
+<body onload="prettyPrint()">
 
-		<div id="search-results">
+	<aside id="searchDiv">
+	<input type="text" id="search" placeholder="Search"/>
 
-			<% groupsMap.forEach(function(group) { %>
-			<div class="groupSearch">
-				<div class="member groupTitle">
-					<a href="#<%= group.name %>" class="linkMember"><%= group.name %></a>
-				</div>
+	<div id="search-results">
 
-				<%
-				group.items.forEach(function(groupItemInfo) {
-				var imgUrl = './static/' + groupItemInfo.type + '.png';
-				%>
-				<div class="member">
-					<a href="#<%= groupItemInfo.item %>" class="linkMember"
-						 style="background-image: url('<%= imgUrl %>')">
-						<%= groupItemInfo.item%></a>
-				</div>
-
-				<% }) %> <!-- forEach(itemInfo) -->
-
+		<% groupsMap.forEach(function(group) { %>
+		<div class="groupSearch">
+			<div class="member groupTitle">
+				<a href="#<%= group.name %>" class="linkMember"><%= group.name %></a>
 			</div>
+
+			<%
+			group.items.forEach(function(groupItemInfo) {
+			%>
+			<div class="member">
+				<a href="#<%= groupItemInfo.item %>" class="linkMember <%-groupItemInfo.type%>-img"><%= groupItemInfo.item%></a>
+			</div>
+
+			<% }) %> <!-- forEach(itemInfo) -->
+
+		</div>
+		<% }); %>  <!-- forEach(group) -->
+	</div>
+</aside>
+	<div class="container">
+		<header>
+			<nav>
+				<a style="font-size: 20px" href="#top" id="proxy-name"><%= locals.metadata.name %> <%= locals.metadata.version %></a>
+				<% if(!locals.isStatic) {%>
+				<div id="header-buttons">
+					<button class="proxies-btn btn" onclick="onProxiesClick()">Proxies</button>
+					<div class="dropdown-content">
+						<% locals.proxies.forEach(function(proxy) { %>
+						<a href="?proxy=<%= proxy %>"><%= proxy %></a>
+						<% }); %>
+					</div>
+					<a href="?viewer" target="_blank" class="btn">Playground</a> <%}%>
+				</div>
+			</nav>
+		</header>
+
+		<div id="main">
+			<a name="top"></a>
+			<% groupsMap.forEach(function(group, i) { %>
+			<pre><div class="group-title"><span class="group-expand"><a class="anchor prettyprint" id="<%= group.name %>">// <%= group.name %> (<%-group.items.length%>)</a></span> </div></pre>
+			<div id="group-<%-i%>" class="group-content opened">
+					<% if (group.description) { %>
+					<div class="group-description">
+						<pre class="prettyprint">// <%- group.description %></pre></div>
+					<% } %>
+					<%	group.items.forEach(function(groupItemInfo) { %>
+						<div class="entry">
+							<%  var item = groupItemInfo.item;
+								switch (groupItemInfo.type) {
+									case 'type': renderType(locals.metadata.typeMap[item]); break;
+									case 'event': renderEvent(locals.metadata.eventMap[item]); break;
+									case 'method': renderMethod(locals.metadata.methodMap[item]); break;
+									case 'snippet': renderExamples(locals.metadata.snippetMap[item], item, 'snippet'); break;
+								}
+							%>
+						</div>
+					<% }) %> <!-- forEach(methodInfo) -->
+			</div>
+
 			<% }); %>  <!-- forEach(group) -->
 		</div>
 	</div>
-</div>
 
-<div class="container" id="main">
 
-    <% groupsMap.forEach(function(group, i) { %>
-	<div class="group-text" data-toggle="collapse" data-target="#group-<%-i%>"><a class="anchor" id="<%= group.name %>"> <%= group.name %> </a><span class="badge"><%-group.items.length%></span></div>
-	<div class="group collapse in" id="group-<%-i%>">
-		<% if (group.description) { %>
-		<div class="group-description col-md-12"><%- group.description %></div>
-		<% } %>
-		<%
-			group.items.forEach(function(groupItemInfo, idx) {
-			if (idx % 2 == 0) { %><div class="row"><% } %>
-			<div class="entry<% if (group.name !== 'Snippets') { %> col-md-6<% } %>">
-		<%  var item = groupItemInfo.item;
-			switch (groupItemInfo.type) {
-				case 'type': renderType(metadata.typeMap[item]); break;
-				case 'event': renderEvent(metadata.eventMap[item]); break;
-				case 'method': renderMethod(metadata.methodMap[item]); break;
-				case 'snippet': renderExamples(metadata.snippetMap[item], item, 'snippet'); break;
-			}
-		%>
-		</div>
-		<% if (idx % 2 == 1 || idx == group.items.length - 1) { %></div><% } %>
-		<% }) %> <!-- forEach(methodInfo) -->
-
-	</div>
-
-	<% }); %>  <!-- forEach(group) -->
-
-	<p>&nbsp;</p>
-</div>
 <script>
-	var animTimeout = 0;
-	var lastClickedLink = $('.member:first').parent();
-	$(".linkMember").click(function () {
-		lastClickedLink.css("background",
-				lastClickedLink.hasClass('groupTitle') ? '#eeeeee' : 'transparent');
-		lastClickedLink = $(this).parent();
-		lastClickedLink.css("background", "#ccc");
-		// blink background
-		if (animTimeout) {
-			clearTimeout(animTimeout);
-			$('.entry').css('background-color', '#fff');
-		}
-		if ($(this).parent().hasClass('groupTitle')) {
-			return;
-		}
-		var id = $(this).attr('href').replace('#', '');
-		var anchor = $('a[id="' + id + '"');
-		var entry = anchor.closest('.entry');
-		if (entry.length > 0) {
-			var color = '#edd0cc';
-			var iter = 6;
-			var setBackgroundColor = function() {
-				if (iter == 0) return;
-				entry.css('background-color', color);
-				color = --iter % 2 == 0 ? '#edd0cc' : '#fff';
-				animTimeout = setTimeout(setBackgroundColor, 500);
+	function onTabClick(tab) {
+		tab.classList.add('active');
+		var tabId = tab.id;
+		var tabPanel = tab.parentNode;
+		[].map.call(tabPanel.children, function (child) {
+			if (child.id !== tabId) {
+				child.classList.remove('active');
 			}
-			setBackgroundColor();
-		}
-	});
+			return child;
+		});
 
-	$("#search").on("keyup", function () {
-		var pattern = $("#search").val().toLowerCase();
-		$(".groupSearch").each(function () {
-			var groupText = $(this).find('.linkMember').first().text().toLowerCase();
-			if (groupText.indexOf(pattern) !== -1) {   // all subitems must be visible
-				$(this).find('.linkMember').each(function () {
-					$(this).show();
-				});
-			} else { // only matching subitems must be visible
-				$(this).find('.linkMember').each(function () {
-					var itemText = $(this).text().toLowerCase();
-					$(this)[ itemText.indexOf(pattern) !== -1 ? 'show' : 'hide' ]();
+		var entry = closestByClass(tab, 'entry');
+		var tabContent = entry.querySelector('.tab-content');
+		[].map.call(tabContent.children, function(child) {
+			if (child.id.indexOf(tabId) !== -1) {
+				child.classList.add('active');
+			} else {
+				child.classList.remove('active');
+			}
+			return child;
+		});
+	}
+
+	function onWindowClick(e) {
+		if (!hasClass(e.target, 'proxies-btn')) {
+			var dropdown = document.querySelector(".dropdown-content");
+			if (hasClass(dropdown, 'opened')) {
+				dropdown.classList.remove('opened');
+				dropdown.style.display = 'none';
+			}
+		}
+	}
+
+	function onProxiesClick() {
+		var dropdown = document.querySelector(".dropdown-content");
+		dropdown.classList.toggle("opened");
+		if (hasClass(dropdown, 'opened')) {
+			dropdown.style.display = "block";
+			window.addEventListener('click', onWindowClick);
+		} else {
+			dropdown.style.display = "none";
+		}
+	}
+
+	function hasClass(element, cls) {
+		return (' ' + element.className + ' ').indexOf(' ' + cls + ' ') > -1;
+	}
+
+	function closestByClass(el, clazz) {
+		while (el.className != clazz) {
+			el = el.parentNode;
+			if (!el) {
+				return null;
+			}
+		}
+		return el;
+	}
+
+	document.addEventListener('keyup', onKeyUp);
+
+	function onKeyUp(e) {
+		var pattern = document.querySelector('#search').value.toLowerCase();
+		var groupSearchDivs = document.getElementsByClassName('groupSearch');
+		[].forEach.call(groupSearchDivs, function (groupSearchDiv) {
+			var linkMembers = groupSearchDiv.getElementsByClassName('linkMember');
+			var groupText = linkMembers[0].innerText.toLowerCase();
+			if (groupText.indexOf(pattern) !== -1) {
+				[].map.call(linkMembers, function (linkMember) {
+					linkMember.style.display = 'block';
+					return linkMember;
+				})
+			} else {
+				[].map.call(linkMembers, function (linkMember) {
+					linkMember.style.display = linkMember.innerText.toLowerCase().indexOf(pattern) !== -1 ? 'block' : 'none';
+					return linkMember;
 				});
 			}
 		});
-	});
-
-	// change the displayed language to the specified one
-	function activateLanguage(lang) {
-		// activate tab content
-		$('div.tab-pane').removeClass('active');
-		$('div.' + lang).addClass('active');
-
-		// activate tab headers
-		$('.nav-tabs, .nav-pills').children().removeClass('active');
-		$('li.' + lang).addClass('active');
-	};
-
-	function changeLanguageHandler(event) {
-		var target = $(event.target);
-		var relativeOffset = getRelativeOffset(target);
-		var lang = target.attr('class').split(' ')[0];
-		activateLanguage(lang);
-		window.localStorage.lang = lang;
-		// return the relative scroll position
-		$('body').scrollTop(target.offset().top - relativeOffset);
 	}
 
-	function getRelativeOffset(element) {
-		return element.offset().top - $('body').scrollTop();
+	function onEscape(e) {
+		var isEscape = false;
+		if ("key" in e) {
+			isEscape = (e.key == "Escape" || e.key == "Esc");
+		} else {
+			isEscape = (e.keyCode == 27);
+		}
+		if (isEscape) {
+			var self = this;
+			setTimeout(function() {
+				self.value = "";
+			}, 0); // Using setTimeout because of Mozilla problem
+		}
 	}
 
-	$('a[data-toggle="tab"]').click(changeLanguageHandler);
+	document.querySelector('#search').addEventListener('keydown', onEscape);
+	document.querySelector('#proxy-name').addEventListener('click', onProxyNameClick);
 
-	(function getLocalStorageLanguage() {
-		var store = window.localStorage || {};
-		store.lang = store.lang || 'JavaScript';
-		activateLanguage(store.lang);
+	function onProxyNameClick() {
+		window.reload
+	}
+
+	(function collapseGroup() {
+		var groupExpands = document.getElementsByClassName('group-expand');
+		[].forEach.call(groupExpands, function (groupExpand) {
+			groupExpand.addEventListener('click', function () {
+				var group = groupExpand.parentNode.parentNode.nextSibling;
+				while(group && group.nodeType !== 1) {
+					group = group.nextSibling
+				}
+				group.classList.toggle('opened');
+				groupExpand.classList.toggle('opened');
+			});
+		})
 	}) ();
 </script>
 </body>

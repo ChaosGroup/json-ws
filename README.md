@@ -355,23 +355,29 @@ api.define('f1', function f1() {
 });
 ```
 
-### Import definitions from external sources
-
-TBD
-
-### Code snippets and examples
-
-TBD
-
 ### Attach transports and listen for requests
 
 ```javascript
-var transport = require('json-ws').transport;
-var app = require('express')();
-var srv = http.createServer(app).listen(app.get('port'), ...);
-api.transport(new transport.HTTP(srv, app))
-	.transport(new transport.WebSocket(srv))
-	.listen('/thePathToListen');
+const expressApp = express();
+const httpServer = http.createServer(expressApp);
+const registry = jsonws.registry({
+	rootPath: '/endpoint',
+	httpServer
+});
+
+expressApp.set('port', 3000);
+expressApp.use(bodyParser.json());
+expressApp.use(registry.getRouter());
+
+httpServer.listen(expressApp.get('port'), function () {
+	registry.addTransport(transport.HTTP);
+	// registry.addTransport(transport.WebSocket);
+	// see 'examples_snippets_sio.js' for a client transport example to connect to socket-io
+	// registry.addTransport(new SocketIOTransport(registry, '/test-api/socket.io'));
+	var service = new jsonws.service('1.0.0', 'test-api');
+	registry.addService(service);
+	console.log('Express server listening on ' + JSON.stringify(httpServer.address()));
+});
 ```
 
 The address *'rootAddress/thePathToListen/apiVersion'* must be used to open a

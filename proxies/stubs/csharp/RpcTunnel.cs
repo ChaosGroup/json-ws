@@ -14,9 +14,9 @@ using ErrorEventArgs = SuperSocket.ClientEngine.ErrorEventArgs;
 namespace ChaosGroup.JsonWS.Proxies
 {
 	/// <summary>
-	/// Copyright (c) ChaosGroup 2013-2014. All rights reserved.
+	/// Copyright (c) Chaos Software Ltd. 2013-2016. All rights reserved.
 	/// </summary>
-	public class RpcTunnel : IDisposable
+	class RpcTunnel : IDisposable
 	{
 		private bool _isDisposed;
 
@@ -145,7 +145,7 @@ namespace ChaosGroup.JsonWS.Proxies
 					using (var response = webReq.GetResponse())
 					using (var responseStream = response.GetResponseStream())
 					{
-						var isResponseDataJson = response.ContentType.Equals("application/json",
+						var isResponseDataJson = response.ContentType.StartsWith("application/json",
 							StringComparison.InvariantCultureIgnoreCase);
 						return isResponseDataJson
 							? new RpcMessage(ReadJsonInputStream(responseStream))
@@ -156,7 +156,7 @@ namespace ChaosGroup.JsonWS.Proxies
 				{
 					if (ex.Response != null && ex.Response.ContentLength != 0)
 					{
-						var isResponseDataJson = ex.Response.ContentType.Equals("application/json",
+						var isResponseDataJson = ex.Response.ContentType.StartsWith("application/json",
 							StringComparison.InvariantCultureIgnoreCase);
 						var statusCode = ((HttpWebResponse)ex.Response).StatusCode;
 						if (isResponseDataJson && statusCode == HttpStatusCode.InternalServerError)
@@ -167,7 +167,7 @@ namespace ChaosGroup.JsonWS.Proxies
 							}
 						}
 					}
-					throw;
+                    throw new InvalidOperationException("Failed to open HTTP transport.", ex); ;
 				}
 			}, TaskCreationOptions.LongRunning | TaskCreationOptions.PreferFairness);
 		}
@@ -268,8 +268,9 @@ namespace ChaosGroup.JsonWS.Proxies
 				var id = (int)message["id"];
 				if (!_messageResults.ContainsKey(id))
 				{
-					_messageLocks[id] = new AutoResetEvent(false);
-					_messageLocks[id].WaitOne();
+                    var autoResetEvent = new AutoResetEvent(false);
+				    _messageLocks[id] = autoResetEvent;
+					autoResetEvent.WaitOne();
 				}
 				JObject result;
 				return _messageResults.TryRemove(id, out result) ? new RpcMessage(result) : null;
@@ -284,7 +285,7 @@ namespace ChaosGroup.JsonWS.Proxies
 			}
 			_isClosed = true;
 			_openEvent.Set();
-			_openEvent.Reset();
+			//_openEvent.Reset();
 			if (_webSocketClient.State == WebSocketState.Open)
 			{
 				_webSocketClient.Close();

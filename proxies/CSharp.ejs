@@ -1,5 +1,6 @@
 <% // Code Generator utilities
-
+var metadata = locals.metadata;
+var localName = locals.localName;
 function mapCSharpType(jsType, isArray) {
 	var returnType = '';
 	switch (jsType) {
@@ -44,6 +45,7 @@ function mapCSharpType(jsType, isArray) {
 
 		case 'buffer':
 		case 'binary':
+		case 'stream':
 			returnType = 'byte[]';
 			break;
 
@@ -62,7 +64,7 @@ function camelCase(literal) {
 }
 
 function generateTypes() {
-	var types = Object.keys(metadata.types).map(function(key) { return metadata.types[key] });
+	var types = Object.keys(locals.metadata.types).map(function(key) { return locals.metadata.types[key] });
 %>#region Types
 
 		public class BaseRpcObject
@@ -275,7 +277,7 @@ function getMethodArguments(methodInfo, includeTypes, length) {
 	length = typeof length === 'number' ? length : methodInfo.params.length;
 	return methodInfo.params.slice(0, length).map(function(param) {
 		var paramName = param.name;
-		if (param.type === 'buffer' || param.type === 'binary') {
+		if (param.type === 'buffer' || param.type === 'binary' || param.type === 'stream') {
 			paramName = 'Convert.ToBase64String(' + paramName + ')';
 		}
 		return includeTypes ? mapCSharpType(param.type, param.isArray) + ' ' + param.name : paramName;

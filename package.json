@@ -1,41 +1,52 @@
 {
   "name": "json-ws",
-  "version": "1.1.15",
-  "author": "ChaosGroup (c) 2013-2015",
+  "version": "2.5.0",
+  "author": "ChaosGroup (c) 2013-2017",
   "description": "JSON-RPC based Web Services with automatic help and client side source creation for Java/JavaScript/.Net/Python/Node.js",
   "keywords": [
     "json",
+    "rpc",
+    "remote procedure call",
     "json-ws",
     "json-rpc",
-    "web service"
+    "web service",
+    "web socket",
+    "socket-io"
   ],
   "homepage": "https://github.com/ChaosGroup/json-ws",
   "repository": "https://github.com/ChaosGroup/json-ws",
   "bugs": "https://github.com/ChaosGroup/json-ws/issues",
   "license": "MIT",
   "dependencies": {
-    "bluebird": "^3.1.1",
-    "co": "^4.6.0",
-    "cookie": "^0.1.2",
-    "ejs": "^1.0.0",
+    "co": "^4.5.2",
+    "ejs": "^2.3.4",
+    "express": "^4.13.4",
+    "lodash": "^4.17.4",
+    "path-to-regexp": "^1.2.1",
     "request": "^2.67.0",
-    "uglify-js": "^2.5.0",
-    "ws": "0.8.0"
+    "semver": "^5.1.0"
   },
   "devDependencies": {
-    "chai": "^3.3.0",
+    "bluebird": "^3.2.1",
+    "body-parser": "^1.14.2",
+    "chai": "^3.5.0",
     "eslint": "^1.10.3",
-    "express": "^3.21.2",
     "istanbul": "^0.4.2",
     "jsdoc": "^3.4.0",
-    "lodash": "^3.10.1",
-    "mocha": "^2.3.3"
+    "mocha": "^3.2.0",
+    "nodemon": "^1.11.0"
   },
   "scripts": {
-    "test": "mocha test/lib/*.js test/server.js test/client.js",
-    "eslint": "eslint index.js lib/*.js test/**/*.js",
+    "test": "mocha test/lib/* test/server.js test/client.js",
+    "test-sio": "mocha test/client_socketio.js",
+    "lint": "eslint .",
     "jsdoc": "jsdoc . -c conf.json",
-    "cover": "istanbul cover _mocha -- --reporter=dot test/lib/*.js test/server.js test/client.js",
-    "example-app": "node test/adhoc/app"
+    "cover": "istanbul cover _mocha -- test/lib/* test/server.js test/client.js",
+    "example-app": "nodemon test/adhoc/app"
+  },
+  "optionalDependencies": {
+    "socket.io": "^1.7.3",
+    "socket.io-client": "^1.7.3",
+    "ws": "^1.0.1"
   }
 }

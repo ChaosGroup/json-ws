@@ -1,25 +1,38 @@
-(function (exports) {
-	var RpcClient = (function () {
-		try {
-			return require('json-ws/client');
-		} catch (e) {
-			return exports.RpcClient;
-		}
-	}());
-	var inherits = RpcClient.ports.inherits;
-	var EventEmitter = RpcClient.ports.EventEmitter;
-	var RpcTunnel = RpcClient.tunnel;
+<%
+var metadata = locals.metadata;
+var localName = locals.localName;
+%>/**
+ * @module <%=localName%>
+ */
+(function (module, define) {
+	// using non-strict mode, otherwise the re-assignment of require would throw TypeError
+	if (typeof require !== 'function') {
+		require = module.require;
+	}
 
-	var <%=localName%> = exports.<%=localName%> = function <%=localName%>(url, sslSettings) {
+	var EventEmitter = require('events');
+	var inherits = require('util').inherits;
+	var RpcTunnel = require('json-ws/client');
+
+	/**
+	 * @param {(url|Transport)} url - Either url of server (string) or Transport instance to be used as a sole transport.
+	 * @constructor
+	 * @alias module:<%=localName%>.<%=localName%>
+	 */
+	var <%=localName%> = module.exports.<%=localName%> = function <%=localName%>(url, settings) {
 		if (!this instanceof <%=localName%>) {
 			return new <%=localName%>(url);
 		}
-		if (!url || typeof url !== 'string') {
+		if (!url) {
 			throw new Error('Invalid proxy URL');
 		}
+		this.rpc = new RpcTunnel(url, settings);
+		if (typeof url !== 'string') {
+			this._transport = url;
+		} else {
+			this._transport = this.rpc.transports.http;
+		}
 		var self = this;
-		this.defaultTransport = 'http';
-		this.rpc = new RpcTunnel(url, sslSettings);
 		this.rpc.on('event', function(e) {
 			self.emit(e.name, e.data);
 		});
@@ -42,15 +55,21 @@
 		}
 	};
 	inherits(<%=localName%>, EventEmitter);
-	Object.defineProperty(<%= localName %>, 'VERSION', { value: '<%= metadata.version %>'});
+	Object.defineProperty(<%= localName %>, 'VERSION', { value: '<%= metadata.version.slice(0, metadata.version.lastIndexOf('.')) %>'});
 
 	<%=localName%>.prototype.useHTTP = function() {
-		this.defaultTransport = 'http';
+		if (!this.rpc.transports.http) {
+			throw new Error('HTTP transport requested, but ' + this._transport.name + ' given.');
+		}
+		this._transport = this.rpc.transports.http;
 		return this;
 	};
 
 	<%=localName%>.prototype.useWS = function() {
-		this.defaultTransport = 'ws';
+		if (!this.rpc.transports.ws) {
+			throw new Error('WebSocket transport requested, but ' + this._transport.name + ' given.');
+		}
+		this._transport = this.rpc.transports.ws;
 		return this;
 	};
 
@@ -60,7 +79,7 @@
 
 	<%=localName%>.prototype.on = <%=localName%>.prototype.addListener = function(type, listener) {
 		if (this.listeners(type).length == 0) {
-			this.rpc.call({ method: 'rpc.on', params: [type], transport: 'ws' });
+			this.rpc.call({ method: 'rpc.on', params: [type], transport: this.rpc.transports.http ? 'ws' : this._transport.name });
 		}
 		EventEmitter.prototype.addListener.call(this, type, listener);
 	};
@@ -68,28 +87,62 @@
 	<%=localName%>.prototype.removeListener = function(type, listener) {
 		EventEmitter.prototype.removeListener.call(this, type, listener);
 		if (this.listeners(type).length == 0) {
-			this.rpc.call({ method: 'rpc.off', params: [type], transport: 'ws' });
+			this.rpc.call({ method: 'rpc.off', params: [type], transport: this.rpc.transports.http ? 'ws' : this._transport.name });
 		}
 	};
 
 	<%=localName%>.prototype.removeAllListeners = function(type) {
 		EventEmitter.prototype.removeAllListeners.call(this, type);
-		this.rpc.call({ method: 'rpc.off', params: [type], transport: 'ws' });
+		this.rpc.call({ method: 'rpc.off', params: [type], transport: this.rpc.transports.http ? 'ws' : this._transport.name });
 	};
 <%
+
+var typedefs = Object.keys(metadata.types);
+
+function getFullTypeName(type) {
+	if (!type) {
+		return String(type);
+	}
+	return typedefs.indexOf(type) !== -1 ? 'module:' + localName + '.' + localName + '.' + type : type;
+}
 
 (function generateTypes() {
 	var types = Object.keys(metadata.types).map(function(key) { return metadata.types[key] });
 	types.forEach(function(type) {
+		typedefs.push(type.name);
 		if (type.enum) { %>
 	<%=localName%>.<%-type.name%> = function (val) {
 		switch (val) {
-		<%-Object.keys(type.struct).map(function(key) { return 'case \'' + key + '\': return ' + type.struct[key] }).join(';\n\t\t')%>;
-		<%-Object.keys(type.struct).map(function(key) { return 'case ' + type.struct[key] + ': return \'' + key + '\'' }).join(';\n\t\t')%>;
+			<%-Object.keys(type.struct).map(function(key) { return 'case \'' + key + '\': return ' + type.struct[key] }).join(';\n\t\t\t')%>;
+			<%-Object.keys(type.struct).map(function(key) { return 'case ' + type.struct[key] + ': return \'' + key + '\'' }).join(';\n\t\t\t')%>;
 		}
 	};
+
+	/** <%
+ 	if (type.description) { %>
+	 * <%-type.description%> <%
+	}%>
+	 * @enum {number}
+	 * @alias module:<%-localName%>.<%-localName%>.<%-type.name%>
+	 */
+	var <%=type.name%> = {
+		<%-Object.keys(type.struct).map(function(key) { return key + ': ' + type.struct[key] }).join(',\n\t\t')%>
+	};
+
 	<%-Object.keys(type.struct).map(function(key) { return localName + '.' + type.name + '.' + key + ' = ' + type.struct[key] }).join(';\n\t')%>
 	Object.freeze(<%=localName%>.<%-type.name%>);
+<%
+		} else { %>
+	/** <%
+			if (type.description) { %>
+	 * <%-type.description%> <%
+			} %>
+	 * @typedef {Object} module:<%=localName%>.<%=localName%>.<%-type.name%>
+	 <%-Object.keys(type.struct).map(function(key) {
+	 	var struct = type.struct[key];
+		return '* @property' + ' {' + getFullTypeName(struct.type) + '} ' + struct.name + ' ' + struct.description;
+	 }).join('\n\t ')%>
+	 */
 
 <%
 		}
@@ -118,7 +171,6 @@ Object.keys(metadata.methods).forEach(function(methodName) {
 	var namespace = methodName.substr(0, dot);
 	if (namespaces.indexOf(namespace) == -1) namespaces.push(namespace);
 });
-
 %><%-namespaces.forEach(stubNamespace)%>
 <%
 
@@ -166,7 +218,7 @@ function mapJavaScriptType(jsType, isArray) {
 			break;
 
 		default:
-			returnType = jsType;
+			returnType = getFullTypeName(jsType);
 	}
 	return returnType + (isArray ? '[]' : '');
 }
@@ -179,6 +231,10 @@ function getParameterNameWithOptional(param) {
 	return param.name;
 }
 
+function resolveMethodName(methodName) {
+	return methodName.indexOf('.') !== -1 ? ' "' + methodName + '"' : methodName;
+}
+
 function getMethodArgumentsHelp(methodInfo, length) {
 	length = typeof length === 'number' ? length : methodInfo.params.length;
 	return methodInfo.params.slice(0, length).map(function(param) {
@@ -189,7 +245,9 @@ function getMethodArgumentsHelp(methodInfo, length) {
 Object.keys(metadata.methods).forEach(function(methodName) {
 	var methodInfo = metadata.methods[methodName];
 %>	/**
-	 * <%=methodInfo.description%><%=getMethodArgumentsHelp(methodInfo)%>
+	 * <%=methodInfo.description%>
+	 * @function
+	 * @name module:<%=localName%>.<%=localName%>#<%-resolveMethodName(methodName)%><%=getMethodArgumentsHelp(methodInfo)%>
 <%= (methodInfo.returns) ? '\t * @returns {' + mapJavaScriptType(methodInfo.returns, methodInfo.returnsArray) + '}\n' : ''
 %>	 */
 	<%=localName%>.prototype.<%= methodName %> = function(<%-printArgs(methodName)%>) {
@@ -203,10 +261,49 @@ Object.keys(metadata.methods).forEach(function(methodName) {
 			method: '<%-methodName%>',
 			params: args,
 			expectReturn: <%-!!metadata.methods[methodName].returns || !!metadata.methods[methodName].async%>,
-			transport: this.defaultTransport
+			transport: this._transport.name
 		}, callback);
 	};
 
 <%
 });
-%>}(typeof module !== 'undefined' ? module.exports : window));
+
+(function generateEvents() {
+	Object.keys(metadata.events).forEach(function(eventName) {
+		var eventInfo = metadata.events[eventName];
+%>	/**	<%
+	if (eventInfo.description) { %>
+	 * <%-eventInfo.description%>
+	 * <%
+	} %>
+	 * @event module:<%=localName%>.<%=localName%>."<%=eventInfo.name%>"
+	 * @type <%-getFullTypeName(eventInfo.type)%>
+	 */
+
+<%
+	})%>
+	define('<%-localName%>', <%-localName%>);
+
+<%})()
+
+%>}.apply(null, (function() {
+	'use strict';
+
+	if (typeof module !== 'undefined') {
+		// node.js and webpack
+		return [module, function() {}];
+	}
+
+	if (typeof window !== 'undefined') {
+		// browser
+		if (typeof window.jsonws === 'undefined') {
+			throw new Error('No json-ws polyfills found.');
+		}
+
+		var jsonws = window.jsonws;
+
+		return [jsonws, jsonws.define];
+	}
+
+	throw new Error('Unknown environment, this code should be used in node.js/webpack/browser');
+}())));

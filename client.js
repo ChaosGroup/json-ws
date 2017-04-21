@@ -1,3 +1,3 @@
 'use strict';
 
-module.exports = require('./lib/client').RpcClient;
+module.exports = require('./lib/client/index');

@@ -10,49 +10,61 @@
 // -32000: internal server error
 // -32700: parse error
 
-var Bluebird = require('bluebird');
-var _ = require('lodash');
-var chai = require('chai');
-var expect = chai.expect;
+const fs = require('fs');
+const Promise = require('bluebird');
+const _ = require('lodash');
+const chai = require('chai');
+const expect = chai.expect;
+const EventEmitter = require('events');
 
-if (typeof global.Promise != 'function') {
-	// Polyfill Promise for Node 0.10.x
-	global.Promise = Bluebird;
-}
-var jsonws = require('../index.js');
-var request = Bluebird.promisifyAll(require('request'), {multiArgs: true});
-var WebSocket = require('ws');
-var http = require('http');
-var express = require('express');
+const jsonws = require('../index.js');
+const request = Promise.promisifyAll(require('request'), {multiArgs: true});
+const WebSocket = require('ws');
+const http = require('http');
+const express = require('express');
+const bodyParser = require('body-parser');
+const Service = jsonws.service;
+const ServiceRegistry = jsonws.registry.ServiceRegistry;
+const SocketIOTransport = require('../lib/transport/socket-io-transport');
+const WebSocketClientTransport = require('../lib/client/transports/ws');
+const SocketIOClientTransport = require('../lib/client/transports/socket-io');
 
-function buildTestApi() {
-	var api = require('../index.js').api('1.0', 'Test');
+const AssertionError = chai.AssertionError;
 
-	function TestAPI() {
+function buildTestService() {
+	const service = new Service('1.0.0', 'test');
+
+	class TestAPI extends EventEmitter {
+		sum(a, b) {
+			return a + b;
+		}
+
+		getStream() {
+			return fs.createReadStream(__filename);
+		}
+
+		asyncSum(a, b, callback) {
+			callback(null, a + b);
+		}
+
+		throwError() {
+			throw new Error('Throw error test');
+		}
+
+		throwUnexpectedError() {
+			throw new Error('Throw unexpected error test');
+		}
+
+		returnError() {
+			return new Error('FooBar');
+		}
 	}
 
-	TestAPI.prototype.sum = function (a, b) {
-		return a + b;
-	};
-	TestAPI.prototype.asyncSum = function (a, b, callback) {
-		callback(null, a + b);
-	};
-	TestAPI.prototype.throwError = function () {
-		throw new Error('Throw error test');
-	};
-	TestAPI.prototype.throwUnexpectedError = function () {
-		throw new Error('Throw unexpected error test');
-	};
-	TestAPI.prototype.returnError = function() {
-		return new Error('FooBar');
-	};
-
-	api.defineAll(new TestAPI());
-	api.type('TestData', {
+	service.type('TestData', {
 		a: 'int',
 		b: 'string'
 	});
-	api.define({
+	service.define({
 		name: 'optionalArgs',
 		params: [
 			{ name: 'a', type: 'string' },
@@ -63,24 +75,28 @@ function buildTestApi() {
 	}, function(a, b, c) {
 		return [a, b, c].join('');
 	});
-	api.define({
+	service.define({
+		name: 'getStream',
+		returns: 'stream'
+	});
+	service.define({
 		name: 'throwError',
 		returns: 'async'
 	});
-	api.define({
+	service.define({
 		name: 'throwUnexpectedError',
 		returns: ['object']
 	});
-	api.define({
+	service.define({
 		name: 'testAsyncReturn',
 		params: [ {name: 'throwError', type: 'bool'} ],
 		returns: 'async'
 	}, function(throwError, callback) {
 		setImmediate(function() {
 			callback(throwError ? new Error('Callback error') : null);
-		})
+		});
 	});
-	api.define({
+	service.define({
 		name: 'sum',
 		params: [
 			{name: 'a', type: 'int'},
@@ -88,13 +104,13 @@ function buildTestApi() {
 		],
 		returns: 'int'
 	});
-	api.define({
+	service.define({
 		name: 'hello',
 		returns: 'string'
 	}, function() {
-		return 'world'
+		return 'world';
 	});
-	api.define({
+	service.define({
 		name: 'asyncSum',
 		params: [
 			{name: 'a', type: '*'},
@@ -102,94 +118,182 @@ function buildTestApi() {
 		],
 		returns: '*'
 	});
-	api.define({
+	service.define({
 		name: 'mul',
 		params: [
 			{name: 'a', type: 'int'},
 			{name: 'b', type: 'int'}
 		],
 		returns: 'int'
-	}, function(a, b) { return a * b });
-	api.define({
+	}, function(a, b) { return a * b; });
+	service.define({
 		name: 'sumArray',
 		params: [
 			{name: 'ints', type: ['int']}
 		],
 		returns: 'int'
-	}, function(ints) { var sum = 0; ints.forEach(function(i){sum += i}); return sum; });
-	api.define({
+	}, function(ints) { let sum = 0; ints.forEach(function(i){sum += i;}); return sum; });
+	service.define({
 		name: 'test.some.namespace.mul',
 		params: [
 			{name: 'a', type: 'int'},
 			{name: 'b', type: 'int'}
 		],
 		returns: 'int'
-	}, function(a, b) { return a * b });
-	api.define({
+	}, function(a, b) { return a * b; });
+	service.define({
 		name: 'dataTest',
 		params: [{name: 'a', type: 'TestData'}],
 		returns: 'TestData'
 	}, function (a) { return a;	});
-	api.define({
+	service.define({
 		name: 'returnError',
 		returns: 'error'
 	});
-	api.event('testEvent');
-	api.event('testDataEvent');
-	api.event('test.the.namespace.event');
+	service.event('testEvent');
+	service.event('testDataEvent');
+	service.event('test.the.namespace.event');
+	service.event('testContextEvent');
+
+	const testAPI = new TestAPI();
+	service.defineAll(testAPI);
 
 	setInterval(function () {
-		api.emit('testEvent');
-		api.emit('test.the.namespace.event');
+		testAPI.emit('testEvent');
+		testAPI.emit('test.the.namespace.event');
 	}, 100);
 	setInterval(function () {
-		api.emit('testDataEvent', { hello: 'world' })
+		testAPI.emit('testDataEvent', { hello: 'world' });
+	}, 100);
+	setInterval(function() {
+		testAPI.emit('testContextEvent', {hello: 'hello1234'}, {ctxId: 'id1234'});
+		testAPI.emit('testContextEvent', {hello: 'hello5678'}, {ctxId: 'id5678'});
 	}, 100);
 
-	return api;
+	return service;
 }
 
-var srv;
-var serverUrl;
-var serverWsUrl;
-var httpProxyUrl;
+let httpServer;
+let serverUrl;
+let serverWsUrl;
+let httpProxyUrl;
+let getContextUrl;
 
-function startServer(done) {
-	var PORT = 3000;
-	var PATH = '/endpoint';
-	var app = express();
-	var registry = jsonws.registry(PATH);
+function startServer(done, options = {}) {
+	const PORT = 3000;
+	const rootPath = '/endpoint';
+	const expressApp = express();
 
-	app.use(express.json());
-	app.use(express.urlencoded());
-	app.use(registry.router());
+	const serveMetadata = (typeof options.serveMetadata === 'undefined') ? true : options.serveMetadata;
 
-	var api = buildTestApi();
+	httpServer = http.createServer(expressApp);
+	const registry = new ServiceRegistry({
+		rootPath,
+		httpServer,
+		expressApp,
+		serveMetadata
+	});
 
-	srv = http.createServer(app).listen(PORT, function () {
-		api.listen(PATH, [jsonws.transport.HTTP(srv, app), jsonws.transport.WebSocket(srv)]);
-		serverUrl = 'http://localhost:' + srv.address().port + api.path;
+	expressApp.use(bodyParser.json());
+	expressApp.use(registry.getRouter());
+
+	registry.addRoute('/ctx/:ctxId');
+
+	httpServer.listen(PORT, function () {
+		try {
+			registry.addTransport(jsonws.transport.HTTP);
+		} catch (err) {
+			// transport has already been added
+		}
+		if (options['socket-io']) {
+			try {
+				registry.addTransport(SocketIOTransport);
+			} catch (err) {
+				// transport has already been added
+			}
+		} else {
+			try {
+				registry.addTransport(jsonws.transport.WebSocket);
+			} catch (err) {
+				// transport has already been added
+			}
+		}
+		const servicePathPrefix = registry.addService(buildTestService());
+		const registryRootUrl = `http://localhost:${httpServer.address().port}${registry.rootPath}`;
+		serverUrl = `${registryRootUrl}${servicePathPrefix}`;
+
+		getContextUrl = function(ctxId) {
+			return `${registryRootUrl}/ctx/${ctxId}${servicePathPrefix}`;
+		};
+
 		serverWsUrl = serverUrl.replace('http', 'ws');
-		httpProxyUrl = serverUrl + '?proxy=JavaScript&localName=Tester';
+		httpProxyUrl = `${serverUrl}?proxy=JavaScript&localName=Tester`;
 		done();
 	});
 
-	srv.on('error', function (err) {
-		console.log(err);
+	httpServer.on('error', function (err) {
+		console.log('???', err); //eslint-disable-line no-console
 		process.exit();
 	});
 }
 
-function setupServer(done) {
-	srv ? done() : startServer(done);
+function setupServer(done, options) {
+	httpServer ? done() : startServer(done, options);
 }
 
-describe('Metadata', function() {
+function destroyServer(done) {
+	if (httpServer) {
+		httpServer.close(done);
+		httpServer = null;
+	} else {
+		done();
+	}
+}
+
+describe('Metadata Off', function() {
+	before(function(done) {
+		setupServer(done, {
+			serveMetadata: false
+		});
+	});
+	after(destroyServer);
+
+	it('/ returns 404 with the registry flag serveMetadata=false', function() {
+		return request.getAsync(serverUrl, {json: true}).then(function(result) {
+			expect(result[0].statusCode).to.eq(404);
+			expect(result[1]).to.match(/Cannot GET/);
+		});
+	});
+
+	it('?json returns 404 with the registry flag serveMetadata=false', function() {
+		return request.getAsync(serverUrl + '?json', {json: true}).then(function(result) {
+			expect(result[0].statusCode).to.eq(404);
+			expect(result[1]).to.match(/Cannot GET/);
+		});
+	});
+
+	it('?viewer returns 404 with the registry flag serveMetadata=false', function() {
+		return request.getAsync(serverUrl + '?viewer', {json: true}).then(function(result) {
+			expect(result[0].statusCode).to.eq(404);
+			expect(result[1]).to.match(/Cannot GET/);
+		});
+	});
+
+	it('?proxy returns 404 with the registry flag serveMetadata=false', function() {
+		return request.getAsync(serverUrl + '?proxy', {json: true}).then(function(result) {
+			expect(result[0].statusCode).to.eq(404);
+			expect(result[1]).to.match(/Cannot GET/);
+		});
+	});
+});
+
+describe('Metadata On', function() {
 	before(setupServer);
+	after(destroyServer);
 
 	it('returns metadata in JSON format', function() {
 		return request.getAsync(serverUrl + '?json', { json: true }).then(function(result) {
-			var json = result[1]; // result === [response, body]
+			const json = result[1]; // result === [response, body]
 			expect(json.name).to.be.defined;
 			expect(json.version).to.be.defined;
 			expect(json.transports).to.be.defined;
@@ -200,15 +304,15 @@ describe('Metadata', function() {
 	});
 
 	it('returns proxies for the supported languages', function() {
-		var languages = ['JavaScript', 'Java', 'CSharp', 'Python', 'Php'];
-		var proxyRequests = languages.map(function (language) {
+		const languages = ['JavaScript', 'Java', 'CSharp', 'Python', 'Php'];
+		const proxyRequests = languages.map(function (language) {
 			return request.getAsync(serverUrl + '?proxy=' + language);
 		});
 
 		return Promise.all(proxyRequests).then(function(results) {
 			results.forEach(function(result) { // result === [response, body]
-				var r = result[0];
-				expect(r.statusCode).to.eq(200, 'Missing proxy for ' + r.req.path.substr(20))
+				const r = result[0];
+				expect(r.statusCode).to.eq(200, 'Missing proxy for ' + r.req.path.substr(20));
 			});
 		});
 	});
@@ -231,7 +335,7 @@ describe('RPC over HTTP', function() {
 	}
 
 	it('works with legal method calls', function() {
-		var expected = [
+		const expected = [
 			3, 3, 3, '12', 3, 6, 12,
 			{a: 12, b: 'hello'}, 10, 11, 12, 13,
 			'world', 'world',
@@ -281,7 +385,7 @@ describe('RPC over HTTP', function() {
 	});
 
 	it('returns error codes', function() {
-		var expected = [
+		const expected = [
 			-32601, -32601, -32601,	 // method not found
 			-32602, -32602, -32602,  // invalid parameters
 			-32602, -32602,
@@ -322,15 +426,16 @@ describe('RPC over HTTP', function() {
 
 describe('RPC over WebSocket', function() {
 	before(setupServer);
+	after(destroyServer);
 
 	it('works with legal method calls and event subscription', function(done) {
 		this.timeout(4000);
 
-		var ws = new WebSocket(serverWsUrl);
-		var events = 0;
-		var recCommands = 0;
-		var expCommands;
-		var expected = {
+		const ws = new WebSocket(serverWsUrl);
+		let events = 0;
+		let recCommands = 0;
+		let expCommands;
+		const expected = {
 			'sum': 0,
 			asyncSum: '12',
 			hello: 'world',
@@ -339,16 +444,16 @@ describe('RPC over WebSocket', function() {
 			optionalArgs: 'AbC',
 			returnError: {name: 'Error', message: 'FooBar'}
 		};
-		var results = {};
+		const results = {};
 
 		function sendCommand(command, params) {
-			var commandData = {
+			const commandData = {
 				id: command,
 				method: command,
 				params: params,
 				jsonrpc: '2.0'
 			};
-			var request = JSON.stringify(commandData);
+			const request = JSON.stringify(commandData);
 			return new Promise(function(resolve) {
 				ws.send(request, resolve);
 			});
@@ -377,10 +482,10 @@ describe('RPC over WebSocket', function() {
 		});
 
 		ws.on('message', function (data) {
-			var parsedData = JSON.parse(data);
+			const parsedData = JSON.parse(data);
 			if (Object.keys(parsedData).length == 0) return;
 			expect(parsedData).not.to.be.null;
-			if (parsedData.error) console.log(parsedData.error);
+			if (parsedData.error) console.log(parsedData.error); //eslint-disable-line no-console
 			expect(parsedData.error).to.be.undefined;
 			expect(parsedData.id).to.be.defined;
 			if (parsedData.id == 'testEvent') {
@@ -396,7 +501,7 @@ describe('RPC over WebSocket', function() {
 			}
 		});
 
-		var finalEvents = 0;
+		let finalEvents = 0;
 		setTimeout(function () {
 			expect(expected).to.deep.eq(results);
 			expect(recCommands).to.eq(expCommands);
@@ -422,22 +527,22 @@ describe('RPC over WebSocket', function() {
 
 	it('returns error codes', function(done) {
 		this.timeout(660);
-		var ws = new WebSocket(serverWsUrl);
-		var id = 0;
-		var expected = [-32600,
+		const ws = new WebSocket(serverWsUrl);
+		let id = 0;
+		const expected = [-32600,
 			-32601, -32601, -32601,
 			-32602, -32602, -32602, -32602, -32602, -32602,
 			-32000, -32000, -32000, -32000];
-		var results = [];
+		const results = [];
 
 		function sendCommand(command, params) {
-			var commandData = {
+			const commandData = {
 				id: id++,
 				method: command,
 				params: params,
 				jsonrpc: '2.0'
 			};
-			var request = JSON.stringify(commandData);
+			const request = JSON.stringify(commandData);
 
 			return new Promise(function(resolve) {
 				ws.send(request, resolve);
@@ -446,7 +551,7 @@ describe('RPC over WebSocket', function() {
 
 		function sendPartialCommand(commandData) {
 			commandData.id = id++;
-			var request = JSON.stringify(commandData);
+			const request = JSON.stringify(commandData);
 
 			return new Promise(function(resolve) {
 				ws.send(request, resolve);
@@ -454,7 +559,7 @@ describe('RPC over WebSocket', function() {
 		}
 
 		function sendCommands() {
-			Bluebird.resolve([
+			Promise.resolve([
 				sendPartialCommand.bind(null, {'jsonrpc': '1.0'}),
 				sendCommand.bind(null, 'inexistingMethod'),
 				sendCommand.bind(null),
@@ -478,7 +583,7 @@ describe('RPC over WebSocket', function() {
 			sendCommands();
 		});
 		ws.on('message', function (data) {
-			var parsedData = JSON.parse(data);
+			const parsedData = JSON.parse(data);
 			if (Object.keys(parsedData).length == 0) return;
 			expect(parsedData).not.to.be.null;
 			expect(parsedData.error).to.be.defined;
@@ -497,13 +602,13 @@ describe('RPC over WebSocket', function() {
 
 	it('returns parse error for malformed JSON', function(done) {
 		this.timeout(150);
-		var ws = new WebSocket(serverWsUrl);
-		var messages = 0;
+		const ws = new WebSocket(serverWsUrl);
+		let messages = 0;
 		ws.on('open', function () {
 			ws.send('Parse Error must be returned.');
 		});
 		ws.on('message', function (data) {
-			var parsedData = JSON.parse(data);
+			const parsedData = JSON.parse(data);
 			if (Object.keys(parsedData).length == 0) return;
 			messages++;
 			expect(parsedData).not.to.be.null;
@@ -513,22 +618,93 @@ describe('RPC over WebSocket', function() {
 		});
 		setTimeout(function () {
 			expect(messages).to.eq(1);
+			ws.close();
 			done();
 		}, 120);
 	});
 });
 
-describe('node.js proxy', function() {
-	before(setupServer);
+const TRANSPORT_CONSTRUCTION = {
+	'HTTP': {
+		plain: () => serverUrl,
+		context: ctxId => getContextUrl(ctxId)
+	},
+	'WebSocket': {
+		plain: () => new WebSocketClientTransport(serverUrl),
+		context: ctxId => new WebSocketClientTransport(getContextUrl(ctxId))
+	},
+	'Socket.IO': {
+		plain: () => new SocketIOClientTransport(serverUrl),
+		context: ctxId => new SocketIOClientTransport(serverUrl, {validationParams: {ctxId}})
+	}
+};
 
-	var getProxy = Bluebird.promisify(jsonws.proxy, jsonws);
+['HTTP', 'WebSocket', 'Socket.IO'].forEach(transportName => describe(`node.js proxy - ${transportName} transport`, function() {
+	// Note that the HTTP transport tests will still use WebSockets transport for events
+
+	const transport = TRANSPORT_CONSTRUCTION[transportName];
+	let Tester;
+
+	before(function(done) {
+		setupServer(function() {
+			jsonws.proxy(httpProxyUrl, function(err, proxy) {
+				if (err) {
+					return done(err);
+				}
+
+				Tester = proxy.Tester;
+				done();
+			});
+		}, {
+			'socket-io': transportName === 'Socket.IO'
+		});
+	});
+
+	after(destroyServer);
+
+	/**
+	 * getProxy() used together with Promise.using() ensures that the proxy is closed after the test is used.
+	 *
+	 * @param urlOrTransport
+	 */
+	function getProxy(urlOrTransport) {
+		return Promise.resolve(new Tester(urlOrTransport)).disposer(function(proxy) {
+			proxy.close();
+		});
+	}
+
+	/**
+	 * expectProxyEvent resolves if "proxy" receives "event" before "timeouts" milliseconds
+	 * and rejects otherwise. The promise is resolved with the eventData.
+	 */
+	function expectProxyEvent(proxy, event, errorMessage, timeout = 1000) {
+		return (
+			new Promise(resolve => proxy.on(event, _.once(resolve)))
+		).timeout(
+			timeout,
+			new AssertionError(errorMessage ? errorMessage : `No event "${event}" received for ${timeout} milliseconds`)
+		);
+	}
+
+	/**
+	 * expectNoProxyEvent rejects if "proxy" receives "event" after "delay" milliseconds.
+	 */
+	function expectNoProxyEvent(proxy, event, errorMessage, delay = 1000) {
+		return Promise.race([
+			Promise.delay(delay), // This waits for an event to occur
+			new Promise((resolve, reject) => {
+				proxy.on(event, () => {
+					_.once(reject(
+						new AssertionError(errorMessage ? errorMessage : `Unexpected event "${event}" received`)
+					));
+				});
+			})
+		]);
+	}
 
 	it('works with legal method calls', function() {
-		return getProxy(httpProxyUrl).then(function(proxy) {
-			expect(proxy).to.be.ok;
-
-			var t = new proxy.Tester(serverUrl);
-			var expected = [5, 6, 10, 6, 10, 25, {a: 5, b: 'test'}, 'Abc', 'ABc', 'ABC', 'world', {name: 'Error', message: 'FooBar'}];
+		return Promise.using(getProxy(transport.plain()), function(t) {
+			const expected = [5, 6, 10, 6, 10, 25, {a: 5, b: 'test'}, 'Abc', 'ABc', 'ABC', 'world', {name: 'Error', message: 'FooBar'}];
 
 			return Promise.all([
 				t.sum(2, 3),
@@ -550,14 +726,11 @@ describe('node.js proxy', function() {
 	});
 
 	it('returns error codes', function() {
-		return getProxy(httpProxyUrl).then(function(proxy) {
-			expect(proxy).to.be.ok;
+		return Promise.using(getProxy(transport.plain()), function(t) {
+			const expected = [-32000, -32602, -32602, 3, -32602, 'world'];
+			const actual = [];
 
-			var t = new proxy.Tester(serverUrl);
-			var expected = [-32000, -32602, -32602, 3, -32602, 'world'];
-			var actual = [];
-
-			return Bluebird.settle([
+			return Promise.settle([
 				t.throwError(),
 				t.sum(1),
 				t.sum(),
@@ -567,7 +740,7 @@ describe('node.js proxy', function() {
 			]).then(function(results) {
 				results.forEach(function(result) {
 					if (result.isRejected()) {
-						var reason = result.reason();
+						const reason = result.reason();
 						expect(reason).to.be.instanceof(Error);
 						expect(reason.data).to.be.ok;
 						expect(reason.code).to.be.a('number');
@@ -582,69 +755,60 @@ describe('node.js proxy', function() {
 		});
 	});
 
-	it('returns error codes on the WebSockets Transport', function() {
-		return getProxy(httpProxyUrl).then(function(proxy) {
-			expect(proxy).to.be.ok;
-
-			var t = new proxy.Tester(serverUrl);
-			t.useWS();
-			var expected = [-32000, -32602, -32602, 3, -32602, 'world'];
-			var actual = [];
-
-			return Bluebird.settle([
-				t.throwError(),
-				t.sum(1),
-				t.sum(),
-				t.sum(1, 2, 3),
-				t.optionalArgs(),
-				t.hello('fake', 'argument') // JavaScript proxies filter out unneeded arguments, so this won't throw
-			]).then(function(results) {
-				results.forEach(function(result) {
-					if (result.isRejected()) {
-						var reason = result.reason();
-						expect(reason).to.be.instanceof(Error);
-						expect(reason.data).to.be.ok;
-						expect(reason.code).to.be.a('number');
-						actual.push(reason.code);
-					} else {
-						actual.push(result.value());
+	it('works for async return methods', function() {
+		return Promise.using(getProxy(transport.plain()), function(t) {
+			return new Promise(function(resolve, reject) {
+				t.testAsyncReturn(false, function(err) {
+					if (err) {
+						return reject(err);
 					}
-				});
 
-				expect(expected).to.deep.eq(actual);
+					t.testAsyncReturn(true, function(err) {
+						expect(err).to.exist;
+						resolve();
+					});
+				});
 			});
 		});
 	});
 
-	it('works with events', function(done) {
+	it('works with events', function() {
 		this.timeout(5000);
 
-		getProxy(httpProxyUrl).then(function(proxy) {
-			expect(proxy).to.be.ok;
+		return Promise.using(getProxy(transport.plain()), function(t) {
+			let h1 = 0;
+			let h2 = 0;
+			let h3 = 0;
+			let data = null;
 
-			var t = new proxy.Tester(serverUrl);
-			var h1 = 0;
-			var h2 = 0;
-			var h3 = 0;
-			var data = null;
-			function eventHandler1() { h1++; }
-			function eventHandler2() { h2++; }
-			function eventHandler3() { h3++; }
+			function eventHandler1() {
+				h1++;
+			}
+
+			function eventHandler2() {
+				h2++;
+			}
+
+			function eventHandler3() {
+				h3++;
+			}
 
 			t.on('testEvent', eventHandler1);
-			t.on('testDataEvent', function(e) { data = e; });
-			setTimeout(function() {
+			t.on('testDataEvent', function (e) {
+				data = e;
+			});
+			setTimeout(function () {
 				t.on('testEvent', eventHandler2);
 				t.on('test.the.namespace.event', eventHandler3);
 			}, 500);
 
-			setTimeout(function() {
+			setTimeout(function () {
 				expect(h1).to.be.above(0);
 				t.removeListener('testEvent', eventHandler1);
 				h1 = 0;
 			}, 1000);
 
-			setTimeout(function() {
+			setTimeout(function () {
 				expect(h2).to.be.above(0);
 				expect(h3).to.be.above(0);
 				t.removeAllListeners('testEvent');
@@ -652,26 +816,42 @@ describe('node.js proxy', function() {
 				h2 = h3 = 0;
 			}, 1500);
 
-			setTimeout(function() {
-				expect(h1 + h2 + h3).to.eq(0);
-				expect(data).to.deep.eq({ hello: 'world'});
-				done();
-			}, 2000);
-		}).catch(done);
-	});
-
-	it('works for async return methods', function(done) {
-		this.timeout(1000);
-		getProxy(httpProxyUrl).then(function(proxy) {
-			expect(proxy).to.be.ok;
-
-			var t = new proxy.Tester(serverUrl);
-			t.testAsyncReturn(false, function() {
-				t.testAsyncReturn(true, function(err) {
-					expect(err).to.be.ok;
-					done();
-				});
+			return new Promise(function(resolve) {
+				setTimeout(function () {
+					expect(h1 + h2 + h3).to.eq(0);
+					expect(data).to.deep.eq({hello: 'world'});
+					resolve();
+				}, 2000);
 			});
-		}).catch(done);
+		});
 	});
-});
+
+	it('works with events for multiple clients', function() {
+		return Promise.using(getProxy(transport.plain()), getProxy(transport.plain()), (proxy1, proxy2) => {
+			return Promise.all([
+				expectProxyEvent(proxy1, 'testEvent'),
+				expectProxyEvent(proxy2, 'testEvent')
+			]);
+		});
+	});
+
+	it('works with contextualized events', function() {
+		return Promise.using(
+			getProxy(transport.plain()),
+			getProxy(transport.context('id1234')),
+			getProxy(transport.context('id5678')),
+			getProxy(transport.context('id4321')),
+			(proxy1, proxy2, proxy3, proxy4) => {
+				return Promise.all([
+					expectProxyEvent(proxy2, 'testContextEvent'),
+					expectProxyEvent(proxy3, 'testContextEvent'),
+					expectNoProxyEvent(proxy1, 'testContextEvent', '"testContextEvent" received without context'),
+					expectNoProxyEvent(proxy4, 'testContextEvent', '"testContextEvent" received for wrong context')
+				]).spread((proxy2EventData, proxy3EventData) => {
+					expect(proxy2EventData).to.deep.eq({hello: 'hello1234'});
+					expect(proxy3EventData).to.deep.eq({hello: 'hello5678'});
+				});
+			}
+		);
+	});
+}));

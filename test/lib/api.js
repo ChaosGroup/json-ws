@@ -4,20 +4,21 @@
 
 'use strict';
 
-var expect = require('chai').expect;
-var jsonws = require('../../index.js');
+const expect = require('chai').expect;
+const jsonws = require('../../index.js');
+const Service = jsonws.service;
 
 describe('Converters', function() {
-	var api;
-	var testType;
-	var converting = function(value) {
+	let api;
+	let testType;
+	const converting = function(value) {
 		return function() {
 			testType.convert(value);
-		}
+		};
 	};
 
 	beforeEach(function() {
-		api = jsonws.api('1.0', 'Test API');
+		api = new Service('1.0.0', 'test-api');
 		api.type('TestType', {
 			intField: {
 				type: 'int',

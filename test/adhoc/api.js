@@ -1,103 +1,129 @@
-var api = require('../../index.js').api('1.0', 'Test API');
+'use strict';
 
-function test() {
-}
+const fs = require('fs');
+const path = require('path');
 
-test.prototype.sum = function sum(a, b, callback) {
-	setTimeout(function() { callback(null, a + b); }, 0);
-};
+const Service = require('../../index.js').service;
+var service = new Service('1.0.0', 'test-api', (methodName, options) => {
+	//if (options.sessionId == 'pass')
+	return Promise.resolve({ data: options.sessionId });
+	//return Promise.reject(new Error('Who are you?'));
+});
 
-test.prototype.sumReturn = function sumReturn(a, b) {
-	console.log('A + B = ' + (a + b));
-	return a + b;
-};
+const testObj = {
 
-test.prototype.echo = function echo(a) {
-	console.log(a);
-	var RenderMode = api.type('RenderMode').struct;
-	console.log('RenderMode value: '+ RenderMode[a.renderMode]);
-	return a;
-};
+	sum(a, b, callback) {
+		setTimeout(function () {
+			callback(null, a + b);
+		}, 0);
+	},
 
-test.prototype.echoObject = function echoObject(a, callback) {
-	callback(null, a);
-};
+	sumReturn(a, b) {
+		console.log('A + B = ' + (a + b));
+		return a + b;
+	},
 
-test.prototype.throwError = function throwError(callback) {
-	callback({'stack': 'error executing method'});
-};
+	echo(a) {
+		console.log(a);
+		var RenderMode = service.type('RenderMode').struct;
+		console.log('RenderMode value: ' + RenderMode[a.renderMode]);
+		return a;
+	},
 
-test.prototype.throwUnexpectedError = function throwError() {
-	throw new Error('Unexpected error');
-};
+	echoObject(a, callback) {
+		a.b = a;
+		callback(null, a);
+	},
 
-test.prototype.testMe = function testMe(callback) {
-	callback(null, {
+	throwError(callback) {
+		callback({'stack': 'error executing method'});
+	},
+
+	throwUnexpectedError() {
+		throw new Error('Unexpected error');
+	},
+
+	testMe(callback, context) {
+		console.log(context.data);
+		callback(null, {
 			'property1': 'int',
 			'asdf': 'Аз съм Сънчо',
-			'complex' : {
+			'complex': {
 				a: 1,
 				b: 3
-			}});
-};
+			}
+		});
+	},
 
-test.prototype.testMe1 = function testMe1(callback) {
-	callback(null, 'test1');
-};
+	testMe1(callback) {
+		callback(null, 'test1');
+	},
 
-test.prototype.testMe2 = function testMe2(a, callback) {
-	callback(null, 'test2' + a);
-};
+	testMe2(a, callback) {
+		callback(null, 'test2' + a);
+	},
 
-test.prototype.testMe3 = function testMe3(callback) {
-	callback(null, 'Some async method test 3');
-};
+	testMe3(callback) {
+		callback(null, 'Some async method test 3');
+	},
 
-test.prototype.testMe4 = function testMe4(callback) {
-	callback(null, 'Some async method test 4');
+	testMe4(callback) {
+		callback(null, 'Some async method test 4');
+	},
+
+	getStream() {
+		return fs.createReadStream(path.join(__dirname, '../../README.md'));
+	}
 };
 
 var c = 0;
 
 setInterval(function() {
 	var data = {testData: c++};
-	api.emit('testEvent', data.testData);
-	api.emit('testEvent3', {
+	service.emit('testEvent', data.testData);
+	service.emit('testEvent3', {
 		'a': 1
 	});
-	api.emit('ns1.testEvent1');
-	api.emit('testBinaryEvent', new Buffer('test binary event'));
+	service.emit('ns1.testEvent1');
+	service.emit('testBinaryEvent', new Buffer('test binary event'));
 }, 1000);
 
 setInterval(function() {
-	api.emit('testEvent2', [{
+	service.emit('testEvent2', [{
 		width: 1,
 		height: 2,
 		renderMode: 0
 	}]);
 }, 2000);
 
-var testObj = new test();
-
 module.exports = function() {
-	api
-	.group('All Methods', 'Every single method is here')
+	service
+	.setGroup('All Methods', 'Every single method is here')
 	.event('testEvent',{
 		'description': 'This event is fired every second, and returns a data count.',
 		'type': 'int'
 	})
-	.namespace('')
+	.setNamespace('')
 	.defineAll(testObj)
 	.enum('RenderMode', {
 		Production: -1,
 		RtCpu: 0,
-		RtGpuCuda: 5
+		RtGpuCuda: 5,
 	})
+	.enum('JobState', [
+		'Created',
+		'Pending',
+		'Active',
+		'Done'
+	])
 	.type('RenderOptions', {
-		width: 'int',
+		width: {
+			type: 'int',
+			description: 'The desired width for rendering'
+		},
 		height: 'int',
-		renderMode: 'RenderMode'
-	})
+		renderMode: 'RenderMode',
+	}, 'RenderOptions description')
 	.type('DefaultArray', {
 		property: {
 			type: ['string'],
@@ -134,7 +160,8 @@ module.exports = function() {
 		return [renderOptions, renderOptions, renderOptions];
 	})
 	.define({name: 'echoObject', params: ['a'], returns: 'json'})
-	.group('Other methods')
+	.define({name: 'getStream', returns: 'stream'})
+	.setGroup('Other methods')
 	.define({name: 'echoStringAsBuffer', params: [{ name: 'theString', type: 'string' }], returns: 'binary'}, function(theString) {
 		return new Buffer(theString);
 	})
@@ -146,11 +173,11 @@ module.exports = function() {
 	.define({name: 'throwUnexpectedError', returns: ['object']})
 	.define({
 		'name': 'sum',
-		'description': 'Some test method example, does int sum',
+		'description': "Some test method example,' does int sum",
 		'params': [{ 'name' : 'a', 'type' : 'int'}, { 'name' : 'b', 'type' : 'int'}],
 		'returns': 'int'
 	});
-	api.define({
+	service.define({
 		name: 'returnFrom0ToN',
 		params: [{name: 'n', type: 'int'}],
 		returns: ['int']
@@ -161,7 +188,7 @@ module.exports = function() {
 		}
 		return arr;
 	});
-	api.define({
+	service.define({
 		name: 'optionalArgs',
 		params: [
 			{ name: 'required', type: 'bool' },
@@ -169,7 +196,7 @@ module.exports = function() {
 			{ name: 'p2', type: 'int', default: 1 }
 		]
 	}, function(required, p1, p2) { console.log('optionalArgs called with', arguments); });
-	api.define({
+	service.define({
 		name: 'sumArray',
 		params: [
 			{name: 'ints', type: ['int']}
@@ -211,21 +238,24 @@ module.exports = function() {
 	})
 	.define({name: 'testMe1', returns: 'async'})
 
-	.namespace('ns1')
+	.setNamespace('ns1')
 	.define({
 			'name': 'method1',
 			'returns': 'string'
 		}, testObj.testMe1)
 	.event('testEvent1')
 
-	.namespace('ns1.sub1.sub2')
+	.setNamespace('ns1.sub1.sub2')
 	.define('method1')
 
-	.namespace('ns2.sub1.sub2')
-	.define('method1');
+	.setNamespace('ns2.sub1.sub2')
+	.define('method1')
+	.examples(path.join(__dirname, 'examples', 'examples.js'))
+	.examples(path.join(__dirname, 'examples', 'examples.py'))
+	.examples(path.join(__dirname, 'examples', 'snippets.js'));
 	//	.examples(path.resolve('test.examples.js'))
 	//	.examples(path.resolve('test.examples.node.js'))
 	//	.examples(path.resolve('test.examples.java'))
 	//	.examples(path.resolve('test.examples.curl'))
-	return api;
+	return service;
 }();

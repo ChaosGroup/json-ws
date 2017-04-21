@@ -1,4 +1,7 @@
 <%
+var metadata = locals.metadata;
+var localName = locals.localName;
+
 function getIndentation(indentationLevel) {
 	return Array(indentationLevel * 4 + 1).join(' ');
 }
@@ -56,6 +59,7 @@ function mapPythonType(param, prefix, options) {
 
 		case 'buffer':
 		case 'binary':
+		case 'stream':
 			returnType = 'bytearray';
 			break;
 
