@@ -1,8 +1,8 @@
 {
   "name": "json-ws",
-  "version": "2.5.0",
+  "version": "3.0.0-1",
   "author": "ChaosGroup (c) 2013-2017",
-  "description": "JSON-RPC based Web Services with automatic help and client side source creation for Java/JavaScript/.Net/Python/Node.js",
+  "description": "JSON-RPC based Web Services with automatic help and client side source creation for Node.js/Go/JavaScript/Java/.Net/Python/PHP",
   "keywords": [
     "json",
     "rpc",
@@ -11,7 +11,10 @@
     "json-rpc",
     "web service",
     "web socket",
-    "socket-io"
+    "socket-io",
+    "javascript",
+    "go",
+    "golang"
   ],
   "homepage": "https://github.com/ChaosGroup/json-ws",
   "repository": "https://github.com/ChaosGroup/json-ws",
