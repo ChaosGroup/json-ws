@@ -58,6 +58,10 @@ function mapGoType(param) {
 			returnType = '[]byte';
 			break;
 
+		case 'context':
+			returnType = 'context.Context';
+			break;
+
 		case 'error':
 			returnType = '*jsonws.Error';
 			break;
@@ -98,6 +102,7 @@ Object.keys(metadata.methods).forEach(function(methodName) {
 	var shortMethodName = prefixes.pop();
 
 	method.Name = pascalCase(shortMethodName);
+	method.params = [{name: '__ctx__', type: 'context'}, ...method.params];
 	method.arguments = getMethodArguments(method.params);
 	method.returnType = getReturnType(method);
 
@@ -182,7 +187,7 @@ function generateTypes() {
 			const structFields = formatColumns(_.map(type.struct, (property, propertyName) => {
 				return [`${pascalCase(propertyName)}${typeName}`, typeName, `= ${property}`];
 			}), '\n\t');
-			result += `\ntype ${typeName} int64\nconst (\n\t${structFields}\n)\n`;
+			result += `\ntype ${typeName} int64\n\nconst (\n\t${structFields}\n)\n`;
 		} else {
 			const structFields = formatColumns(_.map(type.struct, (property, propertyName) => {
 				return [pascalCase(propertyName), mapGoType(property), `\`json:"${propertyName}"\``];
@@ -218,10 +223,10 @@ function getMethod(method, selfName, rootName) {
 	let implementation;
 
 	if (returnType === 'error') {
-		implementation = `\treturn ${selfName}.caller.Call(nil, "${method.name}"${methodParams})`
+		implementation = `\treturn ${selfName}.caller.Call(__ctx__, nil, "${method.name}"${methodParams})`
 	} else {
 		const resultType = returnType.split(',')[0].slice(1);
-		implementation = `\tvar __result__ ${resultType}\n\t__err__ := ${selfName}.caller.Call(&__result__, "${method.name}"${methodParams})\n\treturn __result__, __err__`;
+		implementation = `\tvar __result__ ${resultType}\n\t__err__ := ${selfName}.caller.Call(__ctx__, &__result__, "${method.name}"${methodParams})\n\treturn __result__, __err__`;
 	}
 
 	return `func (${selfName} *${rootName}) ${method.Name}(${method.arguments}) ${returnType} {\n${implementation}\n}`
@@ -268,8 +273,8 @@ function generateStructs(generated, root) {
 	generated.add(root.fullPrefix);
 
 	const fields = formatColumns(
-	    [['caller', 'vrpc.Caller']].concat(_.map(root.children, child => [child.name, child.FullPrefix])),
-			'\n\t'
+		[['caller', 'vrpc.Caller']].concat(_.map(root.children, child => [child.name, child.FullPrefix])),
+		'\n\t'
 	);
 
 	return [
@@ -325,14 +330,14 @@ function generateSetCallerMethods(generated, root) {
 	generated.add(root.fullPrefix);
 
 	const selfName = '__self__';
-	var fields = _.map(root.children, child => `\t${selfName}.${child.name}.SetCaller(caller);`).join('\n');
+	var fields = _.map(root.children, child => `\t${selfName}.${child.name}.SetCaller(caller)`).join('\n');
 	if (fields.length > 0) {
 		fields = `${fields}\n`;
 	}
 
 	return [
 		...(_.map(root.children, child => generateSetCallerMethods(generated, child))),
-		`\nfunc (${selfName} *${root.fullPrefix}) SetCaller(caller vrpc.Caller) {\n\t${selfName}.caller = caller;\n${fields}}`
+		`\nfunc (${selfName} *${root.fullPrefix}) SetCaller(caller vrpc.Caller) {\n\t${selfName}.caller = caller\n${fields}}`
 	].join('\n');
 }
 
@@ -340,8 +345,11 @@ function generateImports() {
 	const importPath = {
 		time: 'time',
 		vrpc: 'git.chaosgroup.com/vcloud/service-framework/vrpc',
-		jsonws: 'git.chaosgroup.com/vcloud/service-framework/vrpc/jsonws'
+		jsonws: 'git.chaosgroup.com/vcloud/service-framework/vrpc/jsonws',
+		context: 'context'
 	};
+
+	const requiredImports = ['vrpc'];
 
 	const structFieldTypes = _.flatMap(metadata.types, t => _.values(t.struct))
 		.map(mapGoType)
@@ -352,11 +360,11 @@ function generateImports() {
 		.map(mapGoType)
 		.filter(type => type.indexOf('.') !== -1)
 		.map(type => type.slice(0, type.indexOf('.')));
-	var types = _.uniq(structFieldTypes.concat(methodTypes).concat(['vrpc']).map(type => type.replace("*", "")))
-		.map(importName => `"${importPath[importName]}"`);
+	var types = _.uniq(structFieldTypes.concat(methodTypes).concat(requiredImports).map(type => type.replace("*", "")))
+		.map(importName => `import "${importPath[importName]}"`);
 	types.sort();
 
-	return (types.length > 0) ? `import (\n\t${types.join('\n\t')}\n)` : '';
+	return (types.length > 0) ? `${types.join('\n')}` : '';
 }
 
 %>// Package <%= metadata.name %> <%= metadata.version %>
@@ -366,7 +374,6 @@ function generateImports() {
 package <%= _.snakeCase(localName) %>
 
 <%- generateImports() %>
-
 <%- generateTypes() %>
 <%- generateInterfaces(new Set(), namespaceRoot) %>
 <%- generateStructs(new Set(), namespaceRoot) %>
