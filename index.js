@@ -12,7 +12,7 @@ try {
 	module.paths.unshift(path.resolve(__dirname, '..'));
 }
 
-module.exports.service = require('./lib/service/service.js');
+const Service = module.exports.service = require('./lib/service/service.js');
 
 module.exports.client = require('./lib/client/index.js').RpcClient;
 
@@ -86,4 +86,8 @@ module.exports.getClientProxy = function(apiRoot, apiType, version, sslSettings,
 			}
 		}
 	});
+};
+
+module.exports.setUseStringEnums = function setUseStringEnums(useStringEnums) {
+	Service.setUseStringEnums(useStringEnums);
 };

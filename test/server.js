@@ -107,6 +107,32 @@ describe('Enums - api.enum() and api.type(_, _, _, isEnum = true)', function() {
 		expect(enumType.convert.bind(enumType, 2)).to.throw(/Unknown enum .* value/);
 		expect(enumType.convert.bind(enumType, 'C')).to.throw(/Unknown enum .* value/);
 	});
+
+	it('allows the old behaviour, if set so - return string for enums', function() {
+		api.enum('Test', enumValues);
+		const enumType = api.type('Test');
+
+		jsonws.setUseStringEnums(true);
+		expect(enumType.convert(0)).to.eq('A');
+		expect(enumType.convert(1)).to.eq('B');
+		expect(enumType.convert('A')).to.eq('A');
+		expect(enumType.convert('B')).to.eq('B');
+		expect(enumType.convert('A', true)).to.eq('A');
+		expect(enumType.convert('B', true)).to.eq('B');
+		jsonws.setUseStringEnums(false);
+	});
+
+	it('allows the old behaviour to be turned off after turned on', function() {
+		api.enum('Test', enumValues);
+		const enumType = api.type('Test');
+
+		jsonws.setUseStringEnums(true);
+		expect(enumType.convert(0)).to.eq('A');
+		jsonws.setUseStringEnums(false);
+		expect(enumType.convert(0)).to.eq(0);
+		expect(enumType.convert('A')).to.eq(0);
+		expect(enumType.convert('A', true)).to.eq(0);
+	});
 });
 
 describe('Types - api.type()', function() {
