@@ -131,6 +131,16 @@ module.exports = function() {
 			default: []
 		}
 	})
+	.type('Point', {
+		x: {
+			type: 'number',
+			required: false
+		},
+		y: {
+			type: 'number',
+			required: false
+		}
+	})
 	.define({ name: 'TestDefaultArray', params: [{ name: 'p', type: 'DefaultArray' }] }, function(p) {
 		console.log(p);
 	})

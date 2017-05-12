@@ -82,6 +82,10 @@ function mapGoType(param) {
 		returnType = '[]' + returnType;
 	}
 
+	if (param.required === false && !param.isArray) {
+		returnType = '*' + returnType;
+	}
+
 	return returnType;
 }
 
@@ -190,7 +194,12 @@ function generateTypes() {
 			result += `\ntype ${typeName} int64\n\nconst (\n\t${structFields}\n)\n`;
 		} else {
 			const structFields = formatColumns(_.map(type.struct, (property, propertyName) => {
-				return [pascalCase(propertyName), mapGoType(property), `\`json:"${propertyName}"\``];
+				let jsonTag = propertyName;
+				if (property.required === false) {
+					jsonTag += ',omitempty';
+				}
+
+				return [pascalCase(propertyName), mapGoType(property), `\`json:"${jsonTag}"\``];
 			}), '\n\t');
 			result += `\ntype ${typeName} struct {\n\t${structFields}\n}\n`;
 		}
