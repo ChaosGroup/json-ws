@@ -139,6 +139,14 @@ module.exports = function() {
 		y: {
 			type: 'number',
 			required: false
+		},
+		meta: {
+			type: 'json',
+			required: false
+		},
+		error: {
+			type: 'error',
+			required: false
 		}
 	})
 	.define({ name: 'TestDefaultArray', params: [{ name: 'p', type: 'DefaultArray' }] }, function(p) {
