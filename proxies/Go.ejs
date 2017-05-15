@@ -40,8 +40,11 @@ function mapGoType(param) {
 			break;
 
 		case 'object':
+			returnType = 'interface{}';
+			break;
+
 		case 'json':
-			returnType = 'map[string]interface{}';
+			returnType = 'json.RawMessage';
 			break;
 
 		case 'string':
@@ -82,7 +85,10 @@ function mapGoType(param) {
 		returnType = '[]' + returnType;
 	}
 
-	if (param.required === false && !param.isArray) {
+	if (param.required === false &&
+			!param.isArray &&
+			returnType !== 'interface{}' &&
+			!returnType.startsWith('*')) {
 		returnType = '*' + returnType;
 	}
 
@@ -355,7 +361,8 @@ function generateImports() {
 		time: 'time',
 		vrpc: 'git.chaosgroup.com/vcloud/service-framework/vrpc',
 		jsonws: 'git.chaosgroup.com/vcloud/service-framework/vrpc/jsonws',
-		context: 'context'
+		context: 'context',
+		json: 'encoding/json'
 	};
 
 	const requiredImports = ['vrpc'];
@@ -363,6 +370,7 @@ function generateImports() {
 	const structFieldTypes = _.flatMap(metadata.types, t => _.values(t.struct))
 		.map(mapGoType)
 		.map(type => type.startsWith('[]') ? type.replace('[]', '') : type)
+		.map(type => type.startsWith('*') ? type.replace('*', '') : type)
 		.filter(type => type.indexOf('.') !== -1)
 		.map(type => type.slice(0, type.indexOf('.')));
 	const methodTypes = _.flatMap(metadata.methods, m => [{type: m.returns, isArray: m.returnsArray}].concat(m.params))
