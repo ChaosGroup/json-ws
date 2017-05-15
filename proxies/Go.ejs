@@ -215,7 +215,7 @@ function generateTypes() {
 }
 
 function getMethod(method, selfName, rootName) {
-	const params = method.params;
+	const params = method.params.slice(1);
 	const returnType = method.returnType;
 	const requiredParams = params.filter(param => typeof param.default === 'undefined');
 	const optionalParams = params.filter(param => typeof param.default !== 'undefined');
