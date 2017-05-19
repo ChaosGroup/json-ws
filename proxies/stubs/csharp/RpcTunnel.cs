@@ -130,7 +130,7 @@ namespace ChaosGroup.JsonWS.Proxies
 		{
 			return Task<RpcMessage>.Factory.StartNew(() =>
 			{
-				var postBytes = Encoding.Default.GetBytes(message.ToString());
+				var postBytes = Encoding.Default.GetBytes(message.ToString(Formatting.None));
 				var webReq = (HttpWebRequest)WebRequest.Create(_uri);
 				webReq.Method = "POST";
 				webReq.ContentType = "application/json";
@@ -139,6 +139,7 @@ namespace ChaosGroup.JsonWS.Proxies
 				using (var postStream = webReq.GetRequestStream())
 				{
 					postStream.Write(postBytes, 0, postBytes.Length);
+					postStream.Close();
 				}
 				try
 				{
