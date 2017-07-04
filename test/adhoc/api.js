@@ -124,6 +124,14 @@ module.exports = function() {
 		height: 'int',
 		renderMode: 'RenderMode',
 	}, 'RenderOptions description')
+	.type('NumberOptions', {
+		a: {
+			type: 'float',
+			description: 'A float member'
+		},
+		b: 'number',
+		c: 'double'
+	}, 'Testing the number fields')
 	.type('DefaultArray', {
 		property: {
 			type: ['string'],

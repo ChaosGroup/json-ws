@@ -95,8 +95,10 @@ function generateTypes() {
 		public class <%-type.name%> : BaseRpcObject
 		{
 			<%-properties.map(function(property) {
+				var csharpType = mapCSharpType(property.type, property.isArray);
 				return '// ' + property.description + '\n' +
-					'\t\t\tpublic ' + mapCSharpType(property.type, property.isArray) + ' ' + property.name + ';'
+					(csharpType === 'double' ? '\t\t\t[JsonConverter(typeof(FormatDoubleAsTextConverter))]\n' : '') +
+					'\t\t\tpublic ' + csharpType + ' ' + property.name + ';'
 			}).join('\n\t\t\t')%>
 		}
 
@@ -320,14 +322,15 @@ Object.keys(metadata.methods).forEach(function(methodName) {
 using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
 using Newtonsoft.Json;
+using ChaosGroup.JsonWS.Proxies;
 
 namespace ChaosGroup.JsonWS.Proxies
 {
 	/// <summary>
 	/// <%= metadata.name %> <%= metadata.version %>
 	///
-	/// Part of the JSON-WS library - .NET 4.0 Proxy
-	/// Copyright (c) 2013-2014 ChaosGroup. All rights reserved.
+	/// Part of the JSON-WS library - .NET Proxy
+	/// Copyright (c) 2013-2017 ChaosGroup. All rights reserved.
 	/// This library depends on the following third party modules:
 	/// - Newtonsoft.Json: http://json.codeplex.com/
 	/// - WebSocket4Net: http://websocket4net.codeplex.com/

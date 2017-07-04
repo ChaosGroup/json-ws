@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.Net;
 using System.Text;
@@ -14,9 +15,9 @@ using ErrorEventArgs = SuperSocket.ClientEngine.ErrorEventArgs;
 namespace ChaosGroup.JsonWS.Proxies
 {
 	/// <summary>
-	/// Copyright (c) Chaos Software Ltd. 2013-2016. All rights reserved.
+	/// Copyright (c) Chaos Software Ltd. 2013-2017. All rights reserved.
 	/// </summary>
-	class RpcTunnel : IDisposable
+	public class RpcTunnel : IDisposable
 	{
 		private bool _isDisposed;
 
@@ -105,6 +106,22 @@ namespace ChaosGroup.JsonWS.Proxies
 			}
 			return (T)JsonConvert.DeserializeObject(JsonMessage["result"].ToString(), typeof(T));
 		}
+	}
+
+	public sealed class FormatDoubleAsTextConverter : JsonConverter
+	{
+	   public override bool CanRead => false;
+	   public override bool CanWrite => true;
+	   public override bool CanConvert(Type type) => typeof(double).IsAssignableFrom(type);
+	   public override void WriteJson(JsonWriter writer, object value, JsonSerializer serializer)
+	   {
+		   double number = (double)value;
+		   writer.WriteValue(number.ToString(CultureInfo.InvariantCulture));
+	   }
+	   public override object ReadJson(JsonReader reader, Type type, object existingValue, JsonSerializer serializer)
+	   {
+		   throw new NotSupportedException();
+	   }
 	}
 
 	public interface IRpcEventHandler
