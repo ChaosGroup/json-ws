@@ -1,0 +1,185 @@
+<%
+var _ = locals._;
+
+function pascalCase(str) {
+	return _.upperFirst(_.camelCase(str));
+}
+
+var metadata = _.cloneDeep(locals.metadata);
+var localName = _.lowerFirst(pascalCase(locals.localName));
+
+function mapProtobufType(param) {
+	var returnType = '';
+	var jsType = param.type;
+
+	switch (jsType) {
+		case '*':
+		case 'any':
+			returnType = 'google.protobuf.Any';
+			break;
+
+		case 'int':
+		case 'integer':
+			returnType = 'int64';
+			break;
+
+		case 'date':
+		case 'time':
+			returnType = 'string';
+			break;
+
+		case 'number':
+		case 'float':
+		case 'double':
+			returnType = 'double';
+			break;
+
+		case 'bool':
+		case 'boolean':
+			returnType = 'bool';
+			break;
+
+		case 'object':
+		case 'json':
+		case undefined:
+			returnType = 'string';
+			break;
+
+		case 'string':
+		case 'url':
+			returnType = 'string';
+			break;
+
+		case 'buffer':
+		case 'binary':
+		case 'stream':
+			returnType = 'bytes';
+			break;
+
+		case 'error':
+			returnType = 'string';
+			break;
+
+		default:
+			if (metadata.types[jsType]) {
+				returnType = pascalCase(jsType);
+			} else {
+				throw new Error(`Unsupported ProtoBuf type: ${jsType}`);
+			}
+	}
+
+	if (param.isArray) {
+		returnType = 'repeated ' + returnType;
+	}
+
+	return returnType;
+}
+
+// Generate namespace tree
+var namespaceRoot = {
+	name: localName,
+	Name: pascalCase(localName),
+	fullPrefix: '',
+	methods: [],
+	children: {}
+};
+
+Object.keys(metadata.methods).forEach(function(methodName) {
+	var method = metadata.methods[methodName];
+	var $ = namespaceRoot;
+	var prefixes = method.name.split('.');
+	var shortMethodName = prefixes.pop();
+
+	method.Name = pascalCase(shortMethodName);
+	method.arguments = getMethodArguments(method.params);
+	method.returnType = getReturnType(method);
+
+	prefixes.forEach(function(prefix, index, prefixes) {
+		if (!$.children.hasOwnProperty(prefix)) {
+			$.children[prefix] = {
+				name: prefix,
+				Name: pascalCase(prefix),
+				fullPrefix: prefixes.slice(0, index + 1).map(p => pascalCase(p)).join(''),
+				methods: [],
+				children: {}
+			};
+		}
+		$ = $.children[prefix];
+	});
+	$.methods.push(method);
+});
+
+function getMethodArguments(params) {
+	return params.map((param, index) => {
+		return `\t${mapProtobufType(param)} ${pascalCase(param.name)} = ${index+1};`;
+	}).join('\n');
+}
+
+function getReturnType(methodInfo) {
+	const returnType = mapProtobufType({type: methodInfo.returns, isArray: methodInfo.returnsArray});
+
+	if (returnType !== '') {
+		return `\t${returnType} Result = 1;`;
+	}
+
+	return null;
+}
+
+function generateTypes() {
+	const types = Object.keys(metadata.types).map(function(key) { return metadata.types[key] });
+
+	let result = '';
+
+	for (const type of types) {
+		const typeName = pascalCase(type.name);
+
+		if (type.enum) {
+			const structFields = _.map(type.struct, (property, propertyName) => {
+				return `${pascalCase(propertyName)} = ${property};`;
+			}).join('\n\t');
+			result += `\nenum ${typeName} {\n\t${structFields}\n}\n`;
+		} else {
+			let structIndex = 1;
+			const structFields = _.map(type.struct, (property, propertyName) => {
+				return `${mapProtobufType(property)} ${pascalCase(propertyName)} = ${structIndex++};`;
+			}).join('\n\t');
+			result += `\nmessage ${typeName} {\n\t${structFields}\n}\n`;
+		}
+	}
+
+	return result;
+}
+
+function getMethod(method, rootName) {
+	const params = method.params;
+	const returnType = method.returnType;
+	let result = '';
+
+	if (params.length > 0) {
+		result = `message ${rootName}${method.Name}Request {\n${method.arguments}\n}\n\n`;
+	}
+
+	if (returnType) {
+		result += `message ${rootName}${method.Name}Response {\n${returnType}\n}\n`
+	}
+
+	return result;
+}
+
+function generateMethods(generated, root) {
+	if (generated.has(root.fullPrefix)) {
+		return;
+	}
+	generated.add(root.fullPrefix);
+
+	const methods = root.methods.map(method => getMethod(method, root.fullPrefix));
+	const nestedMethods = _.map(root.children, child => generateMethods(generated, child));
+
+	return [...methods, ...nestedMethods].join('\n\n');
+}
+
+%>syntax = "proto3";
+
+package <%= _.snakeCase(localName) %>;
+<%- generateTypes() %>
+<%- generateMethods(new Set(), namespaceRoot) %>
