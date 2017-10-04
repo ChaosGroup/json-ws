@@ -1,6 +1,6 @@
 {
   "name": "json-ws",
-  "version": "3.0.0-8",
+  "version": "3.0.1",
   "author": "ChaosGroup (c) 2013-2017",
   "description": "JSON-RPC based Web Services with automatic help and client side source creation for Node.js/Go/JavaScript/Java/.Net/Python/PHP",
   "keywords": [
@@ -48,8 +48,8 @@
     "example-app": "nodemon test/adhoc/app"
   },
   "optionalDependencies": {
-    "socket.io": "^1.7.3",
-    "socket.io-client": "^1.7.3",
+    "socket.io": "^2.0.3",
+    "socket.io-client": "^2.0.3",
     "ws": "^1.0.1"
   }
 }
