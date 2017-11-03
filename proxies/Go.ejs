@@ -179,9 +179,9 @@ function getReturnType(methodInfo) {
 	const returnType = mapGoType({type: methodInfo.returns, isArray: methodInfo.returnsArray});
 
 	if (returnType !== '') {
-		return `(${returnType}, error)`;
+		return `(${returnType}, *errors.Error)`;
 	} else {
-		return 'error';
+		return '*errors.Error';
 	}
 }
 
@@ -237,7 +237,7 @@ function getMethod(method, selfName, rootName) {
 
 	let implementation;
 
-	if (returnType === 'error') {
+	if (returnType === '*errors.Error') {
 		implementation = `\treturn ${selfName}.caller.Call(__ctx__, nil, "${method.name}"${methodParams})`
 	} else {
 		const resultType = returnType.split(',')[0].slice(1);
@@ -360,12 +360,13 @@ function generateImports() {
 	const importPath = {
 		time: 'time',
 		vrpc: 'git.chaosgroup.com/vcloud/service-framework/vrpc',
+		errors: 'git.chaosgroup.com/vcloud/service-framework/errors',
 		jsonws: 'git.chaosgroup.com/vcloud/service-framework/vrpc/jsonws',
 		context: 'context',
 		json: 'encoding/json'
 	};
 
-	const requiredImports = ['vrpc'];
+	const requiredImports = ['vrpc', 'errors'];
 
 	const structFieldTypes = _.flatMap(metadata.types, t => _.values(t.struct))
 		.map(mapGoType)
