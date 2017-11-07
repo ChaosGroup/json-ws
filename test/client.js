@@ -55,6 +55,13 @@ function buildTestService() {
 			throw new Error('Throw unexpected error test');
 		}
 
+		throwObject() {
+			throw {
+				message: 'Something went wrong',
+				error: 'Something unexpected happened',
+			};
+		}
+
 		returnError() {
 			return new Error('FooBar');
 		}
@@ -86,6 +93,10 @@ function buildTestService() {
 	service.define({
 		name: 'throwUnexpectedError',
 		returns: ['object']
+	});
+	service.define({
+		name: 'throwObject',
+		returns: 'async'
 	});
 	service.define({
 		name: 'testAsyncReturn',
@@ -727,11 +738,12 @@ const TRANSPORT_CONSTRUCTION = {
 
 	it('returns error codes', function() {
 		return Promise.using(getProxy(transport.plain()), function(t) {
-			const expected = [-32000, -32602, -32602, 3, -32602, 'world'];
+			const expected = [-32000, -32000, -32602, -32602, 3, -32602, 'world'];
 			const actual = [];
 
 			return Promise.settle([
 				t.throwError(),
+				t.throwObject(),
 				t.sum(1),
 				t.sum(),
 				t.sum(1, 2, 3),
