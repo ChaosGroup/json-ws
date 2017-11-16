@@ -60,6 +60,19 @@ function buildTestService() {
 			throw new ServiceError('service', 1000, { message: 'some error' });
 		}
 
+		throwJSONRPCError() {
+			throw {
+				code: -3200,
+				message: 'Internal server error',
+				data: {
+					id: 'randomid',
+					reporter: 'service',
+					code: 1000,
+					message: 'something went wrong',
+				},
+			};
+		}
+
 		returnError() {
 			return new Error('FooBar');
 		}
@@ -94,6 +107,10 @@ function buildTestService() {
 	});
 	service.define({
 		name: 'throwServiceError',
+		returns: 'async'
+	});
+	service.define({
+		name: 'throwJSONRPCError',
 		returns: 'async'
 	});
 	service.define({
@@ -398,7 +415,8 @@ describe('RPC over HTTP', function() {
 			-32601, -32601, -32601,	 // method not found
 			-32602, -32602, -32602,  // invalid parameters
 			-32602, -32602,
-			-32000, -32000, -32000, -32000, -32602, -32602, -32000	 // internal server error
+			-32000, -32000, -32000, -32000, -32000,	 // internal server error
+			-32602, -32602, -32000
 		];
 
 		return Promise.all([
@@ -414,6 +432,7 @@ describe('RPC over HTTP', function() {
 			getAsync('throwError'),
 			getAsync('throwUnexpectedError'),
 			getAsync('throwServiceError'),
+			getAsync('throwJSONRPCError'),
 			getAsync('hello?params=["fake"]'),
 			postAsync('hello', {params:['fake']}),
 			getAsync('dataTest?params=[1234]')
