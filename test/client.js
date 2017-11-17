@@ -25,6 +25,7 @@ const express = require('express');
 const bodyParser = require('body-parser');
 const Service = jsonws.service;
 const ServiceRegistry = jsonws.registry.ServiceRegistry;
+const ServiceError = require('../lib/error');
 const SocketIOTransport = require('../lib/transport/socket-io-transport');
 const WebSocketClientTransport = require('../lib/client/transports/ws');
 const SocketIOClientTransport = require('../lib/client/transports/socket-io');
@@ -55,10 +56,20 @@ function buildTestService() {
 			throw new Error('Throw unexpected error test');
 		}
 
-		throwObject() {
+		throwServiceError() {
+			throw new ServiceError('service', 1000, { message: 'some error' });
+		}
+
+		throwJSONRPCError() {
 			throw {
-				message: 'Something went wrong',
-				error: 'Something unexpected happened',
+				code: -3200,
+				message: 'Internal server error',
+				data: {
+					id: 'randomid',
+					reporter: 'service',
+					code: 1000,
+					message: 'something went wrong',
+				},
 			};
 		}
 
@@ -95,7 +106,11 @@ function buildTestService() {
 		returns: ['object']
 	});
 	service.define({
-		name: 'throwObject',
+		name: 'throwServiceError',
+		returns: 'async'
+	});
+	service.define({
+		name: 'throwJSONRPCError',
 		returns: 'async'
 	});
 	service.define({
@@ -395,12 +410,13 @@ describe('RPC over HTTP', function() {
 		});
 	});
 
-	it('returns error codes', function() {
+	it('returns errors', function() {
 		const expected = [
 			-32601, -32601, -32601,	 // method not found
 			-32602, -32602, -32602,  // invalid parameters
 			-32602, -32602,
-			-32000, -32000, -32000, -32602, -32602, -32000	 // internal server error
+			-32000, -32000, -32000, -32000, -32000,	 // internal server error
+			-32602, -32602, -32000
 		];
 
 		return Promise.all([
@@ -415,6 +431,8 @@ describe('RPC over HTTP', function() {
 			getAsync('sumArray?ints=1234'),
 			getAsync('throwError'),
 			getAsync('throwUnexpectedError'),
+			getAsync('throwServiceError'),
+			getAsync('throwJSONRPCError'),
 			getAsync('hello?params=["fake"]'),
 			postAsync('hello', {params:['fake']}),
 			getAsync('dataTest?params=[1234]')
@@ -423,10 +441,16 @@ describe('RPC over HTTP', function() {
 				if (typeof r[1] === 'string') {
 					r[1] = JSON.parse(r[1]);
 				}
+
 				expect(r[1].error).to.be.defined;
 				expect(r[1].error).not.to.be.null;
+
+				expect(r[1].error.data).to.have.property('id');
+				expect(r[1].error.data).to.have.property('reporter');
+				expect(r[1].error.data).to.have.property('code');
+
 				if (r[1].id == 'throwUnexpectedError') {
-					expect(r[1].error.data).to.match(/unexpected error/);
+					expect(r[1].error.data.message).to.match(/unexpected error/);
 				}
 				return r[1].error.code;
 			});
@@ -743,7 +767,7 @@ const TRANSPORT_CONSTRUCTION = {
 
 			return Promise.settle([
 				t.throwError(),
-				t.throwObject(),
+				t.throwServiceError(),
 				t.sum(1),
 				t.sum(),
 				t.sum(1, 2, 3),
@@ -754,8 +778,13 @@ const TRANSPORT_CONSTRUCTION = {
 					if (result.isRejected()) {
 						const reason = result.reason();
 						expect(reason).to.be.instanceof(Error);
-						expect(reason.data).to.be.ok;
 						expect(reason.code).to.be.a('number');
+
+						expect(reason.data).to.be.ok;
+						expect(reason.data).to.have.property('id');
+						expect(reason.data).to.have.property('reporter');
+						expect(reason.data).to.have.property('code');
+
 						actual.push(reason.code);
 					} else {
 						actual.push(result.value());
