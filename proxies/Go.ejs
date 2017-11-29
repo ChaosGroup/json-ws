@@ -200,7 +200,7 @@ function generateTypes() {
 			result += `\ntype ${typeName} int\n\nconst (\n\t${structFields}\n)\n`;
 
 			const selfName = '__self__';
-			result += `func (${selfName} ${typeName}) Value() int {\n\treturn int(${selfName})\n}`;
+			result += `\nfunc (${selfName} ${typeName}) Value() int {\n\treturn int(${selfName})\n}\n`;
 
 		} else {
 			const structFields = formatColumns(_.map(type.struct, (property, propertyName) => {
