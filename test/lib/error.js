@@ -28,7 +28,7 @@ describe('Converter', function() {
 		expect(actual.message).to.equal(MESSAGE);
 	});
 
-	it('returns ServiceError with default error code', function() {
+	it('returns ServiceError with InternalServerError code', function() {
 		const error = new ServiceError(REPORTER, undefined, {});
 
 		const actual = AsServiceError(error);
@@ -45,6 +45,22 @@ describe('Converter', function() {
 		expect(actual.reporter).to.equal(REPORTER);
 		expect(actual.code).to.equal(DEFAULT_ERROR_CODE);
 		expect(actual.cause).to.equal(error);
+	});
+
+	it('returns ServiceError with zero error code', function() {
+		const actual = AsServiceError("something went wrong", REPORTER, 0);
+		expect(actual).to.be.an.instanceof(ServiceError);
+		expect(actual.reporter).to.equal(REPORTER);
+		expect(actual.code).to.equal(0);
+	});
+
+	it('wraps ServiceError with zero error code', function() {
+		const error = new ServiceError(REPORTER, 0, {});
+
+		const actual = AsServiceError(error, REPORTER);
+		expect(actual).to.be.an.instanceof(ServiceError);
+		expect(actual.reporter).to.equal(REPORTER);
+		expect(actual.code).to.equal(0);
 	});
 
 	it('wraps Error', function() {

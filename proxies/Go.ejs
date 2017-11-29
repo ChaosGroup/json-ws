@@ -197,7 +197,11 @@ function generateTypes() {
 			const structFields = formatColumns(_.map(type.struct, (property, propertyName) => {
 				return [`${pascalCase(propertyName)}${typeName}`, typeName, `= ${property}`];
 			}), '\n\t');
-			result += `\ntype ${typeName} int64\n\nconst (\n\t${structFields}\n)\n`;
+			result += `\ntype ${typeName} int\n\nconst (\n\t${structFields}\n)\n`;
+
+			const selfName = '__self__';
+			result += `func (${selfName} ${typeName}) Value() int {\n\treturn int(${selfName})\n}`;
+
 		} else {
 			const structFields = formatColumns(_.map(type.struct, (property, propertyName) => {
 				let jsonTag = propertyName;
