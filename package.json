@@ -30,6 +30,11 @@
     "request": "^2.67.0",
     "semver": "^5.1.0"
   },
+  "peerDependencies": {
+    "socket.io": "^2.1.1",
+    "socket.io-client": "^2.1.1",
+    "ws": "^1.0.1"
+  },
   "devDependencies": {
     "bluebird": "^3.2.1",
     "body-parser": "^1.14.2",
@@ -47,10 +52,5 @@
     "jsdoc": "jsdoc . -c conf.json",
     "cover": "istanbul cover _mocha -- test/lib/* test/server.js test/client.js",
     "example-app": "nodemon test/adhoc/app"
-  },
-  "optionalDependencies": {
-    "socket.io": "^2.0.3",
-    "socket.io-client": "^2.0.3",
-    "ws": "^1.0.1"
   }
 }
