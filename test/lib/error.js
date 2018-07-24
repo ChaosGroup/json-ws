@@ -48,7 +48,7 @@ describe('Converter', function() {
 	});
 
 	it('returns ServiceError with zero error code', function() {
-		const actual = AsServiceError("something went wrong", REPORTER, 0);
+		const actual = AsServiceError('something went wrong', REPORTER, 0);
 		expect(actual).to.be.an.instanceof(ServiceError);
 		expect(actual.reporter).to.equal(REPORTER);
 		expect(actual.code).to.equal(0);
@@ -77,8 +77,8 @@ describe('Converter', function() {
 	});
 
 	it('wraps Error with data property', function() {
-		let error = new Error('some error message');
-		error.data =  {
+		const error = new Error('some error message');
+		error.data = {
 			reporter: CAUSE_REPORTER,
 			code: CAUSE_CODE,
 			message: CAUSE_MESSAGE,

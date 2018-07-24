@@ -41,6 +41,7 @@
     "chai": "^3.5.0",
     "eslint": "5.2.0",
     "eslint-config-prettier": "2.9.0",
+    "eslint-plugin-eslint-plugin": "^1.4.0",
     "eslint-plugin-prettier": "2.6.2",
     "istanbul": "^0.4.2",
     "jsdoc": "^3.4.0",
