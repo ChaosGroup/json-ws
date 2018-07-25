@@ -4,18 +4,16 @@ module.exports = {
 	types: {
 		DependendType: {
 			struct: {
-				key: 'Test'
-			}
+				key: 'Test',
+			},
 		},
 		Test: {
 			struct: {
-				'mode': 'RenderMode',
-				'width': 'int',
-				'height': 'int'
-			}
-		}
+				mode: 'RenderMode',
+				width: 'int',
+				height: 'int',
+			},
+		},
 	},
-	import: [
-		path.join(__dirname, 'server-def-json.js')
-	]
+	import: [path.join(__dirname, 'server-def-json.js')],
 };

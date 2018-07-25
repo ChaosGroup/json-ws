@@ -1,29 +1,29 @@
 module.exports = {
-	'enums': {
-		'RenderMode': {
+	enums: {
+		RenderMode: {
 			description: 'RenderMode',
 			struct: {
-				'Production': -1,
-				'RtCpu': 0
-			}
-		}
+				Production: -1,
+				RtCpu: 0,
+			},
+		},
 	},
 
-	'types': {
-		'RenderOptions': {
+	types: {
+		RenderOptions: {
 			struct: {
-				'mode': 'RenderMode',
-				'width': 'int',
-				'height': 'int'
-			}
-		}
+				mode: 'RenderMode',
+				width: 'int',
+				height: 'int',
+			},
+		},
 	},
 
-	'events': {
-		'ontest': 'test event'
+	events: {
+		ontest: 'test event',
 	},
 
-	'methods': {
-		'sum': 'Returns the sum of two numbers'
-	}
+	methods: {
+		sum: 'Returns the sum of two numbers',
+	},
 };
