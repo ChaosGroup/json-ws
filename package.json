@@ -51,7 +51,6 @@
   },
   "scripts": {
     "test": "mocha test/lib/* test/server.js test/client.js",
-    "test-sio": "mocha test/client_socketio.js",
     "lint": "eslint .",
     "jsdoc": "jsdoc . -c conf.json",
     "cover": "istanbul cover _mocha -- test/lib/* test/server.js test/client.js",
