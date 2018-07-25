@@ -12,7 +12,7 @@ try {
 	module.paths.unshift(path.resolve(__dirname, '..'));
 }
 
-const Service = module.exports.service = require('./lib/service/service.js');
+const Service = (module.exports.service = require('./lib/service/service.js'));
 
 module.exports.client = require('./lib/client/index.js').RpcClient;
 
@@ -22,7 +22,7 @@ module.exports.getLanguageProxy = require('./lib/get-language-proxy');
 
 module.exports.transport = {
 	HTTP: require('./lib/transport/http-transport'),
-	WebSocket: require('./lib/transport/ws-transport')
+	WebSocket: require('./lib/transport/ws-transport'),
 };
 
 /**
@@ -38,30 +38,39 @@ module.exports.proxy = function(proxyUrl, sslSettings, callback) {
 		sslSettings = {};
 	}
 
-	request(proxyUrl, {
-		agentOptions: sslSettings
-	}, function(err, response, body) {
-		if (err) { callback(err); return; }
+	request(
+		proxyUrl,
+		{
+			agentOptions: sslSettings,
+		},
+		function(err, response, body) {
+			if (err) {
+				callback(err);
+				return;
+			}
 
-		if (response.statusCode !== 200) {
-			callback(new Error('Proxy not available at ' + proxyUrl));
-			return;
+			if (response.statusCode !== 200) {
+				callback(new Error('Proxy not available at ' + proxyUrl));
+				return;
+			}
+
+			const proxyModule = { exports: {} };
+
+			try {
+				const moduleWrapper = vm.runInThisContext(Module.wrap(body), {
+					filename: proxyUrl,
+				});
+				moduleWrapper(proxyModule.exports, require, proxyModule);
+			} catch (vmError) {
+				const err = new Error('Error loading proxy');
+				err.stack = vmError.stack;
+				callback(err);
+				return;
+			}
+
+			callback(null, proxyModule.exports);
 		}
-
-		const proxyModule = {exports: {}};
-
-		try {
-			const moduleWrapper = vm.runInThisContext(Module.wrap(body), {filename: proxyUrl});
-			moduleWrapper(proxyModule.exports, require, proxyModule);
-		} catch (vmError) {
-			const err = new Error('Error loading proxy');
-			err.stack = vmError.stack;
-			callback(err);
-			return;
-		}
-
-		callback(null, proxyModule.exports);
-	});
+	);
 };
 
 module.exports.getClientProxy = function(apiRoot, apiType, version, sslSettings, callback) {
@@ -70,9 +79,13 @@ module.exports.getClientProxy = function(apiRoot, apiType, version, sslSettings,
 		sslSettings = {};
 	}
 	const serviceUrl = apiRoot + '/' + apiType + '/' + version;
-	const proxyClassName = apiType.split(/\W+/).map(function(string) {
-		return string[0].toUpperCase() + string.slice(1).toLowerCase();
-	}).join('') + 'Proxy';
+	const proxyClassName =
+		apiType
+			.split(/\W+/)
+			.map(function(string) {
+				return string[0].toUpperCase() + string.slice(1).toLowerCase();
+			})
+			.join('') + 'Proxy';
 	const proxyUrl = serviceUrl + '?proxy=JavaScript&localName=' + proxyClassName;
 	module.exports.proxy(proxyUrl, sslSettings, function(err, proxy) {
 		if (err) {

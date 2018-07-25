@@ -30,17 +30,19 @@ describe('Constructor - Service()', function() {
 
 	it('keeps the version property read-only', function() {
 		const api = new Service('1.0.0', 'Test API');
-		expect(function() { api.version = '1.1'; }).to.throw(TypeError);
+		expect(function() {
+			api.version = '1.1';
+		}).to.throw(TypeError);
 	});
 });
 
 describe('Enums - api.enum() and api.type(_, _, _, isEnum = true)', function() {
 	const enumValues = {
 		A: 0,
-		B: 1
+		B: 1,
 	};
 
-	const enumValuesAsArray = [ 'A', 'B' ];
+	const enumValuesAsArray = ['A', 'B'];
 	let api;
 
 	beforeEach(function() {
@@ -85,7 +87,9 @@ describe('Enums - api.enum() and api.type(_, _, _, isEnum = true)', function() {
 	});
 
 	it('throws when enum() is called with non-numeric values', function() {
-		expect(api.enum.bind(api, 'Test', { A: 'a', B: 'b' })).to.throw(/Enum values must be numbers/);
+		expect(api.enum.bind(api, 'Test', { A: 'a', B: 'b' })).to.throw(
+			/Enum values must be numbers/
+		);
 	});
 
 	it('converts values to names and names to names', function() {
@@ -147,16 +151,19 @@ describe('Types - api.type()', function() {
 		expect(api.typeMap['Test']).to.not.be.undefined;
 		expect(api.typeMap['Test'].enum).to.be.undefined;
 		expect(api.typeMap['Test'].description).to.eq('Sample descriptive text');
-		expect(api.typeMap['Test'].struct).to.deep.eq({
-			width: {
-				name: 'width',
-				type: 'int',
-				isArray: false,
-				required: true,
-				default: undefined,
-				description: ''
-			}
-		}, 'type struct');
+		expect(api.typeMap['Test'].struct).to.deep.eq(
+			{
+				width: {
+					name: 'width',
+					type: 'int',
+					isArray: false,
+					required: true,
+					default: undefined,
+					description: '',
+				},
+			},
+			'type struct'
+		);
 	});
 
 	it('creates internal types - */any', function() {
@@ -258,9 +265,13 @@ describe('Types - api.type()', function() {
 			expect(testType).to.be.ok;
 			expect(testType.type).to.eq(name);
 			expect(testType.convert).to.be.a('function');
-			expect(testType.convert({test: 'me'})).to.deep.eq({test: 'me'});
-			expect(testType.convert('{"test": "me"}')).to.deep.eq({test: 'me'});
-			expect(testType.convert('["string",{"key":"value"},1234]')).to.deep.eq(['string', {key: 'value'}, 1234]);
+			expect(testType.convert({ test: 'me' })).to.deep.eq({ test: 'me' });
+			expect(testType.convert('{"test": "me"}')).to.deep.eq({ test: 'me' });
+			expect(testType.convert('["string",{"key":"value"},1234]')).to.deep.eq([
+				'string',
+				{ key: 'value' },
+				1234,
+			]);
 			expect(testType.convert(1234)).to.deep.eq(1234);
 			expect(testType.convert.bind(testType, 'invalid json')).to.throw(/Unexpected token/);
 		});
@@ -272,8 +283,8 @@ describe('Types - api.type()', function() {
 		expect(testType.type).to.eq('string');
 		expect(testType.convert).to.be.a('function');
 		expect(testType.convert('test')).to.eq('test');
-		expect(() => testType.convert({test: 'me'})).to.throw(/Invalid string value/);
-		expect(testType.convert({test: 'me'}, true)).to.eq(JSON.stringify({test: 'me'}));
+		expect(() => testType.convert({ test: 'me' })).to.throw(/Invalid string value/);
+		expect(testType.convert({ test: 'me' }, true)).to.eq(JSON.stringify({ test: 'me' }));
 		expect(() => testType.convert(1234)).to.throw(/Invalid string value/);
 		expect(testType.convert(1234, true)).to.eq('1234');
 	});
@@ -300,9 +311,13 @@ describe('Types - api.type()', function() {
 			expect(testType).to.be.ok;
 			expect(testType.type).to.eq(name);
 			expect(testType.convert).to.be.a('function');
-			expect(testType.convert(new Buffer('test')).toString('base64')).to.eq(new Buffer('test').toString('base64'));
-			expect(testType.convert(new Buffer('test').toString('base64')).toString('base64')).to.eq(new Buffer('test').toString('base64'));
-			expect(testType.convert.bind(testType, {test: 'me'})).to.throw(/Invalid buffer data/);
+			expect(testType.convert(new Buffer('test')).toString('base64')).to.eq(
+				new Buffer('test').toString('base64')
+			);
+			expect(
+				testType.convert(new Buffer('test').toString('base64')).toString('base64')
+			).to.eq(new Buffer('test').toString('base64'));
+			expect(testType.convert.bind(testType, { test: 'me' })).to.throw(/Invalid buffer data/);
 		});
 	});
 
@@ -319,7 +334,9 @@ describe('Types - api.type()', function() {
 		expect(() => testType.convert(writeableStream, true)).to.throw(/Readable stream expected/);
 		expect(testType.convert(transformStream, true)).to.eq(transformStream);
 		expect(testType.convert(duplexStream, true)).to.eq(duplexStream);
-		expect(() => testType.convert(readableStream, false)).to.throw(/Input streams are not supported/);
+		expect(() => testType.convert(readableStream, false)).to.throw(
+			/Input streams are not supported/
+		);
 	});
 
 	it('creates internal types - error', function() {
@@ -328,13 +345,25 @@ describe('Types - api.type()', function() {
 		expect(testType).to.be.ok;
 		expect(testType.type).to.eq('error');
 		expect(testType.convert).to.be.a('function');
-		expect(testType.convert(new Error('FooBar'))).to.deep.eq({name: 'Error', message: 'FooBar'});
-		expect(testType.convert(new TypeError('FooBar'))).to.deep.eq({name: 'TypeError', message: 'FooBar'});
-		expect(testType.convert('FooBar')).to.deep.eq({name: 'Error', message: 'FooBar'});
-		expect(testType.convert({message: 'FooBar'})).to.deep.eq({name: 'Error', message: 'FooBar'});
-		expect(testType.convert({name: 'MyError', message: 'FooBar'})).to.deep.eq({name: 'MyError', message: 'FooBar'});
+		expect(testType.convert(new Error('FooBar'))).to.deep.eq({
+			name: 'Error',
+			message: 'FooBar',
+		});
+		expect(testType.convert(new TypeError('FooBar'))).to.deep.eq({
+			name: 'TypeError',
+			message: 'FooBar',
+		});
+		expect(testType.convert('FooBar')).to.deep.eq({ name: 'Error', message: 'FooBar' });
+		expect(testType.convert({ message: 'FooBar' })).to.deep.eq({
+			name: 'Error',
+			message: 'FooBar',
+		});
+		expect(testType.convert({ name: 'MyError', message: 'FooBar' })).to.deep.eq({
+			name: 'MyError',
+			message: 'FooBar',
+		});
 		expect(testType.convert.bind(testType, 123)).to.throw(/Invalid error: 123/);
-		expect(testType.convert.bind(testType, {a: 1})).to.throw(/Invalid error/);
+		expect(testType.convert.bind(testType, { a: 1 })).to.throw(/Invalid error/);
 	});
 
 	it('throws when type() is called without name', function() {
@@ -347,35 +376,75 @@ describe('Types - api.type()', function() {
 	});
 
 	it('throws when type() is called to override already defined user types', function() {
-		api.type('Test', {test: 'string'});
-		expect(api.type.bind(api, 'Test', {test: 'string'})).to.throw(/Types cannot be overriden/);
+		api.type('Test', { test: 'string' });
+		expect(api.type.bind(api, 'Test', { test: 'string' })).to.throw(
+			/Types cannot be overriden/
+		);
 	});
 
 	it('throws when type() is called to override internal types', function() {
-		['*', 'any', 'int', 'integer', 'number', 'float', 'double',
-		 'date', 'time', 'bool', 'boolean', 'object', 'json',
-		 'string', 'url', 'buffer', 'binary', 'stream', 'error'].forEach(function(internalType) {
-			expect(api.type.bind(api, internalType, {})).to.throw(/Internal types cannot be overriden/);
+		[
+			'*',
+			'any',
+			'int',
+			'integer',
+			'number',
+			'float',
+			'double',
+			'date',
+			'time',
+			'bool',
+			'boolean',
+			'object',
+			'json',
+			'string',
+			'url',
+			'buffer',
+			'binary',
+			'stream',
+			'error',
+		].forEach(function(internalType) {
+			expect(api.type.bind(api, internalType, {})).to.throw(
+				/Internal types cannot be overriden/
+			);
 		});
 	});
 
 	it('throws when type() is called with invalid field types', function() {
-		expect(api.type.bind(api, 'Test', {test: 'invalid' })).to.throw(/Referenced type .* is undefined/);
-		expect(api.type.bind(api, 'Test', {test: {}})).to.throw(/Missing type for field/);
-		expect(api.type.bind(api, 'Test', {test: 1234})).to.throw(/Invalid type field definition/);
-		expect(api.type.bind(api, 'Test', {test: {}})).to.throw(/Missing type for field/);
-		expect(api.type.bind(api, 'Test', {test: {type: 1234}})).to.throw(/Invalid type field definition/);
-		expect(api.type.bind(api, 'Test', {test: {type: null}})).to.throw(/Missing type for field/);
-		expect(api.type.bind(api, 'Test', {test: {type: {}}})).to.throw(/Invalid type field definition/);
-		expect(api.type.bind(api, 'Test', {test: {type: []}})).to.throw(/Missing type for field/);
-		expect(api.type.bind(api, 'Test', {test: {type: [1234]}})).to.throw(/Invalid type field definition/);
-		expect(api.type.bind(api, 'Test', {test: {type: [{}]}})).to.throw(/Invalid type field definition/);
+		expect(api.type.bind(api, 'Test', { test: 'invalid' })).to.throw(
+			/Referenced type .* is undefined/
+		);
+		expect(api.type.bind(api, 'Test', { test: {} })).to.throw(/Missing type for field/);
+		expect(api.type.bind(api, 'Test', { test: 1234 })).to.throw(
+			/Invalid type field definition/
+		);
+		expect(api.type.bind(api, 'Test', { test: {} })).to.throw(/Missing type for field/);
+		expect(api.type.bind(api, 'Test', { test: { type: 1234 } })).to.throw(
+			/Invalid type field definition/
+		);
+		expect(api.type.bind(api, 'Test', { test: { type: null } })).to.throw(
+			/Missing type for field/
+		);
+		expect(api.type.bind(api, 'Test', { test: { type: {} } })).to.throw(
+			/Invalid type field definition/
+		);
+		expect(api.type.bind(api, 'Test', { test: { type: [] } })).to.throw(
+			/Missing type for field/
+		);
+		expect(api.type.bind(api, 'Test', { test: { type: [1234] } })).to.throw(
+			/Invalid type field definition/
+		);
+		expect(api.type.bind(api, 'Test', { test: { type: [{}] } })).to.throw(
+			/Invalid type field definition/
+		);
 	});
 
 	it('throws when a type definition contains the stream type', function() {
-		expect(() => api.type('Test', {
-			field: 'stream'
-		})).to.throw(/Input streams are not supported/);
+		expect(() =>
+			api.type('Test', {
+				field: 'stream',
+			})
+		).to.throw(/Input streams are not supported/);
 	});
 
 	it('allows simple type definition (only internal types, no arrays or enums)', function() {
@@ -387,12 +456,12 @@ describe('Types - api.type()', function() {
 				type: 'int',
 				required: false,
 				description: 'my description',
-				default: 1234
+				default: 1234,
 			},
 			notRequiredNoDefault: {
 				type: 'int',
-				required: false
-			}
+				required: false,
+			},
 		});
 
 		const testType = api.type('Test');
@@ -401,34 +470,46 @@ describe('Types - api.type()', function() {
 
 		expect(testType.convert.bind(testType)).to.throw(/Simple value cannot be converted/);
 		expect(testType.convert.bind(testType, 1234)).to.throw(/Simple value cannot be converted/);
-		expect(testType.convert.bind(testType, 'invalid')).to.throw(/Simple value cannot be converted/);
+		expect(testType.convert.bind(testType, 'invalid')).to.throw(
+			/Simple value cannot be converted/
+		);
 		expect(testType.convert.bind(testType, {})).to.throw(/Required field has no value: s/);
-		expect(testType.convert.bind(testType, {s: 's'})).to.throw(/Required field has no value: n/);
-		expect(testType.convert.bind(testType, {s: 's', n: 1})).to.throw(/Required field has no value: o/);
-		expect(testType.convert.bind(testType, {s: 's', n: 1, o: {test: 'any'}})).not.to.throw();
-		expect(testType.convert.bind(testType, {s: null, n: 1, o: {test: 'any'}})).to.throw(/Required field has no value/);
+		expect(testType.convert.bind(testType, { s: 's' })).to.throw(
+			/Required field has no value: n/
+		);
+		expect(testType.convert.bind(testType, { s: 's', n: 1 })).to.throw(
+			/Required field has no value: o/
+		);
+		expect(
+			testType.convert.bind(testType, { s: 's', n: 1, o: { test: 'any' } })
+		).not.to.throw();
+		expect(testType.convert.bind(testType, { s: null, n: 1, o: { test: 'any' } })).to.throw(
+			/Required field has no value/
+		);
 		expect(testType.convert.bind(testType, null)).not.to.throw;
 		expect(testType.convert.bind(testType, void 0)).to.throw;
-		expect(testType.convert.bind(testType, {s: '', n: 0, o: undefined})).to.throw(/Required field has no value/);
-		expect(testType.convert({s: 's', n: '1', o: '{"test": "any"}'})).to.deep.eq({
+		expect(testType.convert.bind(testType, { s: '', n: 0, o: undefined })).to.throw(
+			/Required field has no value/
+		);
+		expect(testType.convert({ s: 's', n: '1', o: '{"test": "any"}' })).to.deep.eq({
 			s: 's',
 			n: 1,
-			o: {test: 'any'},
+			o: { test: 'any' },
 			notRequired: 1234,
-			notRequiredNoDefault: undefined
+			notRequiredNoDefault: undefined,
 		});
 	});
 
 	it('allows complex type definition (refenced types, deep nesting)', function() {
-		api.enum('TestMode', {A: 1, B: 2});
+		api.enum('TestMode', { A: 1, B: 2 });
 		api.type('Options', {
 			testMode: 'TestMode',
 			parameter1: 'string',
 			parameter2: 'double',
 			parameter3: {
 				type: 'int',
-				required: false
-			}
+				required: false,
+			},
 		});
 		api.type('Test', {
 			name: 'string',
@@ -440,127 +521,148 @@ describe('Types - api.type()', function() {
 					testMode: 2,
 					parameter1: 'string',
 					parameter2: 1.1,
-					parameter3: 10
-				}
-			}
+					parameter3: 10,
+				},
+			},
 		});
 
 		const testType = api.type('Test');
 
-		expect(testType.convert({
-			name: 'test name',
-			options: {
-				testMode: 'A',
-				parameter1: 'p1',
-				parameter2: 0.0
-			}
-		})).to.deep.eq({
+		expect(
+			testType.convert({
+				name: 'test name',
+				options: {
+					testMode: 'A',
+					parameter1: 'p1',
+					parameter2: 0.0,
+				},
+			})
+		).to.deep.eq({
 			name: 'test name',
 			options: {
 				testMode: 1,
 				parameter1: 'p1',
 				parameter2: 0.0,
-				parameter3: undefined
+				parameter3: undefined,
 			},
 			defaultOptions: {
 				testMode: 2,
 				parameter1: 'string',
 				parameter2: 1.1,
-				parameter3: 10
-			}
+				parameter3: 10,
+			},
 		});
 
-		expect(testType.convert.bind(testType, {
-			name: 'test name',
-			options: {
-				testMode: 1,
-				parameter1: 'p1',
-				parameter2: 0.0
-			}
-		})).to.not.throw();
+		expect(
+			testType.convert.bind(testType, {
+				name: 'test name',
+				options: {
+					testMode: 1,
+					parameter1: 'p1',
+					parameter2: 0.0,
+				},
+			})
+		).to.not.throw();
 
-		expect(testType.convert.bind(testType, {
-			name: 'test name',
-			options: {
-				testMode: 1,
-				parameter1: 'p1'
-			}
-		})).to.throw(/Required field has no value: parameter2/);
+		expect(
+			testType.convert.bind(testType, {
+				name: 'test name',
+				options: {
+					testMode: 1,
+					parameter1: 'p1',
+				},
+			})
+		).to.throw(/Required field has no value: parameter2/);
 
-		expect(testType.convert.bind(testType, {
-			name: 'test name',
-			options: {
-				testMode: 1
-			}
-		})).to.throw(/Required field has no value: parameter1/);
+		expect(
+			testType.convert.bind(testType, {
+				name: 'test name',
+				options: {
+					testMode: 1,
+				},
+			})
+		).to.throw(/Required field has no value: parameter1/);
 
-		expect(testType.convert.bind(testType, {
-			name: 'test name',
-			options: {
-				testMode: 0
-			}
-		})).to.throw(/Unknown enum .* value/);
+		expect(
+			testType.convert.bind(testType, {
+				name: 'test name',
+				options: {
+					testMode: 0,
+				},
+			})
+		).to.throw(/Unknown enum .* value/);
 
-		expect(testType.convert.bind(testType, {
-			name: 'test name'
-		})).to.throw(/Required field has no value: options/);
+		expect(
+			testType.convert.bind(testType, {
+				name: 'test name',
+			})
+		).to.throw(/Required field has no value: options/);
 	});
 
 	it('allow complex type definition (arrays)', function() {
-		api.type('Foo', {bar: 'string'});
+		api.type('Foo', { bar: 'string' });
 		api.type('Test', {
 			ints: ['int'],
 			complex: {
-				type: ['Foo']
-			}
+				type: ['Foo'],
+			},
 		});
 		api.type('OptionalTest', {
 			ints: ['int'],
-			field1: {type: 'Foo', required: false},
-			field2: {type: ['Foo'], required: false}
+			field1: { type: 'Foo', required: false },
+			field2: { type: ['Foo'], required: false },
 		});
 
 		let testType = api.type('Test');
 
-		expect(testType.convert({
-			ints: [1, '2', '3.3', 4, 5],
-			complex: [{bar: 'string' }, {bar: [1234, 5678]}, {bar: 1234}]
-		}, true)).to.deep.eq({
+		expect(
+			testType.convert(
+				{
+					ints: [1, '2', '3.3', 4, 5],
+					complex: [{ bar: 'string' }, { bar: [1234, 5678] }, { bar: 1234 }],
+				},
+				true
+			)
+		).to.deep.eq({
 			ints: [1, 2, 3, 4, 5],
-			complex: [{bar: 'string'} , {bar: '[1234,5678]'}, {bar: '1234'}]
+			complex: [{ bar: 'string' }, { bar: '[1234,5678]' }, { bar: '1234' }],
 		});
 
-		expect(testType.convert.bind(testType, {
-			ints: 'invalid',
-			complex: {}
-		})).to.throw(/Field .* must be an array/);
+		expect(
+			testType.convert.bind(testType, {
+				ints: 'invalid',
+				complex: {},
+			})
+		).to.throw(/Field .* must be an array/);
 
-		expect(testType.convert.bind(testType, {
-			ints: [0, 1, 2],
-			complex: {
-				type: {} // invalid
-			}
-		})).to.throw(/Field .* must be an array/);
+		expect(
+			testType.convert.bind(testType, {
+				ints: [0, 1, 2],
+				complex: {
+					type: {}, // invalid
+				},
+			})
+		).to.throw(/Field .* must be an array/);
 
 		// Optional type test
 		testType = api.type('OptionalTest');
 
-		expect(testType.convert({ints: [1, '2', '3.3', 4, 5]})).to.deep.eq({
+		expect(testType.convert({ ints: [1, '2', '3.3', 4, 5] })).to.deep.eq({
 			ints: [1, 2, 3, 4, 5],
 			field1: undefined,
-			field2: undefined
+			field2: undefined,
 		});
 
-		expect(testType.convert({ints: [1], field1: { bar: 'test'}})).to.deep.eq({
+		expect(testType.convert({ ints: [1], field1: { bar: 'test' } })).to.deep.eq({
 			ints: [1],
-			field1: { bar: 'test'},
-			field2: undefined
+			field1: { bar: 'test' },
+			field2: undefined,
 		});
 
-		expect(testType.convert({ints: [1], field2: [{ bar: 'test'}]})).to.deep.eq({
+		expect(testType.convert({ ints: [1], field2: [{ bar: 'test' }] })).to.deep.eq({
 			ints: [1],
 			field1: undefined,
-			field2: [{ bar: 'test'}]
+			field2: [{ bar: 'test' }],
 		});
 	});
 });
@@ -572,7 +674,7 @@ describe('Events', function() {
 		api = new Service('1.0.0', 'Test API');
 		api.type('TestType', {
 			a: 'int',
-			b: 'string'
+			b: 'string',
 		});
 	});
 
@@ -583,18 +685,20 @@ describe('Events', function() {
 			name: 'OnTestEvent',
 			type: null,
 			isArray: false,
-			description: ''
+			description: '',
 		});
 	});
 
 	it('works with valid definition - type and description', function() {
-		expect(api.event.bind(api, 'OnOtherEvent', {type: 'int', description: 'Foobar'})).not.to.throw();
+		expect(
+			api.event.bind(api, 'OnOtherEvent', { type: 'int', description: 'Foobar' })
+		).not.to.throw();
 		expect(api.eventMap['OnOtherEvent']).to.be.ok;
 		expect(api.eventMap['OnOtherEvent']).to.deep.eq({
 			name: 'OnOtherEvent',
 			type: 'int',
 			isArray: false,
-			description: 'Foobar'
+			description: 'Foobar',
 		});
 	});
 
@@ -605,7 +709,7 @@ describe('Events', function() {
 			name: 'OnEventWithDescription',
 			type: null,
 			isArray: false,
-			description: 'Description'
+			description: 'Description',
 		});
 	});
 
@@ -617,19 +721,27 @@ describe('Events', function() {
 			name: 'test.me.OnTestEvent',
 			type: null,
 			isArray: false,
-			description: ''
+			description: '',
 		});
 	});
 
 	it('does not work with invalid definitions', function() {
 		expect(api.event.bind(api)).to.throw(/Service events MUST have a name/);
-		expect(api.event.bind(api, 'OnEvent', ['invalid options'])).to.throw(/Event options must be an object/);
+		expect(api.event.bind(api, 'OnEvent', ['invalid options'])).to.throw(
+			/Event options must be an object/
+		);
 		expect(api.event.bind(api, 'OnEvent', 1234)).to.throw(/Event options must be an object/);
-		expect(api.event.bind(api, 'OnEvent', {type:'Unkown Type'})).to.throw(/Undefined event type/);
+		expect(api.event.bind(api, 'OnEvent', { type: 'Unkown Type' })).to.throw(
+			/Undefined event type/
+		);
 		api.event('OnEvent');
 		expect(api.event('OnEvent')).to.deep.eq(api.eventMap['OnEvent']);
-		expect(api.event.bind(api, 'OnEvent', { type: 'int' })).to.throw(/Overriding events is not allowed/);
-		expect(api.define.bind(api, { name: 'OnEvent', event: true })).to.throw(/Registering events using the define method is obsolete/);
+		expect(api.event.bind(api, 'OnEvent', { type: 'int' })).to.throw(
+			/Overriding events is not allowed/
+		);
+		expect(api.define.bind(api, { name: 'OnEvent', event: true })).to.throw(
+			/Registering events using the define method is obsolete/
+		);
 	});
 
 	it('returns the event info when invoked with the event name without event definition', function() {
@@ -655,14 +767,16 @@ describe('Methods', function() {
 	});
 
 	it('supports empty definition with object, throws on usage', function() {
-		api.define({name: 'method'});
+		api.define({ name: 'method' });
 
 		expect(api.methodMap['method']).to.be.ok;
 		expect(api.fn.method.bind(api.fn)).to.throw(/not yet implemented/);
 	});
 
 	it('supports definition with string name and function', function() {
-		api.define('method', function() { return 1; });
+		api.define('method', function() {
+			return 1;
+		});
 
 		expect(api.methodMap['method']).to.be.ok;
 		expect(api.fn.method.bind(api.fn)).not.to.throw();
@@ -675,63 +789,119 @@ describe('Methods', function() {
 		expect(api.define.bind(api, 1234)).to.throw(/Invalid definition options/);
 
 		expect(api.define.bind(api, {})).to.throw(/Service methods MUST have a name/);
-		expect(api.define.bind(api, {name: 'test', returns: 'invalid'})).to.throw(/Undefined return type/);
-		expect(api.define.bind(api, {name: 'test', returns: []})).to.throw(/Undefined return type/);
+		expect(api.define.bind(api, { name: 'test', returns: 'invalid' })).to.throw(
+			/Undefined return type/
+		);
+		expect(api.define.bind(api, { name: 'test', returns: [] })).to.throw(
+			/Undefined return type/
+		);
 
-		expect(api.define.bind(api, {name: 'test', params: 'invalid'})).to.throw(/The params property must be an array/);
-		expect(api.define.bind(api, {name: 'test', params: {}})).to.throw(/The params property must be an array/);
-		expect(api.define.bind(api, {name: 'test', params: 1234})).to.throw(/The params property must be an array/);
+		expect(api.define.bind(api, { name: 'test', params: 'invalid' })).to.throw(
+			/The params property must be an array/
+		);
+		expect(api.define.bind(api, { name: 'test', params: {} })).to.throw(
+			/The params property must be an array/
+		);
+		expect(api.define.bind(api, { name: 'test', params: 1234 })).to.throw(
+			/The params property must be an array/
+		);
 
-		expect(api.define.bind(api, {name: 'test', params: [{}]})).to.throw(/Unnamed method parameter/);
-		expect(api.define.bind(api, {name: 'test', params: [{type: 'string'}]})).to.throw(/Unnamed method parameter/);
+		expect(api.define.bind(api, { name: 'test', params: [{}] })).to.throw(
+			/Unnamed method parameter/
+		);
+		expect(api.define.bind(api, { name: 'test', params: [{ type: 'string' }] })).to.throw(
+			/Unnamed method parameter/
+		);
 
-		expect(api.define.bind(api, {name: 'test', params: [{name: 'test', type: ['strings'] }]})).to.throw(/Undefined type/);
-		expect(api.define.bind(api, {name: 'test', params: [{name: 'test', type: [] }]})).to.throw(/Missing type for param test/);
+		expect(
+			api.define.bind(api, { name: 'test', params: [{ name: 'test', type: ['strings'] }] })
+		).to.throw(/Undefined type/);
+		expect(
+			api.define.bind(api, { name: 'test', params: [{ name: 'test', type: [] }] })
+		).to.throw(/Missing type for param test/);
 
-		expect(api.define.bind(api, {name: 'test', params: [{name: 'test', type: { name: 'invalid' }}]})).to.throw(/Inline type definitions are not supported/);
-		expect(api.define.bind(api, {name: 'test', params: [{name: 'test', type: 'invalid'}]})).to.throw(/Undefined type/);
-		expect(api.define.bind(api, {name: 'test', params: [{name: 'test', type: 'stream'}]})).to.throw(/Input streams are not supported/);
+		expect(
+			api.define.bind(api, {
+				name: 'test',
+				params: [{ name: 'test', type: { name: 'invalid' } }],
+			})
+		).to.throw(/Inline type definitions are not supported/);
+		expect(
+			api.define.bind(api, { name: 'test', params: [{ name: 'test', type: 'invalid' }] })
+		).to.throw(/Undefined type/);
+		expect(
+			api.define.bind(api, { name: 'test', params: [{ name: 'test', type: 'stream' }] })
+		).to.throw(/Input streams are not supported/);
 	});
 
 	it('supports complex definitions - parameters and context this', function() {
-		api.define({
-			name: 'test',
-			params: [{name: 'a', type: 'int'}, {name: 'b', type: 'int'}]
-		}, function(a, b) { return a + b; });
+		api.define(
+			{
+				name: 'test',
+				params: [{ name: 'a', type: 'int' }, { name: 'b', type: 'int' }],
+			},
+			function(a, b) {
+				return a + b;
+			}
+		);
 		expect(api.fn.test(2, 3)).to.eq(5);
 
-		api.define({
-			name: 'test2',
-			params: [{name: 'a', type: 'int'}, {name: 'b', type: 'int'}],
-			'this': { sum: function(a, b) { return a + b; }}
-		}, function(a, b) { return this.sum(a, b); });
+		api.define(
+			{
+				name: 'test2',
+				params: [{ name: 'a', type: 'int' }, { name: 'b', type: 'int' }],
+				this: {
+					sum: function(a, b) {
+						return a + b;
+					},
+				},
+			},
+			function(a, b) {
+				return this.sum(a, b);
+			}
+		);
 		expect(api.fn.test2(2, 3)).to.eq(5);
 
 		api.define({
 			name: 'sum',
-			'this': { sum: function(a, b) { return a + b; }}
+			this: {
+				sum: function(a, b) {
+					return a + b;
+				},
+			},
 		});
 		expect(api.fn.sum(2, 3)).to.eq(5);
 
-		api.define({
-			name: 'sumRemapped',
-			'this': { internalMethodToRemap: function(a, b) { return a + b; }}
-		}, 'internalMethodToRemap');
+		api.define(
+			{
+				name: 'sumRemapped',
+				this: {
+					internalMethodToRemap: function(a, b) {
+						return a + b;
+					},
+				},
+			},
+			'internalMethodToRemap'
+		);
 		expect(api.fn.sumRemapped(2, 3)).to.eq(5);
 
 		api.define({
 			name: 'fail',
-			'this': { fail: function() { throw new Error('Custom error'); }}
+			this: {
+				fail: function() {
+					throw new Error('Custom error');
+				},
+			},
 		});
 		expect(api.fn.fail.bind(api)).to.throw(/Custom error/);
 
-		api.define({name: 'fail', 'this': {}}, 'fail');
+		api.define({ name: 'fail', this: {} }, 'fail');
 		expect(api.fn.fail.bind(api)).to.throw(/Invalid method invocation/);
 
-		api.define({name: 'missing', 'this': {}}, 'remappedMissing');
+		api.define({ name: 'missing', this: {} }, 'remappedMissing');
 		expect(api.fn.missing.bind(api)).to.throw(/Invalid method invocation/);
 
-		api.define({name: 'testArrayParam', params: [{name: 'test', type: ['string'] }]});
+		api.define({ name: 'testArrayParam', params: [{ name: 'test', type: ['string'] }] });
 		expect(api.methodMap['testArrayParam'].params[0].isArray).to.be.true;
 		expect(api.methodMap['testArrayParam'].params[0].type).to.eq('string');
 
@@ -740,8 +910,8 @@ describe('Methods', function() {
 			params: [
 				{ name: 'p1', type: 'int', default: 0 },
 				{ name: 'required', type: 'bool' },
-				{ name: 'p2', type: 'int', default: 1 }
-			]
+				{ name: 'p2', type: 'int', default: 1 },
+			],
 		});
 		expect(api.methodMap['optionalArgs'].params[0].name).to.eq('required');
 		expect(api.methodMap['optionalArgs'].params[1].name).to.eq('p1');
@@ -763,7 +933,9 @@ describe('Methods', function() {
 		expect(api.fn.b.test.bind(api.fn.b)).to.throw(/not yet implemented/);
 		expect(api.fn.a.b.test.bind(api.fn.a.b)).to.throw(/not yet implemented/);
 
-		api.define('test.namespace.math.sum', function(a, b) { return a + b; });
+		api.define('test.namespace.math.sum', function(a, b) {
+			return a + b;
+		});
 		expect(api.fn.test.namespace.math.sum(2, 3)).to.eq(5);
 	});
 });
@@ -802,9 +974,13 @@ describe('Groups', function() {
 
 describe('External definitions', function() {
 	const implementations = {
-		sum: function(a, b) { return a + b; },
-		method1: function(a, b) { return a + b; },
-		method2: function() {}
+		sum: function(a, b) {
+			return a + b;
+		},
+		method1: function(a, b) {
+			return a + b;
+		},
+		method2: function() {},
 	};
 	let api;
 
@@ -844,36 +1020,42 @@ describe('External definitions', function() {
 	});
 
 	it('external definitions using JSON, import clause is at the top', function() {
-		expect(() => { api.import(path.resolve(__dirname, 'resources', 'server-def-json-include-top.js')); }).to.not.throw();
+		expect(() => {
+			api.import(path.resolve(__dirname, 'resources', 'server-def-json-include-top.js'));
+		}).to.not.throw();
 	});
 
 	it('external definitions using JSON, import clause is at the bottom', function() {
-		expect(() => { api.import(path.resolve(__dirname, 'resources', 'server-def-json-include-bottom.js')); }).to.not.throw();
+		expect(() => {
+			api.import(path.resolve(__dirname, 'resources', 'server-def-json-include-bottom.js'));
+		}).to.not.throw();
 	});
 
 	it('external definitions using object and allow recursive definition', function() {
-		expect(() => api.import({
-			types: {
-				AssetDescription: {
-					struct: {
-						name: {
-							type: 'string',
-							description: 'The name of the asset'
+		expect(() =>
+			api.import({
+				types: {
+					AssetDescription: {
+						struct: {
+							name: {
+								type: 'string',
+								description: 'The name of the asset',
+							},
+							hash: {
+								type: 'string',
+								description: 'The hash of the asset if it is a file.',
+								required: false,
+							},
+							contents: {
+								type: ['AssetDescription'],
+								description: 'The description of the contents (if directory)',
+								required: false,
+							},
 						},
-						hash: {
-							type: 'string',
-							description: 'The hash of the asset if it is a file.',
-							required: false
-						},
-						contents: {
-							type: ['AssetDescription'],
-							description: 'The description of the contents (if directory)',
-							required: false
-						}
-					}
-				}
-			}
-		})).to.not.throw();
+					},
+				},
+			})
+		).to.not.throw();
 		expect(api.type('AssetDescription')).to.be.ok;
 	});
 
@@ -892,11 +1074,16 @@ describe('External definitions', function() {
 		expect(api.methodMap['method1'].examples['Java']).to.be.ok;
 		expect(splitLines(api.methodMap['method1'].examples['HTTP'])).to.deep.eq(['[1, 2]']);
 		expect(api.methodMap['method2'].examples['HTTP']).to.be.ok;
-		expect(splitLines(api.methodMap['method2'].examples['JavaScript'])).to.deep.eq(['proxy.method2();']);
+		expect(splitLines(api.methodMap['method2'].examples['JavaScript'])).to.deep.eq([
+			'proxy.method2();',
+		]);
 		expect(api.snippetMap['snippet1']['JavaScript']).to.be.ok;
 		expect(api.snippetMap['snippet1']['Java']).to.be.ok;
 		expect(api.snippetMap['snippet1']['Node']).to.be.ok;
-		expect(splitLines(api.snippetMap['snippet1']['Java'])).to.deep.eq(['int a = proxy.method1(1, 2).get();', 'proxy.method2().get();']);
+		expect(splitLines(api.snippetMap['snippet1']['Java'])).to.deep.eq([
+			'int a = proxy.method1(1, 2).get();',
+			'proxy.method2().get();',
+		]);
 		expect(api.snippetMap['snippet2']['JavaScript']).to.be.ok;
 	}
 
