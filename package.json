@@ -55,6 +55,6 @@
     "lint": "eslint .",
     "jsdoc": "jsdoc . -c conf.json",
     "cover": "istanbul cover _mocha -- test/lib/* test/server.js test/client.js",
-    "example-app": "nodemon test/adhoc/app"
+    "example-app": "nodemon examples/adhoc/app.js"
   }
 }
