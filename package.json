@@ -50,10 +50,12 @@
     "prettier": "1.13.7"
   },
   "scripts": {
-    "test": "mocha test/lib/* test/server.js test/client.js",
+    "test": "mocha test/unit/** test/integration/**",
+    "test-unit": "mocha test/unit/**",
+    "test-integration": "mocha test/integration/**",
     "lint": "eslint .",
     "jsdoc": "jsdoc . -c conf.json",
-    "cover": "istanbul cover _mocha -- test/lib/* test/server.js test/client.js",
+    "cover": "istanbul cover _mocha -- test/unit/** test/integration/**",
     "example-app": "nodemon examples/adhoc/app.js"
   }
 }

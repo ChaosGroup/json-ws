@@ -5,7 +5,7 @@
 'use strict';
 
 const expect = require('chai').expect;
-const jsonws = require('../../index.js');
+const jsonws = require('../../../index.js');
 const Service = jsonws.service;
 
 describe('Converters', function() {

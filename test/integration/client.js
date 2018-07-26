@@ -17,7 +17,7 @@ const chai = require('chai');
 const expect = chai.expect;
 const EventEmitter = require('events');
 
-const jsonws = require('../index.js');
+const jsonws = require('../../index.js');
 const request = Promise.promisifyAll(require('request'), { multiArgs: true });
 const WebSocket = require('ws');
 const http = require('http');
@@ -25,10 +25,10 @@ const express = require('express');
 const bodyParser = require('body-parser');
 const Service = jsonws.service;
 const ServiceRegistry = jsonws.registry.ServiceRegistry;
-const ServiceError = require('../lib/error');
-const SocketIOTransport = require('../lib/transport/socket-io-transport');
-const WebSocketClientTransport = require('../lib/client/transports/ws');
-const SocketIOClientTransport = require('../lib/client/transports/socket-io');
+const ServiceError = require('../../lib/error');
+const SocketIOTransport = require('../../lib/transport/socket-io-transport');
+const WebSocketClientTransport = require('../../lib/client/transports/ws');
+const SocketIOClientTransport = require('../../lib/client/transports/socket-io');
 
 const AssertionError = chai.AssertionError;
 
