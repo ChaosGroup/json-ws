@@ -3,8 +3,8 @@
 const chai = require('chai');
 const expect = chai.expect;
 
-const ServiceError = require('../../lib/error');
-const { AsServiceError } = require('../../lib/error');
+const ServiceError = require('../../../lib/error');
+const { AsServiceError } = require('../../../lib/error');
 
 describe('Converter', function() {
 	const REPORTER = 'service';

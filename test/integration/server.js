@@ -8,7 +8,7 @@
 const path = require('path');
 const stream = require('stream');
 const expect = require('chai').expect;
-const jsonws = require('../index.js');
+const jsonws = require('../../index.js');
 const Service = jsonws.service;
 
 // TODO JSWS-53 Add test suite for generator functions once we migrate to io.js/node 0.12.x
@@ -989,7 +989,7 @@ describe('External definitions', function() {
 	});
 
 	it('allows external definitions using code', function() {
-		api.import(path.resolve(__dirname, 'resources', 'server-def-code.js'));
+		api.import(path.resolve(__dirname, '../..', 'examples', 'resources', 'server-def-code.js'));
 
 		expect(api.fn.sum).to.be.ok;
 		expect(api.fn.sum(2, 3)).to.eq(5);
@@ -1004,7 +1004,7 @@ describe('External definitions', function() {
 	});
 
 	it('allows external definitions using JSON', function() {
-		api.import(path.resolve(__dirname, 'resources', 'server-def-json.js'));
+		api.import(path.resolve(__dirname, '../..', 'examples', 'resources', 'server-def-json.js'));
 		api.defineAll(implementations);
 
 		expect(api.fn.sum).to.be.ok;
@@ -1021,13 +1021,29 @@ describe('External definitions', function() {
 
 	it('external definitions using JSON, import clause is at the top', function() {
 		expect(() => {
-			api.import(path.resolve(__dirname, 'resources', 'server-def-json-include-top.js'));
+			api.import(
+				path.resolve(
+					__dirname,
+					'../..',
+					'examples',
+					'resources',
+					'server-def-json-include-top.js'
+				)
+			);
 		}).to.not.throw();
 	});
 
 	it('external definitions using JSON, import clause is at the bottom', function() {
 		expect(() => {
-			api.import(path.resolve(__dirname, 'resources', 'server-def-json-include-bottom.js'));
+			api.import(
+				path.resolve(
+					__dirname,
+					'../..',
+					'examples',
+					'resources',
+					'server-def-json-include-bottom.js'
+				)
+			);
 		}).to.not.throw();
 	});
 
@@ -1088,10 +1104,16 @@ describe('External definitions', function() {
 	}
 
 	function importExamples(api) {
-		api.examples(path.resolve(__dirname, 'resources', 'examples_snippets.js'));
-		api.examples(path.resolve(__dirname, 'resources', 'examples_snippets.node.js'));
-		api.examples(path.resolve(__dirname, 'resources', 'examples_snippets.java'));
-		api.examples(path.resolve(__dirname, 'resources', 'examples.curl'));
+		api.examples(
+			path.resolve(__dirname, '../..', 'examples', 'resources', 'examples_snippets.js')
+		);
+		api.examples(
+			path.resolve(__dirname, '../..', 'examples', 'resources', 'examples_snippets.node.js')
+		);
+		api.examples(
+			path.resolve(__dirname, '../..', 'examples', 'resources', 'examples_snippets.java')
+		);
+		api.examples(path.resolve(__dirname, '../..', 'examples', 'resources', 'examples.curl'));
 	}
 
 	it('imports examples and snippets before definitions', function() {

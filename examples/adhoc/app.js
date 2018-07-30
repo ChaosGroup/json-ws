@@ -15,7 +15,7 @@ const expressApp = express();
 const httpServer = http.createServer(expressApp);
 const registry = jsonws.registry({
 	rootPath: '/endpoint/:sessionId',
-	httpServer
+	httpServer,
 });
 
 expressApp.set('port', 3000);
@@ -31,7 +31,7 @@ expressApp.get('/test', function(req, res) {
 	res.sendFile(path.join(__dirname, '..', 'browser', 'test.html'));
 });
 
-httpServer.listen(expressApp.get('port'), function () {
+httpServer.listen(expressApp.get('port'), function() {
 	registry.addTransport(transport.HTTP);
 	// registry.addTransport(transport.WebSocket);
 	// see 'examples_snippets_sio.js' for client transport example to connect to this socket

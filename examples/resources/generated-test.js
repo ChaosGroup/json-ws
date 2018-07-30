@@ -1,22 +1,22 @@
 /**
  * @module GeneratedTest
  */
-(function (module, define) {
+(function(module, define) {
 	// using non-strict mode, otherwise the re-assignment of require would throw TypeError
 	if (typeof require !== 'function') {
 		require = module.require;
 	}
 
-	var EventEmitter = require('events');
-	var inherits = require('util').inherits;
-	var RpcTunnel = require('json-ws/client');
+	const EventEmitter = require('events');
+	const inherits = require('util').inherits;
+	const RpcTunnel = require('json-ws/client');
 
 	/**
 	 * @param {(url|Transport)} url - Either url of server (string) or Transport instance to be used as a sole transport.
 	 * @constructor
 	 * @alias module:GeneratedTest.GeneratedTest
 	 */
-	var GeneratedTest = module.exports.GeneratedTest = function GeneratedTest(url, settings) {
+	const GeneratedTest = (module.exports.GeneratedTest = function GeneratedTest(url, settings) {
 		if (!this instanceof GeneratedTest) {
 			return new GeneratedTest(url);
 		}
@@ -29,14 +29,14 @@
 		} else {
 			this._transport = this.rpc.transports.http;
 		}
-		var self = this;
+		const self = this;
 		this.rpc.on('event', function(e) {
 			self.emit(e.name, e.data);
 		});
 		function rebind(obj) {
-			var result = {};
-			for (var i in obj) {
-				var prop = obj[i];
+			const result = {};
+			for (const i in obj) {
+				const prop = obj[i];
 				if (typeof prop === 'function') {
 					result[i] = prop.bind(self);
 				} else if (typeof prop === 'object') {
@@ -45,14 +45,14 @@
 			}
 			return result;
 		}
-		for (var i in this) {
+		for (const i in this) {
 			if (this[i] && this[i]._ns) {
 				this[i] = rebind(this[i]);
 			}
 		}
-	};
+	});
 	inherits(GeneratedTest, EventEmitter);
-	Object.defineProperty(GeneratedTest, 'VERSION', { value: '1.0'});
+	Object.defineProperty(GeneratedTest, 'VERSION', { value: '1.0' });
 
 	GeneratedTest.prototype.useHTTP = function() {
 		if (!this.rpc.transports.http) {
@@ -64,7 +64,9 @@
 
 	GeneratedTest.prototype.useWS = function() {
 		if (!this.rpc.transports.ws) {
-			throw new Error('WebSocket transport requested, but ' + this._transport.name + ' given.');
+			throw new Error(
+				'WebSocket transport requested, but ' + this._transport.name + ' given.'
+			);
 		}
 		this._transport = this.rpc.transports.ws;
 		return this;
@@ -76,7 +78,11 @@
 
 	GeneratedTest.prototype.on = GeneratedTest.prototype.addListener = function(type, listener) {
 		if (this.listeners(type).length == 0) {
-			this.rpc.call({ method: 'rpc.on', params: [type], transport: this.rpc.transports.http ? 'ws' : this._transport.name });
+			this.rpc.call({
+				method: 'rpc.on',
+				params: [type],
+				transport: this.rpc.transports.http ? 'ws' : this._transport.name,
+			});
 		}
 		EventEmitter.prototype.addListener.call(this, type, listener);
 	};
@@ -84,23 +90,37 @@
 	GeneratedTest.prototype.removeListener = function(type, listener) {
 		EventEmitter.prototype.removeListener.call(this, type, listener);
 		if (this.listeners(type).length == 0) {
-			this.rpc.call({ method: 'rpc.off', params: [type], transport: this.rpc.transports.http ? 'ws' : this._transport.name });
+			this.rpc.call({
+				method: 'rpc.off',
+				params: [type],
+				transport: this.rpc.transports.http ? 'ws' : this._transport.name,
+			});
 		}
 	};
 
 	GeneratedTest.prototype.removeAllListeners = function(type) {
 		EventEmitter.prototype.removeAllListeners.call(this, type);
-		this.rpc.call({ method: 'rpc.off', params: [type], transport: this.rpc.transports.http ? 'ws' : this._transport.name });
+		this.rpc.call({
+			method: 'rpc.off',
+			params: [type],
+			transport: this.rpc.transports.http ? 'ws' : this._transport.name,
+		});
 	};
 
-	GeneratedTest.RenderMode = function (val) {
+	GeneratedTest.RenderMode = function(val) {
 		switch (val) {
-			case 'Production': return -1;
-			case 'RtCpu': return 0;
-			case 'RtGpuCuda': return 5;
-			case -1: return 'Production';
-			case 0: return 'RtCpu';
-			case 5: return 'RtGpuCuda';
+			case 'Production':
+				return -1;
+			case 'RtCpu':
+				return 0;
+			case 'RtGpuCuda':
+				return 5;
+			case -1:
+				return 'Production';
+			case 0:
+				return 'RtCpu';
+			case 5:
+				return 'RtGpuCuda';
 		}
 	};
 
@@ -108,27 +128,35 @@
 	 * @enum {number}
 	 * @alias module:GeneratedTest.GeneratedTest.RenderMode
 	 */
-	var RenderMode = {
+	const RenderMode = {
 		Production: -1,
 		RtCpu: 0,
-		RtGpuCuda: 5
+		RtGpuCuda: 5,
 	};
 
 	GeneratedTest.RenderMode.Production = -1;
 	GeneratedTest.RenderMode.RtCpu = 0;
-	GeneratedTest.RenderMode.RtGpuCuda = 5
+	GeneratedTest.RenderMode.RtGpuCuda = 5;
 	Object.freeze(GeneratedTest.RenderMode);
 
-	GeneratedTest.JobState = function (val) {
+	GeneratedTest.JobState = function(val) {
 		switch (val) {
-			case 'Created': return 0;
-			case 'Pending': return 1;
-			case 'Active': return 2;
-			case 'Done': return 3;
-			case 0: return 'Created';
-			case 1: return 'Pending';
-			case 2: return 'Active';
-			case 3: return 'Done';
+			case 'Created':
+				return 0;
+			case 'Pending':
+				return 1;
+			case 'Active':
+				return 2;
+			case 'Done':
+				return 3;
+			case 0:
+				return 'Created';
+			case 1:
+				return 'Pending';
+			case 2:
+				return 'Active';
+			case 3:
+				return 'Done';
 		}
 	};
 
@@ -136,17 +164,17 @@
 	 * @enum {number}
 	 * @alias module:GeneratedTest.GeneratedTest.JobState
 	 */
-	var JobState = {
+	const JobState = {
 		Created: 0,
 		Pending: 1,
 		Active: 2,
-		Done: 3
+		Done: 3,
 	};
 
 	GeneratedTest.JobState.Created = 0;
 	GeneratedTest.JobState.Pending = 1;
 	GeneratedTest.JobState.Active = 2;
-	GeneratedTest.JobState.Done = 3
+	GeneratedTest.JobState.Done = 3;
 	Object.freeze(GeneratedTest.JobState);
 
 	/**
@@ -157,18 +185,17 @@
 	 * @property {module:GeneratedTest.GeneratedTest.RenderMode} renderMode
 	 */
 
-
 	/**
 	 * @typedef {Object} module:GeneratedTest.GeneratedTest.DefaultArray
 	 * @property {string} property
 	 */
 
-	GeneratedTest.prototype.ns1 = {_ns:true};
-	GeneratedTest.prototype.ns1.sub1 = {_ns:true};
-	GeneratedTest.prototype.ns1.sub1.sub2 = {_ns:true};
-	GeneratedTest.prototype.ns2 = {_ns:true};
-	GeneratedTest.prototype.ns2.sub1 = {_ns:true};
-	GeneratedTest.prototype.ns2.sub1.sub2 = {_ns:true};
+	GeneratedTest.prototype.ns1 = { _ns: true };
+	GeneratedTest.prototype.ns1.sub1 = { _ns: true };
+	GeneratedTest.prototype.ns1.sub1.sub2 = { _ns: true };
+	GeneratedTest.prototype.ns2 = { _ns: true };
+	GeneratedTest.prototype.ns2.sub1 = { _ns: true };
+	GeneratedTest.prototype.ns2.sub1.sub2 = { _ns: true };
 
 	/**
 	 * Some test method example,&#39; does int sum
@@ -179,18 +206,21 @@
 	 * @returns {number}
 	 */
 	GeneratedTest.prototype.sum = function(a, b) {
-		var args = Array.prototype.slice.call(arguments);
-		var callback = null;
+		const args = Array.prototype.slice.call(arguments);
+		let callback = null;
 		if (args.length && typeof args[args.length - 1] === 'function') {
 			callback = args.pop();
 		}
 		args.length = Math.min(2, args.length);
-		return this.rpc.call({
-			method: 'sum',
-			params: args,
-			expectReturn: true,
-			transport: this._transport.name
-		}, callback);
+		return this.rpc.call(
+			{
+				method: 'sum',
+				params: args,
+				expectReturn: true,
+				transport: this._transport.name,
+			},
+			callback
+		);
 	};
 
 	/**
@@ -199,18 +229,21 @@
 	 * @name module:GeneratedTest.GeneratedTest#sumReturn
 	 */
 	GeneratedTest.prototype.sumReturn = function() {
-		var args = Array.prototype.slice.call(arguments);
-		var callback = null;
+		const args = Array.prototype.slice.call(arguments);
+		let callback = null;
 		if (args.length && typeof args[args.length - 1] === 'function') {
 			callback = args.pop();
 		}
 		args.length = 0;
-		return this.rpc.call({
-			method: 'sumReturn',
-			params: args,
-			expectReturn: false,
-			transport: this._transport.name
-		}, callback);
+		return this.rpc.call(
+			{
+				method: 'sumReturn',
+				params: args,
+				expectReturn: false,
+				transport: this._transport.name,
+			},
+			callback
+		);
 	};
 
 	/**
@@ -221,18 +254,21 @@
 	 * @returns {module:GeneratedTest.GeneratedTest.RenderOptions}
 	 */
 	GeneratedTest.prototype.echo = function(a) {
-		var args = Array.prototype.slice.call(arguments);
-		var callback = null;
+		const args = Array.prototype.slice.call(arguments);
+		let callback = null;
 		if (args.length && typeof args[args.length - 1] === 'function') {
 			callback = args.pop();
 		}
 		args.length = Math.min(1, args.length);
-		return this.rpc.call({
-			method: 'echo',
-			params: args,
-			expectReturn: true,
-			transport: this._transport.name
-		}, callback);
+		return this.rpc.call(
+			{
+				method: 'echo',
+				params: args,
+				expectReturn: true,
+				transport: this._transport.name,
+			},
+			callback
+		);
 	};
 
 	/**
@@ -243,18 +279,21 @@
 	 * @returns {object}
 	 */
 	GeneratedTest.prototype.echoObject = function(a) {
-		var args = Array.prototype.slice.call(arguments);
-		var callback = null;
+		const args = Array.prototype.slice.call(arguments);
+		let callback = null;
 		if (args.length && typeof args[args.length - 1] === 'function') {
 			callback = args.pop();
 		}
 		args.length = Math.min(1, args.length);
-		return this.rpc.call({
-			method: 'echoObject',
-			params: args,
-			expectReturn: true,
-			transport: this._transport.name
-		}, callback);
+		return this.rpc.call(
+			{
+				method: 'echoObject',
+				params: args,
+				expectReturn: true,
+				transport: this._transport.name,
+			},
+			callback
+		);
 	};
 
 	/**
@@ -264,18 +303,21 @@
 	 * @returns {number}
 	 */
 	GeneratedTest.prototype.throwError = function() {
-		var args = Array.prototype.slice.call(arguments);
-		var callback = null;
+		const args = Array.prototype.slice.call(arguments);
+		let callback = null;
 		if (args.length && typeof args[args.length - 1] === 'function') {
 			callback = args.pop();
 		}
 		args.length = 0;
-		return this.rpc.call({
-			method: 'throwError',
-			params: args,
-			expectReturn: true,
-			transport: this._transport.name
-		}, callback);
+		return this.rpc.call(
+			{
+				method: 'throwError',
+				params: args,
+				expectReturn: true,
+				transport: this._transport.name,
+			},
+			callback
+		);
 	};
 
 	/**
@@ -285,18 +327,21 @@
 	 * @returns {object[]}
 	 */
 	GeneratedTest.prototype.throwUnexpectedError = function() {
-		var args = Array.prototype.slice.call(arguments);
-		var callback = null;
+		const args = Array.prototype.slice.call(arguments);
+		let callback = null;
 		if (args.length && typeof args[args.length - 1] === 'function') {
 			callback = args.pop();
 		}
 		args.length = 0;
-		return this.rpc.call({
-			method: 'throwUnexpectedError',
-			params: args,
-			expectReturn: true,
-			transport: this._transport.name
-		}, callback);
+		return this.rpc.call(
+			{
+				method: 'throwUnexpectedError',
+				params: args,
+				expectReturn: true,
+				transport: this._transport.name,
+			},
+			callback
+		);
 	};
 
 	/**
@@ -306,18 +351,21 @@
 	 * @returns {object}
 	 */
 	GeneratedTest.prototype.testMe = function() {
-		var args = Array.prototype.slice.call(arguments);
-		var callback = null;
+		const args = Array.prototype.slice.call(arguments);
+		let callback = null;
 		if (args.length && typeof args[args.length - 1] === 'function') {
 			callback = args.pop();
 		}
 		args.length = 0;
-		return this.rpc.call({
-			method: 'testMe',
-			params: args,
-			expectReturn: true,
-			transport: this._transport.name
-		}, callback);
+		return this.rpc.call(
+			{
+				method: 'testMe',
+				params: args,
+				expectReturn: true,
+				transport: this._transport.name,
+			},
+			callback
+		);
 	};
 
 	/**
@@ -326,18 +374,21 @@
 	 * @name module:GeneratedTest.GeneratedTest#testMe1
 	 */
 	GeneratedTest.prototype.testMe1 = function() {
-		var args = Array.prototype.slice.call(arguments);
-		var callback = null;
+		const args = Array.prototype.slice.call(arguments);
+		let callback = null;
 		if (args.length && typeof args[args.length - 1] === 'function') {
 			callback = args.pop();
 		}
 		args.length = 0;
-		return this.rpc.call({
-			method: 'testMe1',
-			params: args,
-			expectReturn: true,
-			transport: this._transport.name
-		}, callback);
+		return this.rpc.call(
+			{
+				method: 'testMe1',
+				params: args,
+				expectReturn: true,
+				transport: this._transport.name,
+			},
+			callback
+		);
 	};
 
 	/**
@@ -348,18 +399,21 @@
 	 * @returns {string}
 	 */
 	GeneratedTest.prototype.testMe2 = function(a) {
-		var args = Array.prototype.slice.call(arguments);
-		var callback = null;
+		const args = Array.prototype.slice.call(arguments);
+		let callback = null;
 		if (args.length && typeof args[args.length - 1] === 'function') {
 			callback = args.pop();
 		}
 		args.length = Math.min(1, args.length);
-		return this.rpc.call({
-			method: 'testMe2',
-			params: args,
-			expectReturn: true,
-			transport: this._transport.name
-		}, callback);
+		return this.rpc.call(
+			{
+				method: 'testMe2',
+				params: args,
+				expectReturn: true,
+				transport: this._transport.name,
+			},
+			callback
+		);
 	};
 
 	/**
@@ -368,18 +422,21 @@
 	 * @name module:GeneratedTest.GeneratedTest#testMe3
 	 */
 	GeneratedTest.prototype.testMe3 = function() {
-		var args = Array.prototype.slice.call(arguments);
-		var callback = null;
+		const args = Array.prototype.slice.call(arguments);
+		let callback = null;
 		if (args.length && typeof args[args.length - 1] === 'function') {
 			callback = args.pop();
 		}
 		args.length = 0;
-		return this.rpc.call({
-			method: 'testMe3',
-			params: args,
-			expectReturn: false,
-			transport: this._transport.name
-		}, callback);
+		return this.rpc.call(
+			{
+				method: 'testMe3',
+				params: args,
+				expectReturn: false,
+				transport: this._transport.name,
+			},
+			callback
+		);
 	};
 
 	/**
@@ -388,18 +445,21 @@
 	 * @name module:GeneratedTest.GeneratedTest#testMe4
 	 */
 	GeneratedTest.prototype.testMe4 = function() {
-		var args = Array.prototype.slice.call(arguments);
-		var callback = null;
+		const args = Array.prototype.slice.call(arguments);
+		let callback = null;
 		if (args.length && typeof args[args.length - 1] === 'function') {
 			callback = args.pop();
 		}
 		args.length = 0;
-		return this.rpc.call({
-			method: 'testMe4',
-			params: args,
-			expectReturn: false,
-			transport: this._transport.name
-		}, callback);
+		return this.rpc.call(
+			{
+				method: 'testMe4',
+				params: args,
+				expectReturn: false,
+				transport: this._transport.name,
+			},
+			callback
+		);
 	};
 
 	/**
@@ -409,18 +469,21 @@
 	 * @returns {stream}
 	 */
 	GeneratedTest.prototype.getStream = function() {
-		var args = Array.prototype.slice.call(arguments);
-		var callback = null;
+		const args = Array.prototype.slice.call(arguments);
+		let callback = null;
 		if (args.length && typeof args[args.length - 1] === 'function') {
 			callback = args.pop();
 		}
 		args.length = 0;
-		return this.rpc.call({
-			method: 'getStream',
-			params: args,
-			expectReturn: true,
-			transport: this._transport.name
-		}, callback);
+		return this.rpc.call(
+			{
+				method: 'getStream',
+				params: args,
+				expectReturn: true,
+				transport: this._transport.name,
+			},
+			callback
+		);
 	};
 
 	/**
@@ -430,18 +493,21 @@
 	 * @param {module:GeneratedTest.GeneratedTest.DefaultArray} p
 	 */
 	GeneratedTest.prototype.TestDefaultArray = function(p) {
-		var args = Array.prototype.slice.call(arguments);
-		var callback = null;
+		const args = Array.prototype.slice.call(arguments);
+		let callback = null;
 		if (args.length && typeof args[args.length - 1] === 'function') {
 			callback = args.pop();
 		}
 		args.length = Math.min(1, args.length);
-		return this.rpc.call({
-			method: 'TestDefaultArray',
-			params: args,
-			expectReturn: false,
-			transport: this._transport.name
-		}, callback);
+		return this.rpc.call(
+			{
+				method: 'TestDefaultArray',
+				params: args,
+				expectReturn: false,
+				transport: this._transport.name,
+			},
+			callback
+		);
 	};
 
 	/**
@@ -452,18 +518,21 @@
 	 * @returns {string}
 	 */
 	GeneratedTest.prototype.TestUrl = function(u) {
-		var args = Array.prototype.slice.call(arguments);
-		var callback = null;
+		const args = Array.prototype.slice.call(arguments);
+		let callback = null;
 		if (args.length && typeof args[args.length - 1] === 'function') {
 			callback = args.pop();
 		}
 		args.length = Math.min(1, args.length);
-		return this.rpc.call({
-			method: 'TestUrl',
-			params: args,
-			expectReturn: true,
-			transport: this._transport.name
-		}, callback);
+		return this.rpc.call(
+			{
+				method: 'TestUrl',
+				params: args,
+				expectReturn: true,
+				transport: this._transport.name,
+			},
+			callback
+		);
 	};
 
 	/**
@@ -473,18 +542,21 @@
 	 * @returns {module:GeneratedTest.GeneratedTest.RenderOptions[]}
 	 */
 	GeneratedTest.prototype.getRenderOptions = function() {
-		var args = Array.prototype.slice.call(arguments);
-		var callback = null;
+		const args = Array.prototype.slice.call(arguments);
+		let callback = null;
 		if (args.length && typeof args[args.length - 1] === 'function') {
 			callback = args.pop();
 		}
 		args.length = 0;
-		return this.rpc.call({
-			method: 'getRenderOptions',
-			params: args,
-			expectReturn: true,
-			transport: this._transport.name
-		}, callback);
+		return this.rpc.call(
+			{
+				method: 'getRenderOptions',
+				params: args,
+				expectReturn: true,
+				transport: this._transport.name,
+			},
+			callback
+		);
 	};
 
 	/**
@@ -495,18 +567,21 @@
 	 * @returns {Uint8Array}
 	 */
 	GeneratedTest.prototype.echoStringAsBuffer = function(theString) {
-		var args = Array.prototype.slice.call(arguments);
-		var callback = null;
+		const args = Array.prototype.slice.call(arguments);
+		let callback = null;
 		if (args.length && typeof args[args.length - 1] === 'function') {
 			callback = args.pop();
 		}
 		args.length = Math.min(1, args.length);
-		return this.rpc.call({
-			method: 'echoStringAsBuffer',
-			params: args,
-			expectReturn: true,
-			transport: this._transport.name
-		}, callback);
+		return this.rpc.call(
+			{
+				method: 'echoStringAsBuffer',
+				params: args,
+				expectReturn: true,
+				transport: this._transport.name,
+			},
+			callback
+		);
 	};
 
 	/**
@@ -517,18 +592,21 @@
 	 * @returns {number}
 	 */
 	GeneratedTest.prototype.getBufferSize = function(buffer) {
-		var args = Array.prototype.slice.call(arguments);
-		var callback = null;
+		const args = Array.prototype.slice.call(arguments);
+		let callback = null;
 		if (args.length && typeof args[args.length - 1] === 'function') {
 			callback = args.pop();
 		}
 		args.length = Math.min(1, args.length);
-		return this.rpc.call({
-			method: 'getBufferSize',
-			params: args,
-			expectReturn: true,
-			transport: this._transport.name
-		}, callback);
+		return this.rpc.call(
+			{
+				method: 'getBufferSize',
+				params: args,
+				expectReturn: true,
+				transport: this._transport.name,
+			},
+			callback
+		);
 	};
 
 	/**
@@ -539,18 +617,21 @@
 	 * @returns {number[]}
 	 */
 	GeneratedTest.prototype.returnFrom0ToN = function(n) {
-		var args = Array.prototype.slice.call(arguments);
-		var callback = null;
+		const args = Array.prototype.slice.call(arguments);
+		let callback = null;
 		if (args.length && typeof args[args.length - 1] === 'function') {
 			callback = args.pop();
 		}
 		args.length = Math.min(1, args.length);
-		return this.rpc.call({
-			method: 'returnFrom0ToN',
-			params: args,
-			expectReturn: true,
-			transport: this._transport.name
-		}, callback);
+		return this.rpc.call(
+			{
+				method: 'returnFrom0ToN',
+				params: args,
+				expectReturn: true,
+				transport: this._transport.name,
+			},
+			callback
+		);
 	};
 
 	/**
@@ -562,18 +643,21 @@
 	 * @param {number} [p2]
 	 */
 	GeneratedTest.prototype.optionalArgs = function(required, p1, p2) {
-		var args = Array.prototype.slice.call(arguments);
-		var callback = null;
+		const args = Array.prototype.slice.call(arguments);
+		let callback = null;
 		if (args.length && typeof args[args.length - 1] === 'function') {
 			callback = args.pop();
 		}
 		args.length = Math.min(3, args.length);
-		return this.rpc.call({
-			method: 'optionalArgs',
-			params: args,
-			expectReturn: false,
-			transport: this._transport.name
-		}, callback);
+		return this.rpc.call(
+			{
+				method: 'optionalArgs',
+				params: args,
+				expectReturn: false,
+				transport: this._transport.name,
+			},
+			callback
+		);
 	};
 
 	/**
@@ -584,18 +668,21 @@
 	 * @returns {number}
 	 */
 	GeneratedTest.prototype.sumArray = function(ints) {
-		var args = Array.prototype.slice.call(arguments);
-		var callback = null;
+		const args = Array.prototype.slice.call(arguments);
+		let callback = null;
 		if (args.length && typeof args[args.length - 1] === 'function') {
 			callback = args.pop();
 		}
 		args.length = Math.min(1, args.length);
-		return this.rpc.call({
-			method: 'sumArray',
-			params: args,
-			expectReturn: true,
-			transport: this._transport.name
-		}, callback);
+		return this.rpc.call(
+			{
+				method: 'sumArray',
+				params: args,
+				expectReturn: true,
+				transport: this._transport.name,
+			},
+			callback
+		);
 	};
 
 	/**
@@ -606,18 +693,21 @@
 	 * @returns {object}
 	 */
 	GeneratedTest.prototype.testAny = function(a) {
-		var args = Array.prototype.slice.call(arguments);
-		var callback = null;
+		const args = Array.prototype.slice.call(arguments);
+		let callback = null;
 		if (args.length && typeof args[args.length - 1] === 'function') {
 			callback = args.pop();
 		}
 		args.length = Math.min(1, args.length);
-		return this.rpc.call({
-			method: 'testAny',
-			params: args,
-			expectReturn: true,
-			transport: this._transport.name
-		}, callback);
+		return this.rpc.call(
+			{
+				method: 'testAny',
+				params: args,
+				expectReturn: true,
+				transport: this._transport.name,
+			},
+			callback
+		);
 	};
 
 	/**
@@ -628,18 +718,21 @@
 	 * @returns {number}
 	 */
 	GeneratedTest.prototype.getSeconds = function(timeParam) {
-		var args = Array.prototype.slice.call(arguments);
-		var callback = null;
+		const args = Array.prototype.slice.call(arguments);
+		let callback = null;
 		if (args.length && typeof args[args.length - 1] === 'function') {
 			callback = args.pop();
 		}
 		args.length = Math.min(1, args.length);
-		return this.rpc.call({
-			method: 'getSeconds',
-			params: args,
-			expectReturn: true,
-			transport: this._transport.name
-		}, callback);
+		return this.rpc.call(
+			{
+				method: 'getSeconds',
+				params: args,
+				expectReturn: true,
+				transport: this._transport.name,
+			},
+			callback
+		);
 	};
 
 	/**
@@ -649,18 +742,21 @@
 	 * @returns {Date}
 	 */
 	GeneratedTest.prototype.getNow = function() {
-		var args = Array.prototype.slice.call(arguments);
-		var callback = null;
+		const args = Array.prototype.slice.call(arguments);
+		let callback = null;
 		if (args.length && typeof args[args.length - 1] === 'function') {
 			callback = args.pop();
 		}
 		args.length = 0;
-		return this.rpc.call({
-			method: 'getNow',
-			params: args,
-			expectReturn: true,
-			transport: this._transport.name
-		}, callback);
+		return this.rpc.call(
+			{
+				method: 'getNow',
+				params: args,
+				expectReturn: true,
+				transport: this._transport.name,
+			},
+			callback
+		);
 	};
 
 	/**
@@ -670,18 +766,21 @@
 	 * @returns {string}
 	 */
 	GeneratedTest.prototype.ns1.method1 = function() {
-		var args = Array.prototype.slice.call(arguments);
-		var callback = null;
+		const args = Array.prototype.slice.call(arguments);
+		let callback = null;
 		if (args.length && typeof args[args.length - 1] === 'function') {
 			callback = args.pop();
 		}
 		args.length = 0;
-		return this.rpc.call({
-			method: 'ns1.method1',
-			params: args,
-			expectReturn: true,
-			transport: this._transport.name
-		}, callback);
+		return this.rpc.call(
+			{
+				method: 'ns1.method1',
+				params: args,
+				expectReturn: true,
+				transport: this._transport.name,
+			},
+			callback
+		);
 	};
 
 	/**
@@ -690,18 +789,21 @@
 	 * @name module:GeneratedTest.GeneratedTest# "ns1.sub1.sub2.method1"
 	 */
 	GeneratedTest.prototype.ns1.sub1.sub2.method1 = function() {
-		var args = Array.prototype.slice.call(arguments);
-		var callback = null;
+		const args = Array.prototype.slice.call(arguments);
+		let callback = null;
 		if (args.length && typeof args[args.length - 1] === 'function') {
 			callback = args.pop();
 		}
 		args.length = 0;
-		return this.rpc.call({
-			method: 'ns1.sub1.sub2.method1',
-			params: args,
-			expectReturn: false,
-			transport: this._transport.name
-		}, callback);
+		return this.rpc.call(
+			{
+				method: 'ns1.sub1.sub2.method1',
+				params: args,
+				expectReturn: false,
+				transport: this._transport.name,
+			},
+			callback
+		);
 	};
 
 	/**
@@ -710,18 +812,21 @@
 	 * @name module:GeneratedTest.GeneratedTest# "ns2.sub1.sub2.method1"
 	 */
 	GeneratedTest.prototype.ns2.sub1.sub2.method1 = function() {
-		var args = Array.prototype.slice.call(arguments);
-		var callback = null;
+		const args = Array.prototype.slice.call(arguments);
+		let callback = null;
 		if (args.length && typeof args[args.length - 1] === 'function') {
 			callback = args.pop();
 		}
 		args.length = 0;
-		return this.rpc.call({
-			method: 'ns2.sub1.sub2.method1',
-			params: args,
-			expectReturn: false,
-			transport: this._transport.name
-		}, callback);
+		return this.rpc.call(
+			{
+				method: 'ns2.sub1.sub2.method1',
+				params: args,
+				expectReturn: false,
+				transport: this._transport.name,
+			},
+			callback
+		);
 	};
 
 	/**
@@ -756,27 +861,28 @@
 	 * @type null
 	 */
 
-
 	define('GeneratedTest', GeneratedTest);
+}.apply(
+	null,
+	(function() {
+		'use strict';
 
-}.apply(null, (function() {
-	'use strict';
-
-	if (typeof module !== 'undefined') {
-		// node.js and webpack
-		return [module, function() {}];
-	}
-
-	if (typeof window !== 'undefined') {
-		// browser
-		if (typeof window.jsonws === 'undefined') {
-			throw new Error('No json-ws polyfills found.');
+		if (typeof module !== 'undefined') {
+			// node.js and webpack
+			return [module, function() {}];
 		}
 
-		var jsonws = window.jsonws;
+		if (typeof window !== 'undefined') {
+			// browser
+			if (typeof window.jsonws === 'undefined') {
+				throw new Error('No json-ws polyfills found.');
+			}
 
-		return [jsonws, jsonws.define];
-	}
+			const jsonws = window.jsonws;
 
-	throw new Error('Unknown environment, this code should be used in node.js/webpack/browser');
-}())));
+			return [jsonws, jsonws.define];
+		}
+
+		throw new Error('Unknown environment, this code should be used in node.js/webpack/browser');
+	})()
+));

@@ -1,7 +1,4 @@
 node_modules/**/*
 static/**/*
-test/adhoc/**
-test/browser/**
-test/resources/**
 output/**/*
 proxies/**/*

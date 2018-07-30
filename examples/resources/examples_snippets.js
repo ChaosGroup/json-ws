@@ -1,5 +1,5 @@
 // Documentation examples and snippets
-var proxy = new Proxy();
+const proxy = new Proxy();
 
 // {example:method1}
 proxy.method1(1, 2, function(err, result) {
@@ -14,11 +14,11 @@ proxy.method2();
 // {example}
 
 // {snippet:snippet1}
-var a = proxy.method1(1, 2);
+const a = proxy.method1(1, 2);
 proxy.method2();
 // {snippet}
 
 // {snippet:snippet2}
-var b = proxy.method1(1, 2);
+const b = proxy.method1(1, 2);
 proxy.method2();
 // {snippet}
