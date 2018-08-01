@@ -55,7 +55,7 @@
     "test-integration": "mocha test/integration/**",
     "lint": "eslint .",
     "jsdoc": "jsdoc . -c conf.json",
-    "cover": "istanbul cover _mocha -- test/unit/** test/integration/**",
+    "cover": "istanbul cover _mocha 'test/unit/**/*.js'",
     "example-app": "nodemon examples/adhoc/app.js"
   }
 }
