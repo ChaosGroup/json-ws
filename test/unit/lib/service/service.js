@@ -1,3 +1,5 @@
+'use strict';
+
 const Service = require('../../../../lib/service/service.js');
 const types = require('../../../../lib/service/types.js');
 const expect = require('chai').expect;
@@ -312,6 +314,214 @@ describe.only('Service class', function() {
 				expect(() => {
 					service.define(options);
 				}).to.not.throw();
+			});
+		});
+	});
+
+	describe('type', function() {
+		let service;
+
+		beforeEach(function() {
+			service = new Service('1.0.0', 'service');
+		});
+
+		it('verifies that type has a name', function() {
+			expect(() => {
+				service.type();
+			}).to.throw(/types must have a name./i);
+		});
+
+		it('returns the correct type with no type definition provided', function() {
+			const type = service.type('number');
+			expect(type.type).to.eq('number');
+			expect(type.convert).to.be.a('function');
+		});
+
+		it('handles unexisting types', function() {
+			expect(() => service.type('unexisting-type')).to.throw(/type.*is undefined/i);
+		});
+
+		it('forbids internal type overriding', function() {
+			expect(() => {
+				service.type('number', 'descr');
+			}).to.throw(/internal types cannot.*overriden.*/i);
+		});
+
+		it('forbids type overriding', function() {
+			service.type('Cars', { model: 'string' });
+
+			expect(() => {
+				service.type('Cars', { name: 'string' });
+			}).to.throw(/types cannot be overriden/i);
+		});
+
+		it('verifies that enum definitions are objects', function() {
+			expect(() =>
+				service.type('example-name', 'type-definition', 'description', true)
+			).to.throw(/enum definition must be an object/i);
+		});
+
+		it('verifies that enum definitions are not empty', function() {
+			expect(() => service.type('example-name', {}, 'description', true)).to.throw(
+				/empty enums are not allowed.*/i
+			);
+		});
+
+		it('verifies that enum values are numbers', function() {
+			expect(() =>
+				service.type('example-name', { val1: 'str' }, 'description', true)
+			).to.throw(/enum values must be numbers.*/i);
+		});
+
+		it('creates a valid enum', function() {
+			expect(() =>
+				service.type('test-enum', { val1: 0, val1: 1 }, 'description', true)
+			).not.to.throw();
+		});
+
+		it('creates a valid structure', function() {
+			expect(() => {
+				service.type('test-enum', { field1: 'number', field2: 'string' }, undefined);
+			}).not.to.throw();
+		});
+
+		it('returns already defined type', function() {
+			service.type('Cars', { model: 'string' });
+			service.type('Cars');
+		});
+
+		describe('typeInfo.convert()', function() {
+			const EXAMPLE_ENUM_NAME = 'People';
+			const EXAMPLE_ENUM = {
+				Programmers: 0,
+				Teachers: 1,
+				Gamers: 2,
+			};
+			const EXAMPLE_STRUCT_NAME = 'Person';
+			const EXAMPLE_STRUCT = {
+				name: 'string',
+				age: 'int',
+				nickname: {
+					type: 'string',
+					required: false,
+				},
+			};
+
+			it('converts simple struct types', function() {
+				service.type(EXAMPLE_STRUCT_NAME, EXAMPLE_STRUCT);
+				expect(
+					service.typeMap[EXAMPLE_STRUCT_NAME].convert({
+						name: 'Ivan',
+						age: '25',
+						nickname: 'Vankata',
+					})
+				).to.deep.eq({
+					name: 'Ivan',
+					age: 25,
+					nickname: 'Vankata',
+				});
+			});
+
+			it('converts simple enum types', function() {
+				service.type(EXAMPLE_ENUM_NAME, EXAMPLE_ENUM, 'description', true);
+
+				expect(
+					service.typeMap[EXAMPLE_ENUM_NAME].convert(Object.keys(EXAMPLE_ENUM)[0])
+				).to.eq(0);
+				expect(
+					service.typeMap[EXAMPLE_ENUM_NAME].convert(Object.keys(EXAMPLE_ENUM)[1])
+				).to.eq(1);
+				expect(
+					service.typeMap[EXAMPLE_ENUM_NAME].convert(Object.keys(EXAMPLE_ENUM)[2])
+				).to.eq(2);
+			});
+
+			it('validates required fieds', function() {
+				service.type(EXAMPLE_STRUCT_NAME, EXAMPLE_STRUCT);
+
+				expect(() =>
+					service.typeMap[EXAMPLE_STRUCT_NAME].convert({ name: 'Ivan' })
+				).to.throw(/required field has no value: age/i);
+				expect(() =>
+					service.typeMap[EXAMPLE_STRUCT_NAME].convert({ name: 'Ivan', age: 25 })
+				).not.to.throw(/required field/i);
+				expect(() =>
+					service.typeMap[EXAMPLE_STRUCT_NAME].convert({
+						name: 'Ivan',
+						age: 25,
+						nickname: null,
+					})
+				).not.to.throw(/required field/i);
+			});
+
+			it('ensures valid enum convert value types', function() {
+				service.type(EXAMPLE_ENUM_NAME, EXAMPLE_ENUM, 'description', true);
+
+				const err = /Invalid value for enum.*only numbers or strings.*/;
+
+				expect(() => {
+					service.typeMap[EXAMPLE_ENUM_NAME].convert({ 0: 'Programmers' });
+				}).to.throw(err);
+
+				expect(() => {
+					service.typeMap[EXAMPLE_ENUM_NAME].convert([1, 2, 3]);
+				}).to.throw(err);
+
+				expect(() => {
+					service.typeMap[EXAMPLE_ENUM_NAME].convert(function(x) {
+						return x * x;
+					});
+				}).to.throw(err);
+			});
+
+			it('ensures valid enum convert values', function() {
+				service.type(EXAMPLE_ENUM_NAME, EXAMPLE_ENUM, 'description', true);
+
+				const testValue = 'Lumberjack';
+
+				expect(!EXAMPLE_ENUM[testValue]).to.be.true;
+				expect(() => {
+					service.typeMap[EXAMPLE_ENUM_NAME].convert(testValue);
+				}).to.throw(/unknown enum.*value.*/i);
+			});
+
+			it('ensures valid struct convert values', function() {
+				service.type(EXAMPLE_STRUCT_NAME, EXAMPLE_STRUCT);
+
+				expect(() => {
+					service.typeMap[EXAMPLE_STRUCT_NAME].convert('Mincho');
+				}).to.throw(/Simple value cannot be converted to type.*/);
+			});
+
+			it.skip('ensures a valid usage of string enums', function() {
+				service.type(EXAMPLE_ENUM_NAME, EXAMPLE_ENUM, 'description', true);
+			});
+
+			it('converts types with array fields', function() {
+				service.type('Post', { tags: ['string'] });
+				expect(service.typeMap['Post'].convert({ tags: ['foo'] })).to.deep.eq({
+					tags: ['foo'],
+				});
+			});
+
+			it('returns null if value is null', function() {
+				service.type(EXAMPLE_STRUCT_NAME, EXAMPLE_STRUCT);
+
+				expect(service.typeMap[EXAMPLE_STRUCT_NAME].convert(null)).to.eq(null);
+			});
+
+			it('validates that array fields are actual arrays', function() {
+				service.type('Person', {
+					name: 'string',
+					children: { type: 'object', isArray: true },
+				});
+
+				expect(() =>
+					service.typeMap[EXAMPLE_STRUCT_NAME].convert({
+						name: 'Ivan',
+						children: 'Danio',
+					})
+				).to.throw(/field children must be an array/i);
 			});
 		});
 	});
