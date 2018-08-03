@@ -525,4 +525,84 @@ describe.only('Service class', function() {
 			});
 		});
 	});
+
+	describe('event', function() {
+		const EVENT_NAME = 'exampleEvent';
+
+		let service;
+
+		beforeEach(function() {
+			service = new Service('1.0.0', 'service');
+		});
+
+		it('verifies that service events have a name', function() {
+			expect(() => {
+				service.event();
+			}).to.throw(/service events must have a name/i);
+		});
+
+		it('forbids event overriding', function() {
+			expect(() => {
+				service.event(EVENT_NAME, {});
+				service.event(EVENT_NAME, {});
+			}).to.throw(/overriding events is not allowed/i);
+		});
+
+		it('returns an already defined event', function() {
+			service.event(EVENT_NAME, {});
+			const event1 = service.eventMap[EVENT_NAME];
+			const event2 = service.event(EVENT_NAME);
+
+			expect(event1).to.eq(event2);
+		});
+
+		it('handles namespaces correctly', function() {
+			service.setNamespace('namespace');
+			service.event(EVENT_NAME);
+
+			expect(service.eventMap[`namespace.${EVENT_NAME}`]).to.exist;
+			expect(service.eventMap[`namespace.${EVENT_NAME}`].name).to.eq(
+				`namespace.${EVENT_NAME}`
+			);
+		});
+
+		it("accepts a string for event's eventInfo", function() {
+			service.event(EVENT_NAME, 'description');
+
+			expect(service.eventMap[EVENT_NAME].description).to.eq('description');
+		});
+
+		it("ensures that event's eventInfo is an object if not a string", function() {
+			expect(() => {
+				service.event(EVENT_NAME, []);
+			}).to.throw(/event options must be an object/i);
+
+			expect(() => {
+				service.event(EVENT_NAME, 42);
+			}).to.throw(/event options must be an object/i);
+
+			expect(() => {
+				service.event(EVENT_NAME, function() {});
+			}).to.throw(/event options must be an object/i);
+		});
+
+		it('handles eventInfo with unexisting type property', function() {
+			expect(() => {
+				service.event(EVENT_NAME, { type: 'ivan' });
+			}).to.throw(new RegExp(`undefined event type for event ${EVENT_NAME}: ivan`, 'i'));
+		});
+
+		it('handles correctly eventInfo with existing type property', function() {
+			service.event(EVENT_NAME, { type: 'number' });
+
+			expect(service.eventMap[EVENT_NAME].type).to.eq('number');
+		});
+
+		it('handles correctly eventInfo with existing type property array', function() {
+			service.event(EVENT_NAME, { type: ['number', 'string'] });
+
+			expect(service.eventMap[EVENT_NAME].type).to.eq('number');
+			expect(service.eventMap[EVENT_NAME].isArray).to.be.true;
+		});
+	});
 });
