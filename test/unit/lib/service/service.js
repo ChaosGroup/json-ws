@@ -605,4 +605,39 @@ describe.only('Service class', function() {
 			expect(service.eventMap[EVENT_NAME].isArray).to.be.true;
 		});
 	});
+
+	describe('enum', function() {
+		let service;
+
+		const ENUM_NAME = 'People';
+		const ENUM_DESCRIPTION = 'description';
+
+		beforeEach(function() {
+			service = new Service('1.0.0', 'service');
+		});
+
+		it('creates a valid enum from array', function() {
+			service.enum(ENUM_NAME, ['Programmers', 'Lumberjacks', 'Gamers'], ENUM_DESCRIPTION);
+			expect(service.typeMap[ENUM_NAME].description).to.eq(ENUM_DESCRIPTION);
+			expect(service.typeMap[ENUM_NAME].name).to.eq(ENUM_NAME);
+			expect(service.typeMap[ENUM_NAME].enum).to.be.true;
+			expect(service.typeMap[ENUM_NAME].struct).to.deep.eq({
+				Programmers: 0,
+				Lumberjacks: 1,
+				Gamers: 2,
+			});
+		});
+
+		it('creates a valid enum from object', function() {
+			service.enum(ENUM_NAME, { Programmers: 0, Lumberjacks: 1, Gamers: 2 });
+			expect(service.typeMap[ENUM_NAME].description).to.eq(types.missingDocumentation);
+			expect(service.typeMap[ENUM_NAME].name).to.eq(ENUM_NAME);
+			expect(service.typeMap[ENUM_NAME].enum).to.be.true;
+			expect(service.typeMap[ENUM_NAME].struct).to.deep.eq({
+				Programmers: 0,
+				Lumberjacks: 1,
+				Gamers: 2,
+			});
+		});
+	});
 });
