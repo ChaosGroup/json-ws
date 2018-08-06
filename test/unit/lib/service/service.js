@@ -5,15 +5,15 @@ const types = require('../../../../lib/service/types.js');
 const expect = require('chai').expect;
 
 describe.only('Service class', function() {
+	let service;
+
+	beforeEach(function() {
+		service = new Service('1.0.0', 'service');
+	});
+
 	describe('define', function() {
 		const METHOD_NAME = 'method1';
 		const METHOD_DESCR = 'method_description';
-
-		let service;
-
-		beforeEach(function() {
-			service = new Service('1.0.0', 'service');
-		});
 
 		it('does not allow registering of events', function() {
 			expect(() => service.define({ event: {} })).to.throw(/registering events.*obsolete/i);
@@ -319,12 +319,6 @@ describe.only('Service class', function() {
 	});
 
 	describe('type', function() {
-		let service;
-
-		beforeEach(function() {
-			service = new Service('1.0.0', 'service');
-		});
-
 		it('verifies that type has a name', function() {
 			expect(() => {
 				service.type();
@@ -529,12 +523,6 @@ describe.only('Service class', function() {
 	describe('event', function() {
 		const EVENT_NAME = 'exampleEvent';
 
-		let service;
-
-		beforeEach(function() {
-			service = new Service('1.0.0', 'service');
-		});
-
 		it('verifies that service events have a name', function() {
 			expect(() => {
 				service.event();
@@ -607,14 +595,8 @@ describe.only('Service class', function() {
 	});
 
 	describe('enum', function() {
-		let service;
-
 		const ENUM_NAME = 'People';
 		const ENUM_DESCRIPTION = 'description';
-
-		beforeEach(function() {
-			service = new Service('1.0.0', 'service');
-		});
 
 		it('creates a valid enum from array', function() {
 			service.enum(ENUM_NAME, ['Programmers', 'Lumberjacks', 'Gamers'], ENUM_DESCRIPTION);
