@@ -38,12 +38,12 @@ describe('Converter', function() {
 	});
 
 	it('wraps ServiceError with different reporter', function() {
-		const error = new ServiceError('different', 111, {});
+		const error = new ServiceError('different', CAUSE_CODE, {});
 
 		const actual = AsServiceError(error, REPORTER);
 		expect(actual).to.be.an.instanceof(ServiceError);
 		expect(actual.reporter).to.equal(REPORTER);
-		expect(actual.code).to.equal(DEFAULT_ERROR_CODE);
+		expect(actual.code).to.equal(CAUSE_CODE);
 		expect(actual.cause).to.equal(error);
 	});
 
@@ -90,7 +90,7 @@ describe('Converter', function() {
 		expect(actual.timestamp).to.be.ok;
 
 		expect(actual.reporter).to.equal(REPORTER);
-		expect(actual.code).to.equal(DEFAULT_ERROR_CODE);
+		expect(actual.code).to.equal(CAUSE_CODE);
 		expect(actual.message).to.equal(CAUSE_MESSAGE);
 
 		expect(actual.cause).to.be.defined;
@@ -116,7 +116,7 @@ describe('Converter', function() {
 		expect(actual.timestamp).to.be.ok;
 
 		expect(actual.reporter).to.equal(REPORTER);
-		expect(actual.code).to.equal(DEFAULT_ERROR_CODE);
+		expect(actual.code).to.equal(CAUSE_CODE);
 
 		expect(actual.cause).to.be.defined;
 		expect(actual.cause.reporter).to.equal(CAUSE_REPORTER);
