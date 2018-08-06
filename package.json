@@ -16,6 +16,9 @@
     "go",
     "golang"
   ],
+  "publishConfig": {
+	  "registry": "https://registry.npmjs.com"
+  },
   "homepage": "https://github.com/ChaosGroup/json-ws",
   "repository": "https://github.com/ChaosGroup/json-ws",
   "bugs": "https://github.com/ChaosGroup/json-ws/issues",
