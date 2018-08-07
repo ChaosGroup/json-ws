@@ -4,6 +4,8 @@ const Service = require('../../../../lib/service/service.js');
 const types = require('../../../../lib/service/types.js');
 const expect = require('chai').expect;
 
+const EventEmitter = require('events');
+
 describe.only('Service class', function() {
 	let service;
 
@@ -620,6 +622,91 @@ describe.only('Service class', function() {
 				Lumberjacks: 1,
 				Gamers: 2,
 			});
+		});
+	});
+
+	describe('defineAll', function() {
+		it('returns current service if no parameters are provided', function() {
+			expect(service.defineAll()).to.deep.eq(service);
+		});
+
+		it('correctly skips object properties', function() {
+			service.defineAll({
+				notOkProp1: {},
+				notOkProp2: 42,
+				notOkProp3: 'string',
+				_notOkProp4: function() {},
+			});
+			expect(service.methodMap).to.deep.eq({});
+
+			service.defineAll(
+				{
+					prop: function() {},
+				},
+				['NOT-prop']
+			);
+			expect(service.methodMap).to.deep.eq({});
+		});
+
+		it('correctly defines provided methods', function() {
+			service.defineAll(
+				{
+					method1: function() {},
+					method2: function() {},
+				},
+				['method1']
+			);
+
+			expect(service.methodMap['method1']).to.exist;
+			expect(service.methods['method1']).to.exist;
+			expect(service.fn['method1']).to.exist;
+			expect(service.fn['method2']).to.not.exist;
+		});
+
+		it('handle non-trivial objects', function() {
+			const existanceChecker = function(methodName) {
+				expect(service.methodMap[methodName]).to.exist;
+				expect(service.methods[methodName]).to.exist;
+				expect(service.fn[methodName]).to.exist;
+			};
+
+			const CustomObject = function() {
+				this.prop1 = 'randomString';
+				this.prop2 = 42;
+				this.prop3 = function() {};
+			};
+			CustomObject.prototype['func1'] = function() {};
+			CustomObject.prototype['func2'] = function() {};
+
+			const customObject = new CustomObject();
+			service.defineAll(customObject);
+
+			existanceChecker('func1');
+			existanceChecker('func2');
+			existanceChecker('prop3');
+		});
+
+		it('handles EventEmitter objects', function(done) {
+			class CustomObject extends EventEmitter {
+				constructor() {
+					super();
+					this.prop1 = 'randomString';
+					this.prop2 = 42;
+					this.prop3 = function() {};
+				}
+			}
+
+			const customObject = new CustomObject();
+			service.event('testEvent');
+			service.defineAll(customObject);
+
+			const EVENT_OBJECT = {};
+			service.on('testEvent', e => {
+				expect(e).to.eq(EVENT_OBJECT);
+				done();
+			});
+
+			customObject.emit('testEvent', EVENT_OBJECT);
 		});
 	});
 });
