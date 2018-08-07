@@ -5,6 +5,10 @@ const types = require('../../../../lib/service/types.js');
 const expect = require('chai').expect;
 
 const EventEmitter = require('events');
+const path = require('path');
+const fs = require('fs');
+const util = require('util');
+const Module = require('module');
 
 describe.only('Service class', function() {
 	let service;
@@ -707,6 +711,55 @@ describe.only('Service class', function() {
 			});
 
 			customObject.emit('testEvent', EVENT_OBJECT);
+		});
+	});
+
+	describe('import', function() {
+		it('handles incorrect importSite string', function() {
+			const invalidPath = './invalid/path';
+			expect(() => {
+				service.import(invalidPath);
+			}).to.throw(new RegExp(`failed to parse import file.*${invalidPath}`, 'i'));
+		});
+
+		it('handles incorrect importSite type', function() {
+			const invalidTypes = [42, function() {}, true];
+			invalidTypes.forEach(el => {
+				expect(() => {
+					service.import(el);
+				}).to.throw(/unsupported import site:/i);
+			});
+		});
+
+		it('handles setup function', async function() {
+			let setupFunctionCalled = false;
+
+			// We need to requrie the service code again in order to provide a fake "require":
+			// TODO: Use proxyquire and delete this:
+			const serviceModule = { exports: {} };
+			const readFileAsync = util.promisify(fs.readFile);
+			const serviceCode = await readFileAsync(
+				path.resolve(__dirname, '../../../../lib/service/service.js')
+			);
+			const serviceModuleFn = eval(Module.wrap(serviceCode));
+			const customRequire = moduleName => {
+				if (moduleName === 'my-defs') {
+					return function() {
+						setupFunctionCalled = true;
+					};
+				} else if (moduleName === './types') {
+					return types;
+				}
+
+				return require(moduleName);
+			};
+			serviceModuleFn(serviceModule.exports, customRequire, serviceModule);
+			const Service = serviceModule.exports;
+			// End of setup
+
+			const service = new Service('1.0.0', 'service');
+			service.import('my-defs');
+			expect(setupFunctionCalled).to.be.true;
 		});
 	});
 });
