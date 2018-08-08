@@ -981,4 +981,20 @@ describe.only('Service class', function() {
 			expect(service.currentThisObj).to.deep.eq(newThis);
 		});
 	});
+
+	describe('metadata', function() {
+		it('returns the correct information', function() {
+			const compareObject = {
+				name: service.name,
+				description: service.description,
+				version: service.version,
+				groups: service.groups,
+				types: service.typeMap,
+				events: service.eventMap,
+				methods: service.methodMap,
+			};
+
+			expect(compareObject).to.deep.eq(service.metadata);
+		});
+	});
 });
