@@ -946,4 +946,30 @@ describe.only('Service class', function() {
 			expect(service.currentNamespace).to.eq('');
 		});
 	});
+
+	describe('setGroup', function() {
+		const serviceInfo = { name: 'service', version: '1.0.0' };
+		const service1 = new Service(serviceInfo.version, serviceInfo.name);
+		const service2 = new Service(serviceInfo.version, serviceInfo.name);
+
+		it('correctly ignores non-string values', function() {
+			service2.setGroup();
+			expect(service2).to.deep.eq(service1);
+
+			service2.setGroup({});
+			expect(service2).to.deep.eq(service1);
+
+			service2.setGroup(42);
+			expect(service2).to.deep.eq(service1);
+		});
+
+		it('correctly sets string values', function() {
+			const groupName = 'GroupName';
+
+			service2.setGroup(groupName);
+			expect(service2).not.to.deep.eq(service1);
+			expect(service2.currentGroup.name).to.eq(groupName);
+			expect(service2.groups[groupName].name).to.eq(groupName);
+		});
+	});
 });
