@@ -972,4 +972,13 @@ describe.only('Service class', function() {
 			expect(service2.groups[groupName].name).to.eq(groupName);
 		});
 	});
+
+	describe('setThis', function() {
+		it('correctly sets the new this', function() {
+			const newThis = { prop1: 'prop1', prop2: 42 };
+			service.setThis(newThis);
+
+			expect(service.currentThisObj).to.deep.eq(newThis);
+		});
+	});
 });
