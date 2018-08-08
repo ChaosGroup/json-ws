@@ -762,4 +762,107 @@ describe.only('Service class', function() {
 			expect(setupFunctionCalled).to.be.true;
 		});
 	});
+
+	describe('examples', function() {
+		const examplesDirectory = '../../../../../';
+		const examples = [
+			{
+				fileName: 'javaTest.java',
+				language: 'Java',
+				methodNames: ['method1'],
+				snippetNames: ['snippet1'],
+			},
+			{
+				fileName: 'nodeTest.js',
+				language: 'Node',
+				methodNames: [],
+				snippetNames: ['snippet1'],
+			},
+			{
+				fileName: 'jsTest.js',
+				language: 'JavaScript',
+				methodNames: [],
+				snippetNames: ['snippet1', 'snippet2'],
+			},
+			{
+				fileName: 'csTest.cs',
+				language: 'CSharp',
+				methodNames: ['csMethod'],
+				snippetNames: ['csSnippet'],
+			},
+			{
+				fileName: 'pyTest.py',
+				language: 'Python',
+				methodNames: ['pyMethod'],
+				snippetNames: ['snippet1'],
+			},
+			{
+				fileName: 'cppTest.cpp',
+				language: 'C++',
+				methodNames: ['cppMethod'],
+				snippetNames: ['cppSnippet'],
+			},
+			{
+				fileName: 'cTest.c',
+				language: 'C++',
+				methodNames: ['cMethod'],
+				snippetNames: ['cSnippet'],
+			},
+			{
+				fileName: 'httpTest.curl',
+				language: 'HTTP',
+				methodNames: [],
+				snippetNames: ['htmlSnippet'],
+			},
+		];
+
+		const example = examples[0];
+		const examplePath = path.resolve(__dirname, examplesDirectory, example.fileName);
+
+		it('correctly defines method existance', function() {
+			service.examples(examplePath);
+
+			expect(service.languages.indexOf(example.language) > -1).to.be.true;
+			example.methodNames.map(mehodName => {
+				expect(service.methodMap[mehodName]).to.exist;
+			});
+			example.snippetNames.map(snippetName => {
+				expect(service.snippetMap[snippetName][example.language]).to.exist;
+			});
+		});
+
+		it('defines a language only once', function() {
+			for (let i = 0; i < 100; i++) {
+				service.examples(examplePath);
+			}
+
+			expect(
+				service.languages.filter(function(x) {
+					return x === example.language;
+				}).length
+			).to.eq(1);
+		});
+
+		it('correctly extracts method code', function() {
+			service.examples(examplePath);
+			expect(service.snippetMap[example.snippetNames[0]][example.language]).to.eq(
+				'int a = proxy.method1(1, 2).get();\nproxy.method2().get();\nproxy.exampleFunction();\n'
+			);
+		});
+
+		it('works correctly with all languages', function() {
+			examples.forEach(example => {
+				const fullPath = path.resolve(__dirname, examplesDirectory, example.fileName);
+				service.examples(fullPath);
+
+				expect(service.languages.indexOf(example.language) > -1).to.be.true;
+				example.methodNames.map(mehodName => {
+					expect(service.methodMap[mehodName]).to.exist;
+				});
+				example.snippetNames.map(snippetName => {
+					expect(service.snippetMap[snippetName][example.language]).to.exist;
+				});
+			});
+		});
+	});
 });
