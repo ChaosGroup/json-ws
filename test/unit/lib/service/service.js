@@ -934,4 +934,16 @@ describe.only('Service class', function() {
 			expect(tempService.version).to.eq('1.0.0');
 		});
 	});
+
+	describe('setNamespace', function() {
+		it('correctly sets non-empty string', function() {
+			service.setNamespace('namespace');
+			expect(service.currentNamespace).to.eq('namespace');
+		});
+
+		it('correctly sets empty string', function() {
+			service.setNamespace();
+			expect(service.currentNamespace).to.eq('');
+		});
+	});
 });
