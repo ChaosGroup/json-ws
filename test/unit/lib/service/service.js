@@ -875,4 +875,63 @@ describe.only('Service class', function() {
 			expect(Service._useStringEnums).to.be.false;
 		});
 	});
+
+	describe('constructor', function() {
+		it('validates version', function() {
+			expect(() => {
+				new Service('version', 'name');
+			}).to.throw(/invalid version:.*/i);
+
+			expect(() => {
+				new Service(42, 'name');
+			}).to.throw(/invalid version:.*/i);
+
+			expect(() => {
+				new Service(null, 'name');
+			}).to.throw(/invalid version:.*/i);
+
+			expect(() => {
+				new Service('1.0.0', 'name');
+			}).not.to.throw(/invalid version:.*/i);
+		});
+
+		it('validates name', function() {
+			expect(() => {
+				new Service('1.0.0', {});
+			}).to.throw(/invalid name:.*/i);
+
+			expect(() => {
+				new Service('1.0.0', 42);
+			}).to.throw(/invalid name:.*/i);
+
+			expect(() => {
+				new Service('1.0.0');
+			}).to.throw(/invalid name:.*/i);
+
+			expect(() => {
+				new Service('1.0.0', 'name');
+			}).not.to.throw(/invalid name:.*/i);
+		});
+
+		it('validates request validator', function() {
+			expect(() => {
+				new Service('1.0.0', 'name', {});
+			}).to.throw(/request validator must be a function/i);
+
+			expect(() => {
+				new Service('1.0.0', 'name', 42);
+			}).to.throw(/request validator must be a function/i);
+
+			expect(() => {
+				new Service('1.0.0', 'name', function() {});
+			}).not.to.throw(/request validator must be a function/i);
+		});
+
+		it("has correctly properties 'name' and 'version'", function() {
+			const tempService = new Service('1.0.0', 'name');
+
+			expect(tempService.name).to.eq('name');
+			expect(tempService.version).to.eq('1.0.0');
+		});
+	});
 });
