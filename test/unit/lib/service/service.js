@@ -865,4 +865,14 @@ describe.only('Service class', function() {
 			});
 		});
 	});
+
+	describe('setUseStringEnums', function() {
+		it('correctly sets the flag', function() {
+			Service.setUseStringEnums(true);
+			expect(Service._useStringEnums).to.be.true;
+
+			Service.setUseStringEnums(false);
+			expect(Service._useStringEnums).to.be.false;
+		});
+	});
 });
