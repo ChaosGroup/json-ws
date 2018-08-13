@@ -10,7 +10,7 @@ const fs = require('fs');
 const util = require('util');
 const Module = require('module');
 
-describe.only('Service class', function() {
+describe('Service class', function() {
 	let service;
 
 	beforeEach(function() {
@@ -74,6 +74,16 @@ describe.only('Service class', function() {
 		});
 
 		describe('define - methodInfo object', function() {
+			function isBoundFunction(func) {
+				if (typeof func.prototype === 'object') return false;
+				try {
+					new func();
+				} catch (e) {
+					return false;
+				}
+				return true;
+			}
+
 			it('sets the method name', function() {
 				service.define(METHOD_NAME);
 				expect(service.methodMap[METHOD_NAME].name).to.eq(METHOD_NAME);
@@ -111,6 +121,71 @@ describe.only('Service class', function() {
 
 				service.define({ name: METHOD_NAME + '_1', returns: 'number' });
 				expect(service.methodMap[METHOD_NAME + '_1'].async).to.be.false;
+			});
+
+			it("correctly defines a generator function if provided in the options' this object", function() {
+				const thisObject = { call: function*() {} };
+				service.define(
+					{
+						name: METHOD_NAME,
+						description: METHOD_DESCR,
+						this: thisObject,
+					},
+					'call'
+				);
+
+				expect(service.methodMap[METHOD_NAME]).to.exist;
+				expect(service.fn[METHOD_NAME]).to.exist;
+				expect(service.methods[METHOD_NAME]).to.exist;
+				expect(isBoundFunction(service.methods[METHOD_NAME])).to.be.true;
+				expect(isBoundFunction(service.fn[METHOD_NAME])).to.be.true;
+				expect(isBoundFunction(service.methodMap[METHOD_NAME].fn)).to.be.true;
+			});
+
+			it("correctly defines a function if provided in the options' this object", function() {
+				const thisObject = {};
+				thisObject[METHOD_NAME] = function() {};
+
+				service.define({
+					name: METHOD_NAME,
+					description: METHOD_DESCR,
+					this: thisObject,
+				});
+
+				expect(service.methodMap[METHOD_NAME]).to.exist;
+				expect(service.fn[METHOD_NAME]).to.exist;
+				expect(service.methods[METHOD_NAME]).to.exist;
+				expect(isBoundFunction(service.methods[METHOD_NAME])).to.be.true;
+				expect(isBoundFunction(service.fn[METHOD_NAME])).to.be.true;
+				expect(isBoundFunction(service.methodMap[METHOD_NAME].fn)).to.be.true;
+			});
+
+			it("ensured that the function provided in the options' this object is valid", function() {
+				const invalidValues = [42, 'string', { object: 'obj' }];
+				for (let i = 0; i < invalidValues.length; i++) {
+					const thisObject = {};
+					const currentName = METHOD_NAME + i.toString();
+					thisObject[currentName] = invalidValues[i];
+
+					service.define({
+						name: currentName,
+						description: currentName,
+						this: thisObject,
+					});
+
+					expect(service.methodMap[currentName]).to.exist;
+					expect(service.fn[currentName]).to.exist;
+					expect(service.methods[currentName]).to.exist;
+					expect(() => {
+						service.methods[currentName]();
+					}).to.throw(new RegExp(`invalid method invocation.*${currentName}`, 'i'));
+					expect(() => {
+						service.fn[currentName]();
+					}).to.throw(new RegExp(`invalid method invocation.*${currentName}`, 'i'));
+					expect(() => {
+						service.methodMap[currentName].fn();
+					}).to.throw(new RegExp(`invalid method invocation.*${currentName}`, 'i'));
+				}
 			});
 		});
 
@@ -436,6 +511,16 @@ describe.only('Service class', function() {
 				).to.eq(2);
 			});
 
+			it('converts enums in a backwards manner (index->enumKey)', function() {
+				service.type(EXAMPLE_ENUM_NAME, EXAMPLE_ENUM, 'description', true);
+
+				Service.setUseStringEnums(true);
+				const enumKeys = Object.keys(EXAMPLE_ENUM);
+				for (let i = 0; i < enumKeys.length; i++) {
+					expect(service.typeMap[EXAMPLE_ENUM_NAME].convert(i)).to.eq(enumKeys[i]);
+				}
+			});
+
 			it('validates required fieds', function() {
 				service.type(EXAMPLE_STRUCT_NAME, EXAMPLE_STRUCT);
 
@@ -493,10 +578,6 @@ describe.only('Service class', function() {
 				}).to.throw(/Simple value cannot be converted to type.*/);
 			});
 
-			it.skip('ensures a valid usage of string enums', function() {
-				service.type(EXAMPLE_ENUM_NAME, EXAMPLE_ENUM, 'description', true);
-			});
-
 			it('converts types with array fields', function() {
 				service.type('Post', { tags: ['string'] });
 				expect(service.typeMap['Post'].convert({ tags: ['foo'] })).to.deep.eq({
@@ -522,6 +603,73 @@ describe.only('Service class', function() {
 						children: 'Danio',
 					})
 				).to.throw(/field children must be an array/i);
+			});
+
+			it('handles structs with custom types', function() {
+				service.type(
+					'nicknameType',
+					{
+						name: 'string',
+						fromSince: 'number',
+					},
+					'description',
+					false
+				);
+
+				const struct = {
+					name: 'string',
+					age: 'int',
+					nickname: {
+						type: 'nicknameType',
+						required: false,
+					},
+				};
+
+				service.type(EXAMPLE_STRUCT_NAME, struct);
+				expect(
+					service.typeMap[EXAMPLE_STRUCT_NAME].convert({
+						name: 'Ivan',
+						age: '25',
+						nickname: { name: 'Vankata', fromSince: '21' },
+					})
+				).to.deep.eq({
+					name: 'Ivan',
+					age: 25,
+					nickname: { name: 'Vankata', fromSince: 21 },
+				});
+			});
+
+			it('handles structs with custom types without non-required properties', function() {
+				service.type(
+					'nicknameType',
+					{
+						name: 'string',
+						fromSince: 'number',
+					},
+					'description',
+					false
+				);
+
+				const struct = {
+					name: 'string',
+					age: 'int',
+					nickname: {
+						type: 'nicknameType',
+						required: false,
+					},
+				};
+
+				service.type(EXAMPLE_STRUCT_NAME, struct);
+				expect(
+					service.typeMap[EXAMPLE_STRUCT_NAME].convert({
+						name: 'Ivan',
+						age: '25',
+					})
+				).to.deep.eq({
+					name: 'Ivan',
+					age: 25,
+					nickname: undefined,
+				});
 			});
 		});
 	});
@@ -764,7 +912,7 @@ describe.only('Service class', function() {
 	});
 
 	describe('examples', function() {
-		const examplesDirectory = '../../../../../';
+		const examplesDirectory = '../../../../examples/resources/snippets/';
 		const examples = [
 			{
 				fileName: 'javaTest.java',
@@ -813,6 +961,12 @@ describe.only('Service class', function() {
 				language: 'HTTP',
 				methodNames: [],
 				snippetNames: ['htmlSnippet'],
+			},
+			{
+				fileName: 'rbTest.rb',
+				language: 'rb',
+				methodNames: [],
+				snippetNames: ['rubySnippet'],
 			},
 		];
 
