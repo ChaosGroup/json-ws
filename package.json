@@ -50,9 +50,9 @@
     "prettier": "1.13.7"
   },
   "scripts": {
-    "test": "mocha test/unit/** test/integration/**",
-    "test-unit": "mocha test/unit/**",
-    "test-integration": "mocha test/integration/**",
+    "test": "mocha 'test/integration/**/*.js' 'test/unit/**/*.js'",
+    "test-unit": "mocha 'test/unit/**/*.js'",
+    "test-integration": "mocha 'test/integration/**/*.js'",
     "lint": "eslint .",
     "jsdoc": "jsdoc . -c conf.json",
     "cover": "istanbul cover _mocha 'test/unit/**/*.js'",
