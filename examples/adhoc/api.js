@@ -106,11 +106,15 @@ module.exports = (function() {
 		})
 		.setNamespace('')
 		.defineAll(testObj)
-		.enum('RenderMode', {
-			Production: -1,
-			RtCpu: 0,
-			RtGpuCuda: 5,
-		})
+		.enum(
+			'RenderMode',
+			{
+				Production: -1,
+				RtCpu: 0,
+				RtGpuCuda: 5,
+			},
+			'Enum description'
+		)
 		.enum('JobState', ['Created', 'Pending', 'Active', 'Done'])
 		.type(
 			'RenderOptions',
@@ -119,7 +123,10 @@ module.exports = (function() {
 					type: 'int',
 					description: 'The desired width for rendering',
 				},
-				height: 'int',
+				height: {
+					type: 'int',
+					description: 'The desired height for rendering',
+				},
 				renderMode: 'RenderMode',
 			},
 			'RenderOptions description'
