@@ -7,6 +7,7 @@ function pascalCase(str) {
 
 var metadata = _.cloneDeep(locals.metadata);
 var localName = _.lowerFirst(pascalCase(locals.localName));
+var packageName = _.snakeCase(localName);
 
 function mapGoType(param) {
 	var returnType = '';
@@ -164,7 +165,7 @@ function generateTypes() {
 
 		// If the type has description add it as a doc comment:
 		if (type.description) {
-			result += `\n// ${type.description}`;
+			result += `\n// ${typeName} - ${type.description.replace(/\n/g, '\n//')}`;
 		}
 
 		if (type.enum) {
@@ -182,11 +183,12 @@ function generateTypes() {
 				if (property.required === false) {
 					jsonTag += ',omitempty';
 				}
+				propertyName = pascalCase(propertyName);
 
-				const propertyDefinitionRow = [pascalCase(propertyName), mapGoType(property), `\`json:"${jsonTag}"\``].join(' ');
+				const propertyDefinitionRow = [propertyName, mapGoType(property), `\`json:"${jsonTag}"\``].join(' ');
 
 				if (property.description) {
-					return `// ${property.description}\n\t${propertyDefinitionRow}`;
+					return `// ${propertyName} - ${property.description.replace(/\n/g, '\n//')}\n\t${propertyDefinitionRow}`;
 				}
 
 				return propertyDefinitionRow;
@@ -204,6 +206,10 @@ function getMethod(method, selfName, rootName) {
 	const requiredParams = params.filter(param => typeof param.default === 'undefined');
 	const optionalParams = params.filter(param => typeof param.default !== 'undefined');
 	const requiredParamNames = requiredParams.map(param => param.name);
+
+	let methodParamsDescription = params.map(param => {
+		return `${param.name} ${typeof param.default !== 'undefined' ? `(optional ${mapGoType(param)}, default = ${JSON.stringify(param.default)}) `: ''}${param.description}`;
+	}).join('\n//\n// ');
 
 	let methodParams = requiredParamNames.join(', ');
 
@@ -228,7 +234,15 @@ function getMethod(method, selfName, rootName) {
 		implementation = `\tvar __result__ ${resultType}\n\t__err__ := ${selfName}.caller.Call(__ctx__, &__result__, "${method.name}"${methodParams})\n\treturn __result__, __err__`;
 	}
 
-	return `func (${selfName} *${rootName}) ${method.Name}(${method.arguments}) ${returnType} {\n${implementation}\n}`
+	let methodBody = `func (${selfName} *${rootName}) ${method.Name}(${method.arguments}) ${returnType} {\n${implementation}\n}`;
+
+	if (methodParamsDescription) {
+		methodBody = `//\n// Args\n//\n// ${methodParamsDescription}\n${methodBody}`;
+	}
+
+	methodBody = `// ${method.Name}${method.description ? ` ${method.description.replace(/\n/g, '\n//')}` : ''}\n${methodBody}`;
+
+	return methodBody;
 }
 
 function generateMethods(generated, root) {
@@ -239,9 +253,11 @@ function generateMethods(generated, root) {
 
 	const selfName = '__self__';
 
-	const methods = root.methods.map(method => getMethod(method, selfName, root.fullPrefix))
+	const structName = `${_.upperFirst(root.fullPrefix)}Impl`;
+
+	const methods = root.methods.map(method => getMethod(method, selfName, structName))
 		.concat(_.map(root.children, child => {
-			return `func (${selfName} *${root.fullPrefix}) ${child.Name}() ${child.FullPrefix} {\n\treturn ${selfName}.${child.name}\n}`;
+			return `func (${selfName} *${structName}) ${child.Name}() ${child.FullPrefix} {\n\treturn ${selfName}.${child.name}\n}`;
 		}));
 	const nestedMethods = _.map(root.children, child => generateMethods(generated, child));
 
@@ -273,9 +289,14 @@ function generateStructs(generated, root) {
 
 	const fields = ['caller vrpc.Caller', ...(_.map(root.children, child => `${child.name} ${child.FullPrefix}`))].join('\n\t');
 
+	const isTopLevel = generated.size === 0;
+	const structName = `${_.upperFirst(root.fullPrefix)}Impl`;
+	const doc = `// ${structName} is exported only for documentation purposes.` +
+		`\n//\n// It should only be instantiated through the ${packageName}.New${isTopLevel ? '' : root.FullPrefix}() method, never directly.`;
+
 	return [
 		...(_.map(root.children, child => generateStructs(generated, child))),
-		`\ntype ${root.fullPrefix} struct {\n\t${fields}\n}`
+		`\n${doc}\ntype ${structName} struct {\n\t${fields}\n}`
 	].join('\n');
 }
 
@@ -290,9 +311,11 @@ function generateRootConstructor(generated, root) {
 		fields = `\n\t\t${fields},\n\t`;
 	}
 
+	const structName = `${_.upperFirst(root.fullPrefix)}Impl`;
+
 	return [
 		...(_.map(root.children, child => generateConstructors(generated, child))),
-		`\nfunc New() ${root.FullPrefix} {\n\treturn &${root.fullPrefix}{${fields}}\n}`
+		`\nfunc New() ${root.FullPrefix} {\n\treturn &${structName}{${fields}}\n}`
 	].join('\n');
 }
 
@@ -307,9 +330,11 @@ function generateConstructors(generated, root) {
 		fields = `\n\t\t${fields},\n\t`;
 	}
 
+	const structName = `${_.upperFirst(root.fullPrefix)}Impl`;
+
 	return [
 		...(_.map(root.children, child => generateConstructors(generated, child))),
-		`\nfunc New${root.FullPrefix}() ${root.FullPrefix} {\n\treturn &${root.fullPrefix}{${fields}}\n}`
+		`\nfunc New${root.FullPrefix}() ${root.FullPrefix} {\n\treturn &${structName}{${fields}}\n}`
 	].join('\n');
 }
 
@@ -325,9 +350,11 @@ function generateSetCallerMethods(generated, root) {
 		fields = `${fields}\n`;
 	}
 
+	const structName = `${_.upperFirst(root.fullPrefix)}Impl`;
+
 	return [
 		...(_.map(root.children, child => generateSetCallerMethods(generated, child))),
-		`\nfunc (${selfName} *${root.fullPrefix}) SetCaller(caller vrpc.Caller) {\n\t${selfName}.caller = caller\n${fields}}`
+		`\nfunc (${selfName} *${structName}) SetCaller(caller vrpc.Caller) {\n\t${selfName}.caller = caller\n${fields}}`
 	].join('\n');
 }
 
@@ -364,7 +391,7 @@ function generateImports() {
 //
 // Copyright (c) 2017 ChaosGroup. All rights reserved.
 
-package <%= _.snakeCase(localName) %>
+package <%= packageName %>
 
 <%- generateImports() %>
 <%- generateTypes() %>
