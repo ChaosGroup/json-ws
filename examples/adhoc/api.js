@@ -119,7 +119,10 @@ module.exports = (function() {
 					type: 'int',
 					description: 'The desired width for rendering',
 				},
-				height: 'int',
+				height: {
+					type: 'int',
+					description: 'The desired height for rendering',
+				},
 				renderMode: 'RenderMode',
 			},
 			'RenderOptions description'
