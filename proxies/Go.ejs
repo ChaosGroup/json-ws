@@ -164,7 +164,7 @@ function generateTypes() {
 
 		// If the type has description add it as a doc comment:
 		if (type.description) {
-			result += `\n// ${typeName} ${type.description.replace(/\n/g, '\n//')}`;
+			result += `\n// ${typeName} - ${type.description.replace(/\n/g, '\n//')}`;
 		}
 
 		if (type.enum) {
@@ -187,7 +187,7 @@ function generateTypes() {
 				const propertyDefinitionRow = [propertyName, mapGoType(property), `\`json:"${jsonTag}"\``].join(' ');
 
 				if (property.description) {
-					return `// ${propertyName} ${property.description.replace(/\n/g, '\n//')}\n\t${propertyDefinitionRow}`;
+					return `// ${propertyName} - ${property.description.replace(/\n/g, '\n//')}\n\t${propertyDefinitionRow}`;
 				}
 
 				return propertyDefinitionRow;
@@ -264,7 +264,7 @@ function generateInterfaces(generated, root) {
 			let methodDescription = `// ${method.Name}`;
 
 			if (method.description) {
-				methodDescription = `${methodDescription} ${method.description.replace(/\n/g, '\n\t//')}`;
+				methodDescription = `${methodDescription} ${_.lowerFirst(method.description.replace(/\n/g, '\n\t//'))}`;
 			}
 
 			if (methodParamsDescription) {
