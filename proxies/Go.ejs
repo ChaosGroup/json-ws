@@ -112,7 +112,7 @@ Object.keys(metadata.methods).forEach(function(methodName) {
 	var shortMethodName = prefixes.pop();
 
 	method.Name = pascalCase(shortMethodName);
-	method.params = [{name: '__ctx__', type: 'context'}, ...method.params];
+	method.params = [{name: '_ctx', type: 'context'}, ...method.params];
 	method.arguments = getMethodArguments(method.params);
 	method.returnType = getReturnType(method);
 
@@ -131,37 +131,6 @@ Object.keys(metadata.methods).forEach(function(methodName) {
 	});
 	$.methods.push(method);
 });
-
-function formatColumns(rows, joinString = '') {
-	if (rows.length === 0) {
-		return [];
-	}
-
-	const maxWidths = rows[0].map(() => 0);
-	const paddings = [];
-
-	for (const row of rows) {
-		for (let i = 0; i < row.length; i++) {
-			if (row[i].length > maxWidths[i]) {
-				maxWidths[i] = row[i].length;
-			}
-		}
-	}
-
-	for (const maxWidth of maxWidths) {
-		paddings.push([...Array(maxWidth)].join(' '));
-	}
-
-	return rows.map(row => {
-		return row.map((s, i) => {
-			if (i === row.length - 1) {
-				return s;
-			}
-
-			return s.concat(paddings[i]).slice(0, maxWidths[i]);
-		});
-	}).map(row => row.join(' ')).join(joinString);
-}
 
 function getMethodArguments(params) {
 	const requiredParams = params.filter(param => typeof param.default === 'undefined');
@@ -193,24 +162,36 @@ function generateTypes() {
 	for (const type of types) {
 		const typeName = pascalCase(type.name);
 
+		// If the type has description add it as a doc comment:
+		if (type.description) {
+			result += `\n// ${typeName} ${type.description.replace(/\n/g, '\n//')}`;
+		}
+
 		if (type.enum) {
-			const structFields = formatColumns(_.map(type.struct, (property, propertyName) => {
-				return [`${pascalCase(propertyName)}${typeName}`, typeName, `= ${property}`];
-			}), '\n\t');
+			const structFields = _.map(type.struct, (property, propertyName) => {
+				return `${pascalCase(propertyName)}${typeName} ${typeName} = ${property}`;
+			}).join('\n\t');
 			result += `\ntype ${typeName} int\n\nconst (\n\t${structFields}\n)\n`;
 
-			const selfName = '__self__';
+			const selfName = '_self';
 			result += `\nfunc (${selfName} ${typeName}) Value() int {\n\treturn int(${selfName})\n}\n`;
 
 		} else {
-			const structFields = formatColumns(_.map(type.struct, (property, propertyName) => {
+			const structFields = _.map(type.struct, (property, propertyName) => {
 				let jsonTag = propertyName;
 				if (property.required === false) {
 					jsonTag += ',omitempty';
 				}
+				propertyName = pascalCase(propertyName);
 
-				return [pascalCase(propertyName), mapGoType(property), `\`json:"${jsonTag}"\``];
-			}), '\n\t');
+				const propertyDefinitionRow = [propertyName, mapGoType(property), `\`json:"${jsonTag}"\``].join(' ');
+
+				if (property.description) {
+					return `// ${propertyName} ${property.description.replace(/\n/g, '\n//')}\n\t${propertyDefinitionRow}`;
+				}
+
+				return propertyDefinitionRow;
+			}).join('\n\t');
 			result += `\ntype ${typeName} struct {\n\t${structFields}\n}\n`;
 		}
 	}
@@ -242,13 +223,13 @@ function getMethod(method, selfName, rootName) {
 	let implementation;
 
 	if (returnType === '*errors.Error') {
-		implementation = `\treturn ${selfName}.caller.Call(__ctx__, nil, "${method.name}"${methodParams})`
+		implementation = `\treturn ${selfName}.caller.Call(_ctx, nil, "${method.name}"${methodParams})`
 	} else {
 		const resultType = returnType.split(',')[0].slice(1);
-		implementation = `\tvar __result__ ${resultType}\n\t__err__ := ${selfName}.caller.Call(__ctx__, &__result__, "${method.name}"${methodParams})\n\treturn __result__, __err__`;
+		implementation = `\tvar __result__ ${resultType}\n\t__err__ := ${selfName}.caller.Call(_ctx, &__result__, "${method.name}"${methodParams})\n\treturn __result__, __err__`;
 	}
 
-	return `func (${selfName} *${rootName}) ${method.Name}(${method.arguments}) ${returnType} {\n${implementation}\n}`
+	return `func (${selfName} *${rootName}) ${method.Name}(${method.arguments}) ${returnType} {\n${implementation}\n}`;
 }
 
 function generateMethods(generated, root) {
@@ -257,7 +238,7 @@ function generateMethods(generated, root) {
 	}
 	generated.add(root.fullPrefix);
 
-	const selfName = '__self__';
+	const selfName = '_self';
 
 	const methods = root.methods.map(method => getMethod(method, selfName, root.fullPrefix))
 		.concat(_.map(root.children, child => {
@@ -275,9 +256,25 @@ function generateInterfaces(generated, root) {
 	generated.add(root.FullPrefix);
 
 	const methods = [
-		...root.methods.map(method => `${method.Name}(${method.arguments}) ${method.returnType}`),
+		...root.methods.map(method => {
+			const methodParamsDescription = method.params.slice(1).map(param => {
+				return `${param.name} ${typeof param.default !== 'undefined' ? `(optional ${mapGoType(param)}, default = ${JSON.stringify(param.default)}) `: ''}${param.description.replace(/\n/g, '\n//')}`;
+			}).join('\n\t// ');
+
+			let methodDescription = `// ${method.Name}`;
+
+			if (method.description) {
+				methodDescription = `${methodDescription} ${method.description.replace(/\n/g, '\n\t//')}`;
+			}
+
+			if (methodParamsDescription) {
+				methodDescription = `${methodDescription}\n\t//\n\t// Args\n\t//\n\t// ${methodParamsDescription}`;
+			}
+
+			return `${methodDescription}\n\t${method.Name}(${method.arguments}) ${method.returnType}`;
+		}),
 		..._.map(root.children, child => `${child.Name}() ${child.FullPrefix}`)
-	].join('\n\t');
+	].join('\n\n\t');
 
 	return [
 		`type ${root.FullPrefix} interface {\n\tvrpc.RemoteService\n\n\t${methods}\n}`,
@@ -291,11 +288,9 @@ function generateStructs(generated, root) {
 	}
 	generated.add(root.fullPrefix);
 
-	const fields = formatColumns(
-		[['caller', 'vrpc.Caller']].concat(_.map(root.children, child => [child.name, child.FullPrefix])),
-		'\n\t'
-	);
+	const fields = ['caller vrpc.Caller', ...(_.map(root.children, child => `${child.name} ${child.FullPrefix}`))].join('\n\t');
 
+	const isTopLevel = generated.size === 0;
 	return [
 		...(_.map(root.children, child => generateStructs(generated, child))),
 		`\ntype ${root.fullPrefix} struct {\n\t${fields}\n}`
@@ -308,10 +303,7 @@ function generateRootConstructor(generated, root) {
 	}
 	generated.add(root.FullPrefix);
 
-	var fields = formatColumns(
-		[...(_.map(root.children, child => [`${child.name}:`, `New${child.FullPrefix}()`]))],
-		',\n\t\t'
-	);
+	var fields = _.map(root.children, child => `${child.name}: New${child.FullPrefix}()`).join(',\n\t\t');
 	if (fields.length > 0) {
 		fields = `\n\t\t${fields},\n\t`;
 	}
@@ -328,10 +320,7 @@ function generateConstructors(generated, root) {
 	}
 	generated.add(root.FullPrefix);
 
-	var fields = formatColumns(
-		[...(_.map(root.children, child => [`${child.name}:`, `New${child.FullPrefix}()`]))],
-		',\n\t\t'
-	);
+	var fields = _.map(root.children, child => `${child.name}: New${child.FullPrefix}()`).join(',\n\t\t');
 	if (fields.length > 0) {
 		fields = `\n\t\t${fields},\n\t`;
 	}
@@ -348,7 +337,7 @@ function generateSetCallerMethods(generated, root) {
 	}
 	generated.add(root.fullPrefix);
 
-	const selfName = '__self__';
+	const selfName = '_self';
 	var fields = _.map(root.children, child => `\t${selfName}.${child.name}.SetCaller(caller)`).join('\n');
 	if (fields.length > 0) {
 		fields = `${fields}\n`;

@@ -140,7 +140,7 @@ function getFullTypeName(type) {
 	 * @typedef {Object} module:<%=localName%>.<%=localName%>.<%-type.name%>
 	 <%-Object.keys(type.struct).map(function(key) {
 	 	var struct = type.struct[key];
-		return '* @property' + ' {' + getFullTypeName(struct.type) + '} ' + struct.name + ' ' + struct.description;
+		return '* @property' + ' {' + getFullTypeName(struct.type) + '} ' + getParameterNameWithOptional(struct) + ' ' + struct.description;
 	 }).join('\n\t ')%>
 	 */
 
@@ -225,7 +225,7 @@ function mapJavaScriptType(jsType, isArray) {
 
 function getParameterNameWithOptional(param) {
 	if (param.required === false || typeof param.default !== 'undefined') {
-		return '[' + param.name + ']';
+		return '[' + param.name + (param.default !== undefined ? '=' + JSON.stringify(param.default) : '') + ']';
 	}
 
 	return param.name;

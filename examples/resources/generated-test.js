@@ -160,16 +160,16 @@
 
 	/** 
 	 * @typedef {Object} module:GeneratedTest.GeneratedTest.DefaultArray
-	 * @property {string} property 
+	 * @property {string} [property=[]] 
 	 */
 
 
 	/** 
 	 * @typedef {Object} module:GeneratedTest.GeneratedTest.Point
-	 * @property {number} x 
-	 * @property {number} y 
-	 * @property {json} meta 
-	 * @property {error} error 
+	 * @property {number} [x] 
+	 * @property {number} [y] 
+	 * @property {json} [meta] 
+	 * @property {error} [error] 
 	 */
 
 	GeneratedTest.prototype.ns1 = {_ns:true};
@@ -567,8 +567,8 @@
 	 * @function
 	 * @name module:GeneratedTest.GeneratedTest#optionalArgs
 	 * @param {boolean} required 
-	 * @param {number} [p1] 
-	 * @param {number} [p2] 
+	 * @param {number} [p1=0] 
+	 * @param {number} [p2=1] 
 	 */
 	GeneratedTest.prototype.optionalArgs = function(required, p1, p2) {
 		var args = Array.prototype.slice.call(arguments);
