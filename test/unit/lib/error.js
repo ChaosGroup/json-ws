@@ -1,6 +1,7 @@
 'use strict';
 
 const chai = require('chai');
+const _ = require('lodash');
 const expect = chai.expect;
 
 const ServiceError = require('../../../lib/error');
@@ -134,5 +135,28 @@ describe('Converter', function() {
 		expect(actual.reporter).to.equal(REPORTER);
 		expect(actual.code).to.equal(DEFAULT_ERROR_CODE);
 		expect(actual.message).to.equal(error);
+	});
+
+	it('can be represented as logFields object', function() {
+		const METADATA = { foo: 'bar' };
+		const CAUSE = { code: CAUSE_CODE };
+
+		const actual = new ServiceError(REPORTER, ERROR_CODE, {
+			message: 'String error message',
+			cause: CAUSE,
+			metadata: METADATA,
+		});
+
+		const logFields = actual.logFields();
+
+		expect(logFields).to.be.an('object');
+		expect(logFields).to.deep.eq(
+			_.assign(
+				_.pick(actual, ['id', 'reporter', 'code', 'message', 'cause', 'metadata', 'stack']),
+				{
+					errorTimestamp: actual.timestamp,
+				}
+			)
+		);
 	});
 });
